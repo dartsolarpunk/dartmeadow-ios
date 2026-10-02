@@ -196,9 +196,19 @@ extension GameViewController: WKNavigationDelegate {
         if ProcessInfo.processInfo.arguments.contains("-dmSmoke") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
                 self?.evaluate("""
-                console.log('[dm-smoke] screen before enter:', (typeof STATE!=='undefined'&&STATE.screen)||'?');
-                try{ if(typeof enterApp==='function') enterApp(); else document.getElementById('ls-enter').click(); }catch(e){ console.error('[dm-smoke] enterApp failed', e); }
-                setTimeout(function(){ console.log('[dm-smoke] screen after enter:', (typeof STATE!=='undefined'&&STATE.screen)||'?', 'three:', !!window.__THREE_READY__, 'jots:', !!window.JOTS); }, 8000);
+                (function(){
+                  var log=function(){ console.log.apply(console, ['[dm-smoke]'].concat([].slice.call(arguments))); };
+                  var scr=function(){ return (typeof STATE!=='undefined'&&STATE.screen)||'?'; };
+                  log('screen before enter:', scr());
+                  try{ enterApp(); }catch(e){ console.error('[dm-smoke] enterApp failed', e); }
+                  setTimeout(function(){ try{ if(document.getElementById('gfx-apply')) applyGfxScreen(); }catch(e){ console.error('[dm-smoke] gfx apply', e); } log('after gfx:', scr(), 'three:', !!window.__THREE_READY__); }, 6000);
+                  setTimeout(function(){
+                    try{ JOTS.consent.agree(); JOTS.auth.guest(); var w=document.getElementById('jots-welcome'); if(w) w.classList.remove('show'); }catch(e){}
+                    try{ launchFlight(); }catch(e){ console.error('[dm-smoke] launchFlight', e); }
+                    setTimeout(function(){ var b=document.getElementById('jots-mode-story'); if(b&&document.getElementById('jots-mode').classList.contains('show')) b.click(); log('flight requested; screen:', scr()); }, 1500);
+                  }, 20000);
+                  setTimeout(function(){ var caps={}; try{ caps=window.__jotsGpuCaps(); }catch(e){} log('t+80s screen:', scr(), 'caps:', JSON.stringify(caps)); }, 80000);
+                })();
                 """)
             }
         }

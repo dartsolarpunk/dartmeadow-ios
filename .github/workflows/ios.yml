@@ -66,8 +66,10 @@ jobs:
           xcrun simctl launch "$UDID" com.dartmeadow.jots -dmSmoke
           mkdir -p shots
           sleep 20; xcrun simctl io "$UDID" screenshot shots/01-splash.png
-          sleep 25; xcrun simctl io "$UDID" screenshot shots/02-after-enter.png
-          sleep 30; xcrun simctl io "$UDID" screenshot shots/03-menu.png
+          sleep 15; xcrun simctl io "$UDID" screenshot shots/02-graphics.png
+          sleep 15; xcrun simctl io "$UDID" screenshot shots/03-menu.png
+          sleep 40; xcrun simctl io "$UDID" screenshot shots/04-flight.png
+          sleep 50; xcrun simctl io "$UDID" screenshot shots/05-flight-later.png
           pkill -f "log stream" || true
           echo "── JS console (first 300 lines) ──"
           grep -E "\[JS |\[scheme\]|\[game\]|\[SIWA\]" sim.log | head -300 || true
