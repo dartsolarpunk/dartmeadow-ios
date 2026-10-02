@@ -75,7 +75,7 @@ def ensure_bundle():
         b = req("POST", "/bundleIds", json={"data": {"type": "bundleIds", "attributes": {
             "identifier": BUNDLE, "name": "DART Meadow JOTS", "platform": "IOS"}}})["data"]
         summary(f"- bundle id `{BUNDLE}` registered ({b['id']})")
-    caps = get_all(f"/bundleIds/{b['id']}/bundleIdCapabilities")
+    caps = req("GET", f"/bundleIds/{b['id']}/bundleIdCapabilities").get("data") or []
     if any(c["attributes"].get("capabilityType") == "APPLE_ID_AUTH" for c in caps):
         summary("- Sign in with Apple capability: enabled")
     else:
