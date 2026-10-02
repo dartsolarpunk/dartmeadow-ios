@@ -1,0 +1,119 @@
+/* DART Meadow — the Journal: a fold-out waypoint book (ui/dm-journal.js).
+ * It swings out from the left edge on a hinge, like the main-menu shutters,
+ * over a dimmed, blurred world. Chamfered glass comes from .dm-card. */
+#dm-journal{position:fixed;inset:0;z-index:6000;display:none;perspective:1400px;
+  background:radial-gradient(120% 90% at 0% 50%,rgba(var(--panel-rgb),.55),rgba(0,0,0,.25) 70%);
+  font-family:var(--font-hud);color:var(--text);}
+#dm-journal.open{display:block;animation:jnFade .35s ease both;}
+#dm-journal.closing{animation:jnFadeOut .38s ease both;}
+@keyframes jnFade{from{background-color:transparent;opacity:0}to{opacity:1}}
+@keyframes jnFadeOut{to{opacity:0}}
+#dm-journal .jn-panel{position:absolute;left:max(12px,env(safe-area-inset-left));top:50%;
+  width:min(400px,calc(100vw - 24px));max-height:min(560px,calc(100vh - 24px));
+  display:flex;flex-direction:column;gap:9px;padding:16px 16px 12px;box-sizing:border-box;
+  --cut:18px;--lc:rgba(var(--hi-rgb),.75);
+  transform-origin:0 50%;transform:translateY(-50%);}
+#dm-journal.open .jn-panel{animation:jnOpen .7s cubic-bezier(.2,.9,.25,1) both;}
+#dm-journal.closing .jn-panel{animation:jnClose .38s cubic-bezier(.6,0,.8,.4) both;}
+@keyframes jnOpen{from{transform:translateY(-50%) rotateY(-96deg);opacity:0}55%{opacity:1}to{transform:translateY(-50%);opacity:1}}
+@keyframes jnClose{to{transform:translateY(-50%) rotateY(-100deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){#dm-journal.open .jn-panel,#dm-journal.closing .jn-panel{animation:none;}}
+
+/* header: the mark + title */
+.jn-head{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid rgba(var(--hi-rgb),.22);position:relative;}
+.jn-head::after{content:'';position:absolute;left:0;bottom:-1px;width:64px;height:2px;background:var(--gold);box-shadow:0 0 10px rgba(var(--hi-rgb),.8);}
+.jn-logo{width:46px;height:46px;flex:none;filter:drop-shadow(0 0 8px rgba(var(--hi-rgb),.45));}
+.jn-logo .jn-kite{fill:url(#jn-g);stroke:rgba(255,255,255,.75);stroke-width:1.4;stroke-linejoin:round;}
+.jn-logo .jn-s1{stop-color:var(--gold);}
+.jn-logo .jn-s2{stop-color:var(--purple);}
+.jn-logo .jn-s3{stop-color:var(--cyan);}
+.jn-logo .jn-page{fill:rgba(255,255,255,.85);}
+.jn-logo .jn-star{fill:#fff;filter:drop-shadow(0 0 3px #fff);}
+#dm-journal.open .jn-logo .jn-star{animation:jnStar 4s ease-in-out infinite;transform-origin:32px 27px;}
+@keyframes jnStar{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(45deg) scale(.86)}}
+.jn-title{flex:1;min-width:0;}
+.jn-t1{font-size:.95rem;font-weight:700;letter-spacing:.32em;
+  background:linear-gradient(90deg,#fff,var(--gold) 60%,var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.jn-t2{font-family:var(--font-mono);font-size:.5rem;letter-spacing:.2em;color:rgba(var(--hi-rgb),.85);margin-top:2px;}
+.jn-x{flex:none;width:30px;height:30px;border:none;cursor:pointer;color:var(--text);font-size:.8rem;
+  background:rgba(var(--acc-rgb),.12);clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);}
+.jn-x:hover{background:rgba(var(--hi-rgb),.3);}
+
+/* where you are now */
+.jn-here{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:.62rem;color:rgba(255,255,255,.8);
+  padding:7px 10px;background:linear-gradient(90deg,rgba(var(--acc-rgb),.14),transparent);box-shadow:inset 2px 0 0 var(--cyan);}
+.jn-here b{color:#fff;font-weight:600;}
+.jn-dim{opacity:.6;}
+
+/* mark row + search */
+.jn-mark,.jn-search{display:flex;gap:8px;}
+.jn-mark input,.jn-search input{flex:1;min-width:0;height:34px;box-sizing:border-box;padding:0 12px;border:none;outline:none;
+  font-family:var(--font-mono);font-size:.68rem;color:#fff;background:rgba(0,0,0,.32);
+  box-shadow:inset 0 -1px 0 rgba(var(--acc-rgb),.45);clip-path:polygon(6px 0,100% 0,100% 100%,0 100%,0 6px);}
+.jn-mark input:focus,.jn-search input:focus{box-shadow:inset 0 -2px 0 var(--gold);background:rgba(0,0,0,.42);}
+.jn-search input{height:28px;font-size:.6rem;}
+.jn-mark input::placeholder,.jn-search input::placeholder{color:rgba(255,255,255,.4);}
+.jn-btn{flex:none;border:none;cursor:pointer;font-family:var(--font-hud);font-size:.55rem;font-weight:700;letter-spacing:.14em;padding:0 14px;height:34px;color:#1a1200;
+  background:linear-gradient(180deg,#ffe27a,var(--gold));clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  transition:filter .15s,transform .15s;}
+.jn-btn:hover{filter:brightness(1.15) drop-shadow(0 0 6px rgba(var(--hi-rgb),.8));}
+.jn-btn:active{transform:scale(.96);}
+.jn-btn:disabled{opacity:.4;cursor:default;filter:none;}
+
+/* the list */
+.jn-list{flex:1;min-height:90px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;margin-right:-4px;}
+.jn-list::-webkit-scrollbar{width:5px;}
+.jn-list::-webkit-scrollbar-thumb{background:rgba(var(--hi-rgb),.4);}
+.jn-empty{font-family:var(--font-mono);font-size:.6rem;line-height:1.6;color:rgba(255,255,255,.55);padding:18px 8px;text-align:center;}
+.jn-row{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 10px;position:relative;
+  background:linear-gradient(100deg,rgba(var(--acc-rgb),.1),rgba(var(--panel-rgb),.35));
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+  animation:jnRow .4s cubic-bezier(.2,.9,.25,1) both;}
+.jn-row:nth-child(2){animation-delay:.03s}.jn-row:nth-child(3){animation-delay:.06s}.jn-row:nth-child(4){animation-delay:.09s}.jn-row:nth-child(n+5){animation-delay:.12s}
+@keyframes jnRow{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+.jn-row:hover{background:linear-gradient(100deg,rgba(var(--hi-rgb),.18),rgba(var(--panel-rgb),.4));}
+.jn-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--cyan);}
+.jn-row.jn-k-atmo::before{background:#9fd8ff;}
+.jn-row.jn-k-surface::before{background:var(--gold);}
+.jn-row.jn-k-space::before{background:var(--purple);}
+.jn-dot{flex:none;width:26px;height:26px;display:grid;place-items:center;font-size:.8rem;color:#fff;
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:rgba(var(--acc-rgb),.35);}
+.jn-dot.jn-space{background:linear-gradient(135deg,var(--purple),rgba(var(--pur-rgb),.35));}
+.jn-dot.jn-atmo{background:linear-gradient(135deg,#7cc8ff,rgba(var(--acc-rgb),.35));}
+.jn-dot.jn-surface{background:linear-gradient(135deg,var(--gold),rgba(var(--hi-rgb),.3));color:#1a1200;}
+.jn-main{flex:1;min-width:0;}
+.jn-lab{font-size:.66rem;font-weight:700;letter-spacing:.06em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.jn-meta{font-family:var(--font-mono);font-size:.5rem;color:rgba(255,255,255,.55);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.jn-acts{display:flex;gap:4px;align-items:center;flex:none;}
+.jn-acts .jn-btn{height:28px;padding:0 12px;font-size:.5rem;}
+.jn-mini{height:28px;min-width:28px;border:none;cursor:pointer;font-size:.6rem;color:rgba(255,255,255,.8);font-family:var(--font-hud);
+  background:rgba(var(--acc-rgb),.12);clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);}
+.jn-mini:hover{background:rgba(var(--acc-rgb),.3);color:#fff;}
+.jn-mini[data-armed]{background:rgba(255,80,90,.45);color:#fff;font-size:.48rem;letter-spacing:.08em;padding:0 6px;}
+.jn-foot{font-family:var(--font-mono);font-size:.48rem;letter-spacing:.06em;color:rgba(255,255,255,.45);line-height:1.5;padding-top:6px;border-top:1px solid rgba(var(--acc-rgb),.14);}
+
+/* the button that opens it, on the surface / sky bars */
+.jn-open-btn{pointer-events:auto;padding:5px 12px;border:none;cursor:pointer;display:flex;align-items:center;gap:5px;
+  font-family:var(--font-hud);font-size:.5rem;letter-spacing:.12em;color:var(--gold);
+  background:linear-gradient(180deg,rgba(var(--hi-rgb),.2),rgba(var(--hi-rgb),.05));box-shadow:inset 0 -2px 0 var(--gold);
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);}
+.jn-open-btn:hover{background:linear-gradient(180deg,rgba(var(--hi-rgb),.36),rgba(var(--hi-rgb),.1));}
+.jn-ico{display:inline-block;}
+
+/* first-person toggle on the ground */
+.surf-view-btn{position:absolute;right:10px;top:96px;z-index:36;height:30px;padding:0 14px 0 22px;border:none;cursor:pointer;
+  font-family:var(--font-hud);font-size:.5rem;font-weight:700;letter-spacing:.12em;color:#fff;
+  background:linear-gradient(270deg,rgba(var(--acc-rgb),.28),rgba(var(--panel-rgb),.5));box-shadow:inset -3px 0 0 var(--cyan);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  clip-path:polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%);}
+.surf-view-btn.fp{box-shadow:inset -3px 0 0 var(--gold);color:var(--gold);}
+@media (max-width:620px){
+  #dm-journal .jn-panel{top:auto;bottom:max(12px,env(safe-area-inset-bottom));transform:none;max-height:calc(100vh - 80px);}
+  @keyframes jnOpen{from{transform:rotateY(-96deg);opacity:0}55%{opacity:1}to{transform:none;opacity:1}}
+  @keyframes jnClose{to{transform:rotateY(-100deg);opacity:0}}
+  .jn-open-btn{padding:5px 8px;}
+}
+/* marker eye: open = shown in the world, slashed shut = hidden */
+.jn-eye{display:inline-flex;align-items:center;justify-content:center;color:rgba(var(--acc-rgb),.95);}
+.jn-eye.off{color:rgba(255,255,255,.38);}
+.jn-row.jn-hidden .jn-main,.jn-row.jn-hidden .jn-dot{opacity:.45;}

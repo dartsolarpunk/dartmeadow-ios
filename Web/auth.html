@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Signing in · DART Meadow</title>
+<style>
+  :root{--bg:#02060f;--text:#dfe8ff;--dim:#8a97b8;--cyan:#5b7fff}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px system-ui,sans-serif}
+  body{display:grid;place-items:center;text-align:center;padding:0 16px}
+  small{color:var(--dim)} a{color:var(--cyan)}
+</style>
+</head>
+<body>
+<div id="m">Signed in on GitHub — back to the game…<br><small>This window closes by itself.</small></div>
+<script>
+// GitHub web sign-in lands here (via leatr.xyz/jots-auth.html). Hand the
+// one-time code to the game tab that started the sign-in, then close this
+// window. If it can't close (an installed app or a same-tab sign-in), go
+// back to the game, which picks the code up itself.
+(function () {
+  var p = new URLSearchParams(location.search);
+  var res = { code: p.get('code'), state: p.get('state'), error: p.get('error'), t: Date.now() };
+  try { localStorage.setItem('jots_oauth_result', JSON.stringify(res)); } catch (e) {}
+  try { var bc = new BroadcastChannel('jots-auth'); bc.postMessage(res); bc.close(); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  try { sessionStorage.setItem('jots_auth_landing', '1'); } catch (e) {}   // tells the game this tab came from GitHub
+  setTimeout(function () {
+    try { window.close(); } catch (e) {}
+    setTimeout(function () { location.replace('./'); }, 500);   // still here: this is the only game tab
+  }, 200);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+/* DART Meadow — in-game HUD, v3 ("glass shard")
+ * Sleek, abstract and out of the way: slanted glass chips, a half-hexagon
+ * crown hanging from the top edge, half-hexagon tabs docked flush to the
+ * screen edges, and slim ringed thumbsticks with nothing framed around them.
+ * Every control keeps its id/handler; colours come from the theme
+ * variables (ui/dm-theme.js).
+ */
+#screen-flight{
+  --g-line:rgba(var(--acc-rgb),.38);
+  --g-line-hi:rgba(var(--acc-rgb),.75);
+  --g-fill:rgba(var(--panel-rgb),.34);
+  --g-fill-hi:rgba(var(--acc-rgb),.16);
+  --g-text:var(--text);
+}
+#screen-flight .dm-frame{background:none;clip-path:none;}
+#screen-flight .dm-frame::before{display:none;}
+
+/* ── top bar ─────────────────────────────────────────────────────────── */
+#screen-flight #ar-top{
+  display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;gap:12px;
+  padding:10px 12px 0;background:none;border:none;backdrop-filter:none;-webkit-backdrop-filter:none;pointer-events:none;
+}
+#screen-flight #ar-top>*{pointer-events:auto;}
+
+/* slanted glass chip — shared by the soundtrack and game buttons */
+#screen-flight .aud-btn,#screen-flight .art-btn{
+  position:relative;height:30px;min-width:34px;padding:0 12px;margin:0;border:none;border-radius:0;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  font-family:var(--font-hud);font-size:.5rem;letter-spacing:.16em;color:var(--g-text);
+  background:linear-gradient(180deg,var(--g-fill-hi),var(--g-fill));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.45);
+  transition:background .15s,box-shadow .15s,color .15s;cursor:pointer;
+}
+#screen-flight .aud-btn{width:34px;padding:0;font-size:.7rem;color:rgba(var(--acc-rgb),.95);}
+#screen-flight .aud-btn:hover,#screen-flight .art-btn:hover{background:linear-gradient(180deg,rgba(var(--acc-rgb),.32),rgba(var(--acc-rgb),.1));box-shadow:inset 0 -2px 0 var(--cyan),0 0 14px rgba(var(--acc-rgb),.35);}
+#screen-flight .art-btn.active{background:linear-gradient(180deg,rgba(var(--acc-rgb),.38),rgba(var(--acc-rgb),.12));box-shadow:inset 0 -2px 0 var(--cyan);}
+#screen-flight .aud-btn.playing{color:#7dffc0;}
+#screen-flight .art-btn .ic{font-style:normal;color:var(--cyan);font-size:.72rem;line-height:1;}
+#screen-flight .hud-l{justify-self:start;padding:0;}
+#screen-flight #audio-player{display:flex;align-items:center;gap:2px;}
+#screen-flight .hud-r{justify-self:end;display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0;max-width:100%;}
+#screen-flight .hud-r .art-btns{flex:none;max-width:100%;padding:0;gap:2px;justify-content:flex-end;}
+/* a thin hairline under each chip group ties the chips together */
+#screen-flight .hud-l,#screen-flight .hud-r .art-btns{position:relative;}
+#screen-flight .hud-l::after,#screen-flight .hud-r .art-btns::before{content:'';position:absolute;left:6px;right:6px;bottom:-5px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(var(--acc-rgb),.55),transparent);}
+
+/* INITIALIZE PROGRESS: a soft green slanted bar */
+#screen-flight .art-btn.progress-btn{height:30px;padding:0 18px;font-size:.54rem;color:#9ff5c6;
+  background:linear-gradient(180deg,rgba(90,220,150,.24),rgba(90,220,150,.08));
+  box-shadow:inset 0 -2px 0 rgba(120,235,170,.75),0 0 12px rgba(110,230,160,.18);text-shadow:0 0 6px rgba(120,235,170,.45);
+  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%);}
+#screen-flight .art-btn.progress-btn:hover{background:linear-gradient(180deg,rgba(90,220,150,.36),rgba(90,220,150,.12));color:#d4ffe6;}
+
+/* centre crown: a frosted kite traced from the Nomad Sculpt drawing.
+   Tips (as % of the box): left 0/48, top 21/0, right 100/47, bottom 21/100.
+   The title, destination and gauges are staggered down the kite's body. */
+#screen-flight .hud-c{
+  --kite:polygon(0 48%,21% 0,100% 47%,21% 100%);
+  position:relative;isolation:isolate;width:360px;height:160px;padding:0;text-align:left;
+  /* --ks shrinks the kite; the negative margins hand the freed space back to the grid */
+  transform:scale(var(--ks,1));transform-origin:50% 0;
+  margin:0 calc(-180px * (1 - var(--ks,1))) calc(-160px * (1 - var(--ks,1)));
+  background:linear-gradient(158deg,rgba(var(--hi-rgb),.2),rgba(var(--panel-rgb),.3) 42%,rgba(var(--panel-rgb),.26) 60%,rgba(var(--acc-rgb),.24));
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  clip-path:var(--kite);
+}
+/* upper facet catches a little more light, so the kite reads as folded */
+#screen-flight .hud-c::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(170deg,rgba(255,255,255,.1),rgba(255,255,255,.02) 70%);
+  clip-path:polygon(0 48%,21% 0,100% 47%);}
+#screen-flight .hud-c::after{display:none;}
+#screen-flight .kite-edge{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;overflow:visible;}
+#screen-flight .kite-edge .ks-a{stop-color:var(--gold);}
+#screen-flight .kite-edge .ks-b{stop-color:var(--purple);}
+#screen-flight .kite-edge .ks-c{stop-color:var(--cyan);}
+#screen-flight .kite-line{fill:none;stroke:url(#kite-grad);stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke;
+  filter:drop-shadow(0 0 3px rgba(var(--pur-rgb),.9));}
+#screen-flight .kite-ridge{fill:none;stroke:rgba(255,255,255,.1);stroke-width:1;vector-effect:non-scaling-stroke;}
+
+#screen-flight .hud-c .art-logo,#screen-flight .hud-c .hud-g,#screen-flight .hud-c .hud-dest{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;}
+#screen-flight .art-logo{left:40%;top:26%;margin:0;font-size:.72rem;letter-spacing:.38em;color:var(--text);text-shadow:0 0 10px rgba(var(--acc-rgb),.7);}
+#screen-flight .art-stats{position:absolute;inset:0;font-family:var(--font-hud);font-size:.48rem;color:var(--text-dim);}
+#screen-flight .hud-g{display:flex;align-items:center;gap:5px;}
+#screen-flight .hud-c .hud-g:nth-child(1){left:24.5%;top:64%;}
+#screen-flight .hud-c .hud-g:nth-child(2){left:52%;top:64%;}
+#screen-flight .g-lbl{font-size:.48rem;letter-spacing:.16em;color:var(--cyan);}
+#screen-flight .g-ring{width:24px;height:24px;transform:rotate(-90deg);}
+#screen-flight .g-track{fill:none;stroke:rgba(var(--acc-rgb),.16);stroke-width:4;}
+#screen-flight .g-arc{fill:none;stroke:var(--cyan);stroke-width:4;stroke-linecap:round;stroke-dasharray:0 100.5;
+  filter:drop-shadow(0 0 3px rgba(var(--acc-rgb),.9));transition:stroke-dasharray .35s ease;}
+#screen-flight .g-val{font-family:var(--font-mono);font-size:.54rem;color:var(--text);min-width:44px;text-align:left;}
+#screen-flight .g-val span{color:var(--text);}
+#screen-flight .hud-dest{left:60%;top:45%;display:flex;align-items:baseline;gap:10px;max-width:46%;
+  font-family:var(--font-hud);font-size:.46rem;letter-spacing:.1em;color:var(--cyan);line-height:1.5;}
+#screen-flight .hud-dest>div:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0;}
+#screen-flight .hud-dest span{color:var(--cyan);}
+#screen-flight .hud-eta{flex:none;color:var(--text-dim);font-size:.42rem;}
+
+/* things under the top bar sit just below it */
+#screen-flight #orbit-skyboard-btn{top:96px !important;}
+/* online/chat chip rides beside INITIALIZE PROGRESS; the chat log opens under the ORBIT tab */
+#screen-flight .hud-r-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;}
+#screen-flight .hud-r-row #jots-mp-hud{position:static;transform:none;}
+#jots-chat{top:calc(138px + env(safe-area-inset-top,0px)) !important;}
+/* pop-ups (discoveries, targets) float just under the kite */
+#screen-flight #disc-chip{top:182px !important;}
+body:has(#screen-flight.active) #fs-exit,body:has(#screen-flight.active) #fs-enter{top:56px !important;left:0 !important;border-radius:0 6px 6px 0 !important;}
+
+/* ── edge tabs: half-hexagons docked flush to the screen edges ───────── */
+#screen-flight .hud-toggle-btn{left:0;height:32px;padding:0 22px 0 14px;border:none;border-radius:0;opacity:1;
+  background:linear-gradient(90deg,rgba(var(--acc-rgb),.2),var(--g-fill));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:inset 3px 0 0 var(--cyan);
+  color:var(--g-text);font-size:.5rem;letter-spacing:.16em;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%);}
+#screen-flight .hud-toggle-btn:hover{background:linear-gradient(90deg,rgba(var(--acc-rgb),.36),rgba(var(--acc-rgb),.12));}
+#screen-flight .hud-toggle-btn .htb-ico{color:var(--cyan);}
+#screen-flight #logs-toggle-btn{top:100px;}
+#screen-flight #qt-toggle-btn{top:138px;}
+#screen-flight #temple-toggle-btn{top:176px !important;box-shadow:inset 3px 0 0 #fff;}
+#screen-flight #journal-toggle-btn{top:214px;box-shadow:inset 3px 0 0 var(--gold);}
+#screen-flight #journal-toggle-btn .htb-ico{color:var(--gold);}
+#screen-flight #shard-game-btn{top:252px !important;box-shadow:inset 3px 0 0 #ffcc00;}
+#screen-flight #shard-return-btn{top:290px !important;box-shadow:inset 3px 0 0 #ffcc00;}
+#screen-flight #hud-logs-panel{top:252px;}
+#screen-flight #qt-panel{top:176px;}
+#screen-flight #orbit-skyboard-btn{left:auto;right:0;padding:0 14px 0 22px;box-shadow:inset -3px 0 0 var(--gold);
+  background:linear-gradient(270deg,rgba(var(--hi-rgb),.22),var(--g-fill));
+  clip-path:polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%);}
+
+/* crosshair follows the theme */
+#screen-flight #ar-crosshair{color:var(--cyan);}
+#screen-flight #ar-crosshair svg{opacity:.75;filter:drop-shadow(0 0 3px rgba(var(--acc-rgb),.7));}
+
+/* ── bottom: thumbsticks + pads only, nothing framed around them ─────── */
+#screen-flight .joystick-zone{width:110px;height:110px;}
+#screen-flight .joystick-base{
+  background:radial-gradient(circle,rgba(var(--panel-rgb),.16) 0 60%,rgba(var(--acc-rgb),.07) 61% 100%);
+  border:1.5px solid rgba(var(--acc-rgb),.5);
+  box-shadow:0 0 16px rgba(var(--acc-rgb),.16),inset 0 0 18px rgba(var(--acc-rgb),.1);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+/* four short arc ticks at N/E/S/W hint the stick's axes */
+#screen-flight .joystick-base::after{content:'';position:absolute;inset:-7px;border-radius:50%;
+  background:conic-gradient(from -8deg,var(--cyan) 0 16deg,transparent 16deg 90deg,var(--cyan) 90deg 106deg,transparent 106deg 180deg,var(--cyan) 180deg 196deg,transparent 196deg 270deg,var(--cyan) 270deg 286deg,transparent 286deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(circle,transparent 0 calc(100% - 3px),#000 calc(100% - 2px));opacity:.55;}
+#screen-flight .joystick-knob{width:40px;height:40px;
+  background:radial-gradient(circle,rgba(255,255,255,.9) 0 10%,rgba(var(--acc-rgb),.55) 12% 38%,rgba(var(--acc-rgb),.12) 40%);
+  border:1.5px solid var(--cyan);box-shadow:0 0 14px rgba(var(--acc-rgb),.8);}
+#screen-flight .joystick-label{top:-20px;color:rgba(var(--acc-rgb),.65);font-size:.42rem;letter-spacing:.18em;}
+
+/* round pads: slim glass discs */
+#screen-flight .side-pad,#screen-flight .dart-pad{
+  border:1.5px solid rgba(var(--acc-rgb),.45);
+  background:radial-gradient(circle at 50% 35%,rgba(var(--acc-rgb),.18),rgba(var(--panel-rgb),.42) 70%);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 0 10px rgba(var(--acc-rgb),.14);color:var(--text);}
+#screen-flight .side-pad .sp-ico{color:var(--cyan);}
+#screen-flight .side-pad:active{box-shadow:0 0 16px rgba(var(--acc-rgb),.55);}
+/* ANCHOR (and any latched pad) glows while it's on — that's the whole status, no toast */
+#screen-flight .side-pad.active{border-color:var(--gold);color:#fff;
+  background:radial-gradient(circle at 50% 35%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 70%);
+  box-shadow:0 0 10px rgba(var(--hi-rgb),.85),0 0 26px rgba(var(--hi-rgb),.45),inset 0 0 10px rgba(var(--hi-rgb),.5);
+  animation:padGlow 2.4s ease-in-out infinite;}
+#screen-flight .side-pad.active .sp-ico{color:#fff;text-shadow:0 0 8px rgba(var(--hi-rgb),1);}
+@keyframes padGlow{0%,100%{box-shadow:0 0 10px rgba(var(--hi-rgb),.85),0 0 26px rgba(var(--hi-rgb),.45),inset 0 0 10px rgba(var(--hi-rgb),.5)}
+  50%{box-shadow:0 0 14px rgba(var(--hi-rgb),1),0 0 36px rgba(var(--hi-rgb),.6),inset 0 0 12px rgba(var(--hi-rgb),.65)}}
+@media (prefers-reduced-motion:reduce){#screen-flight .side-pad.active{animation:none;}}
+/* FOCUS / IDLE: slanted chips like the top bar */
+#screen-flight .assist-btn{border:none;border-radius:0;height:28px;padding:0 14px;
+  background:linear-gradient(180deg,var(--g-fill-hi),var(--g-fill));box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.45);
+  color:var(--g-text);letter-spacing:.14em;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);}
+#screen-flight .assist-btn.active{background:linear-gradient(180deg,rgba(var(--acc-rgb),.4),rgba(var(--acc-rgb),.14));box-shadow:inset 0 -2px 0 var(--cyan),0 0 12px rgba(var(--acc-rgb),.4);}
+#screen-flight #minimap{border:1.5px solid rgba(var(--acc-rgb),.45);box-shadow:0 0 12px rgba(var(--acc-rgb),.16);background:rgba(var(--panel-rgb),.5);}
+
+/* AR corner brackets: thin and quiet */
+#screen-flight .ar-corner{opacity:.6;}
+
+/* ── fit the top bar on tablets and phones ───────────────────────────── */
+@media (max-width:1240px){
+  #screen-flight .hud-c{--ks:.86;}
+  #screen-flight #disc-chip{top:160px !important;}
+  #screen-flight .art-btn{padding:0 9px;letter-spacing:.12em;}
+}
+@media (max-width:1080px){
+  #screen-flight #audio-player .aud-btn:nth-child(n+5){display:none;}
+  #screen-flight .aud-btn{width:30px;}
+  #screen-flight .art-btn{padding:0 7px;font-size:.46rem;gap:4px;}
+  #screen-flight .art-btn.progress-btn{font-size:.48rem;}
+  #screen-flight .hud-c{--ks:.74;}
+  /* icon-only chips so the whole row fits */
+  #screen-flight .hud-r .art-btn:not(#cam-btn):not(.progress-btn){font-size:0;padding:0 9px;gap:0;}
+  #screen-flight .hud-r .art-btn:not(#cam-btn):not(.progress-btn) .ic{font-size:.8rem;}
+  #screen-flight #disc-chip{top:140px !important;}
+}
+@media (max-width:900px){
+  #screen-flight #ar-top{grid-template-columns:auto auto minmax(0,1fr);gap:6px;padding:8px 6px 0;}
+  #screen-flight .hud-r .art-btns{overflow-x:auto;}
+}
+@media (max-width:620px){
+  #screen-flight #audio-player .aud-btn:nth-child(n+3){display:none;}
+  /* portrait phones: chips on the first row, the kite centred on its own row beneath */
+  #screen-flight #ar-top{grid-template-columns:auto minmax(0,1fr);row-gap:4px;}
+  #screen-flight .hud-c{--ks:.6;grid-row:2;grid-column:1/-1;justify-self:center;}
+  #screen-flight #disc-chip{top:214px !important;}
+  /* edge tabs step down below the kite */
+  #screen-flight #logs-toggle-btn{top:216px;}
+  #screen-flight #qt-toggle-btn{top:254px;}
+  #screen-flight #temple-toggle-btn{top:292px !important;}
+  #screen-flight #journal-toggle-btn{top:330px;}
+  #screen-flight #shard-game-btn{top:368px !important;}
+  #screen-flight #shard-return-btn{top:406px !important;}
+  #screen-flight #hud-logs-panel{top:368px;}
+  #screen-flight #qt-panel{top:292px;}
+  #screen-flight #orbit-skyboard-btn{top:216px !important;}
+  #jots-chat{top:calc(254px + env(safe-area-inset-top,0px)) !important;}
+  #screen-flight .hud-r-row{flex-direction:column;align-items:flex-end;gap:6px;}
+  #screen-flight .hud-r-row #jots-mp-hud{order:2;}
+}
+@media (max-height:560px){
+  #screen-flight .hud-c{--ks:.72;}
+  #screen-flight #disc-chip{top:134px !important;}
+  #screen-flight .joystick-zone{width:96px;height:96px;}
+  #screen-flight .joystick-knob{width:36px;height:36px;}
+  #screen-flight .art-btn,#screen-flight .aud-btn{height:28px;}
+}
+
+/* ── small kite: the world you're visiting, on the surface and in atmospheric flight ── */
+.mini-kite{position:absolute;top:6px;left:50%;width:230px;height:102px;transform:translateX(-50%);pointer-events:none;isolation:isolate;z-index:1;
+  background:linear-gradient(158deg,rgba(var(--hi-rgb),.2),rgba(var(--panel-rgb),.3) 42%,rgba(var(--panel-rgb),.26) 60%,rgba(var(--acc-rgb),.24));
+  backdrop-filter:blur(12px) saturate(140%);-webkit-backdrop-filter:blur(12px) saturate(140%);
+  clip-path:polygon(0 48%,21% 0,100% 47%,21% 100%);}
+.mini-kite::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(170deg,rgba(255,255,255,.1),rgba(255,255,255,.02) 70%);clip-path:polygon(0 48%,21% 0,100% 47%);}
+.mini-kite .mk-edge{position:absolute;inset:0;width:100%;height:100%;z-index:-1;overflow:visible;}
+.mini-kite .kite-line{fill:none;stroke-width:1.4;stroke-linejoin:round;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 3px rgba(var(--pur-rgb),.9));}
+.mini-kite .ks-a{stop-color:var(--gold);}
+.mini-kite .ks-b{stop-color:var(--purple);}
+.mini-kite .ks-c{stop-color:var(--cyan);}
+.mini-kite .kite-ridge{fill:none;stroke:rgba(255,255,255,.1);stroke-width:1;vector-effect:non-scaling-stroke;}
+.mini-kite>span{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;}
+.mini-kite .mk-name{left:40%;top:28%;max-width:58%;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-hud);font-size:.74rem;letter-spacing:.34em;color:var(--text);text-shadow:0 0 10px rgba(var(--acc-rgb),.7);}
+.mini-kite .mk-mode{left:58%;top:41%;font-family:var(--font-hud);font-size:.42rem;letter-spacing:.22em;color:rgba(var(--hi-rgb),.95);text-shadow:0 0 4px rgba(0,0,0,.6),0 0 8px rgba(var(--hi-rgb),.6);}
+.mini-kite .mk-read{left:36%;top:66%;font-family:var(--font-mono);font-size:.58rem;color:var(--text);text-shadow:0 0 6px rgba(var(--hi-rgb),.8);}
+@media (max-width:760px){ .mini-kite{transform:translateX(-50%) scale(.8);transform-origin:50% 0;} }
+/* nothing under the crosshair to anchor to: a short shake instead of a message */
+#screen-flight .side-pad.nope{animation:padNope .4s ease;}
+@keyframes padNope{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+
+/* ── On a world: chat + INITIALIZE PROGRESS in a row at the top right, as in space ── */
+.world-rail{position:absolute;top:calc(52px + env(safe-area-inset-top,0px));right:10px;z-index:37;display:flex;gap:8px;align-items:center;pointer-events:auto;}
+.world-rail #jots-mp-hud{position:static;transform:none;}
+.world-rail .art-btn.progress-btn{height:30px;padding:0 18px;font-family:var(--font-hud);font-size:.54rem;letter-spacing:.14em;color:#9ff5c6;border:none;border-radius:0;
+  background:linear-gradient(180deg,rgba(90,220,150,.24),rgba(90,220,150,.08));
+  box-shadow:inset 0 -2px 0 rgba(120,235,170,.75),0 0 12px rgba(110,230,160,.18);text-shadow:0 0 6px rgba(120,235,170,.45);
+  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%);backdrop-filter:blur(6px);}
+.world-rail .art-btn.progress-btn:hover{background:linear-gradient(180deg,rgba(90,220,150,.36),rgba(90,220,150,.12));color:#d4ffe6;}
+#surface-overlay #jots-chat,#atmo-overlay #jots-chat{z-index:38;}
+/* the controls that sat there step down one row */
+#surface-overlay .orbit-skyboard-btn{top:96px !important;}
+#surface-overlay .surf-view-btn{top:136px !important;}
+#atmo-overlay #atmo-presets{top:104px !important;}
+@media (orientation:landscape) and (max-height:520px){
+  .world-rail{top:34px;gap:6px;}
+  .world-rail .art-btn.progress-btn{height:22px;font-size:.42rem;padding:0 12px;}
+  #surface-overlay .orbit-skyboard-btn{top:62px !important;}
+  #surface-overlay .surf-view-btn{top:90px !important;}
+  #atmo-overlay #atmo-presets{top:62px !important;}
+}
+@media (orientation:portrait) and (max-width:600px){
+  .world-rail{top:auto;bottom:calc(200px + env(safe-area-inset-bottom,0px));right:8px;flex-direction:column;align-items:flex-end;}
+}
+
+/* ── skyboard PARK / SUMMON: two small glass discs inside the kite, under the title on its left wing ── */
+.kite-board{position:absolute;left:18.5%;top:47%;transform:translate(-50%,-50%);display:flex;gap:6px;z-index:2;pointer-events:auto;}
+#screen-flight .hud-c .kite-board{display:none;}
+body.ship-walk #screen-flight .hud-c .kite-board{display:flex;}
+.kite-board .kb-btn{width:22px;height:22px;padding:0;border-radius:50%;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  color:rgba(var(--acc-rgb),.95);border:1px solid rgba(var(--acc-rgb),.42);
+  background:radial-gradient(circle at 50% 38%,rgba(var(--acc-rgb),.2),rgba(var(--panel-rgb),.28) 72%);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 0 8px rgba(var(--acc-rgb),.2);transition:box-shadow .2s,color .2s,border-color .2s;}
+.kite-board .kb-btn svg{width:17px;height:17px;display:block;}
+.kite-board .kb-btn:hover,.kite-board .kb-btn:active{box-shadow:0 0 14px rgba(var(--acc-rgb),.6);color:#fff;}
+.kite-board .kb-park.on{color:#fff;border-color:var(--gold);box-shadow:0 0 10px rgba(var(--hi-rgb),.8),inset 0 0 8px rgba(var(--hi-rgb),.45);
+  background:radial-gradient(circle at 50% 38%,rgba(var(--hi-rgb),.5),rgba(var(--hi-rgb),.12) 72%);}
+#screen-flight .hud-c .kite-board .kb-btn{width:30px;height:30px;}
+#screen-flight .hud-c .kite-board .kb-btn svg{width:22px;height:22px;}
+/* a world nobody has studied */
+.mini-kite .mk-mode.mk-unexplored{color:#ffd27a;text-shadow:0 0 4px rgba(0,0,0,.6),0 0 8px rgba(255,190,90,.6);}
+/* the drawn galaxy fills its disc */
+#screen-flight .side-pad .sp-gal svg{width:1.25em;height:1.25em;display:block;}
+/* the kite discs must not pick up the world bars' slanted button style */
+.mini-kite .kite-board .kb-btn,#screen-flight .hud-c .kite-board .kb-btn{clip-path:none !important;transform:none !important;border-radius:50% !important;
+  min-width:0 !important;min-height:0 !important;padding:0 !important;margin:0 !important;font-size:0 !important;letter-spacing:0 !important;
+  border:1px solid rgba(var(--acc-rgb),.5) !important;
+  background:radial-gradient(circle at 50% 38%,rgba(var(--acc-rgb),.22),rgba(var(--panel-rgb),.3) 72%) !important;}
+.mini-kite .kite-board .kb-btn::before,.mini-kite .kite-board .kb-btn::after{display:none !important;}
+.mini-kite .kite-board .kb-park.on,#screen-flight .hud-c .kite-board .kb-park.on{border-color:var(--gold) !important;
+  background:radial-gradient(circle at 50% 38%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 72%) !important;}
+#surface-overlay .mini-kite .kite-board .kb-btn,#atmo-overlay .mini-kite .kite-board .kb-btn,#screen-flight .hud-c .kite-board .kb-btn{width:22px !important;height:22px !important;box-shadow:0 0 8px rgba(var(--acc-rgb),.25) !important;
+  clip-path:none !important;border-radius:50% !important;padding:0 !important;border:1px solid rgba(var(--acc-rgb),.55) !important;color:#dff4ff !important;
+  background:radial-gradient(circle at 50% 38%,rgba(var(--acc-rgb),.24),rgba(var(--panel-rgb),.32) 72%) !important;}
+#screen-flight .hud-c .kite-board .kb-btn{width:30px !important;height:30px !important;}
+#surface-overlay .mini-kite .kite-board .kb-btn svg,#atmo-overlay .mini-kite .kite-board .kb-btn svg{width:17px !important;height:17px !important;display:block;}
+#surface-overlay .mini-kite .kite-board .kb-park.on,#atmo-overlay .mini-kite .kite-board .kb-park.on,#screen-flight .hud-c .kite-board .kb-park.on{border-color:var(--gold) !important;color:#fff !important;
+  background:radial-gradient(circle at 50% 38%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 72%) !important;box-shadow:0 0 10px rgba(var(--hi-rgb),.8) !important;}
+/* EXIT on the world row, and the exit dialog above every world view */
+.world-rail .world-exit{height:30px;padding:0 12px;font-family:var(--font-hud);font-size:.5rem;letter-spacing:.14em;color:var(--text);border:none;border-radius:0;
+  background:linear-gradient(180deg,rgba(255,90,110,.2),rgba(var(--panel-rgb),.4));box-shadow:inset 0 -2px 0 rgba(255,90,110,.6);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
+  display:inline-flex;align-items:center;gap:5px;cursor:pointer;backdrop-filter:blur(8px);}
+.world-rail .world-exit .ic{font-style:normal;}
+@media (orientation:landscape) and (max-height:520px){ .world-rail .world-exit{height:22px;font-size:.42rem;padding:0 9px;} }
+#exit-modal{z-index:9900 !important;}
+
+/* ── Screenshot camera: just the icon, see-through, beside the Journal ── */
+.shot-btn{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;padding:0;margin:0;border:none;cursor:pointer;
+  background:transparent;color:rgba(255,255,255,.95);opacity:.9;transition:opacity .15s,transform .12s,color .15s;filter:drop-shadow(0 0 1px rgba(0,0,0,.85)) drop-shadow(0 0 5px rgba(var(--acc-rgb),.9));}
+.shot-btn:hover{opacity:1;color:var(--text);}
+.shot-btn:active{transform:scale(.88);}
+.shot-btn svg{width:22px;height:19px;display:block;flex:0 0 auto;}
+#shot-btn-flight{width:32px;height:30px;flex:0 0 auto;}
+.world-rail #shot-btn-flight,body:not(:has(#screen-flight.active)) #shot-btn-flight{display:none;}
+.shot-flash{position:fixed;inset:0;z-index:99999;background:#fff;pointer-events:none;animation:shotFlash .45s ease-out forwards;}
+@keyframes shotFlash{from{opacity:.75}to{opacity:0}}
+/* the surface / sky bars style every button as a slanted tab: not this one */
+#surface-overlay>div:nth-of-type(1) button.shot-btn,#atmo-overlay>div:nth-of-type(1) button.shot-btn{
+  width:34px !important;height:30px !important;padding:0 !important;background:transparent !important;box-shadow:none !important;
+  clip-path:none !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;color:rgba(255,255,255,.95) !important;}
+#surface-overlay>div:nth-of-type(1) button.shot-btn:hover,#atmo-overlay>div:nth-of-type(1) button.shot-btn:hover{background:transparent !important;color:#fff !important;}
+#surface-overlay>div:nth-of-type(1) button.shot-btn svg,#atmo-overlay>div:nth-of-type(1) button.shot-btn svg{width:24px;height:21px;}
+
+/* ── Quick travel: the Journal's chamfered glass, see-through, swinging out from its tab ── */
+#qt-panel{--cut:16px;padding:12px 13px 11px !important;gap:8px !important;transform-origin:0 0;}
+#ar-bottom.open #qt-panel{animation:qtOpen .5s cubic-bezier(.2,.9,.25,1) both;}
+@keyframes qtOpen{from{transform:perspective(1200px) rotateY(-80deg);opacity:0}60%{opacity:1}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){#ar-bottom.open #qt-panel{animation:none;}}
+#qt-panel #ar-dest-title{font-size:.62rem !important;font-weight:700;letter-spacing:.28em !important;padding-bottom:7px;margin-bottom:0 !important;position:relative;
+  background:linear-gradient(90deg,#fff,var(--cyan) 60%,var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent !important;
+  border-bottom:1px solid rgba(var(--acc-rgb),.22);}
+#qt-panel #ar-dest-title::after{content:'';position:absolute;left:0;bottom:-1px;width:64px;height:2px;background:var(--cyan);box-shadow:0 0 10px rgba(var(--acc-rgb),.8);}
+#qt-panel #qt-tabs{gap:6px !important;margin:2px 0 0 !important;}
+#qt-panel #qt-tabs button{border:none !important;border-radius:0 !important;padding:7px 4px !important;color:rgba(255,255,255,.7) !important;
+  background:linear-gradient(180deg,rgba(var(--acc-rgb),.14),rgba(var(--acc-rgb),.03)) !important;box-shadow:inset 0 -1px 0 rgba(var(--acc-rgb),.35) !important;
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);}
+#qt-panel #qt-tabs button.active{color:#fff !important;background:linear-gradient(180deg,rgba(var(--acc-rgb),.34),rgba(var(--acc-rgb),.08)) !important;box-shadow:inset 0 -2px 0 var(--cyan) !important;}
+#qt-panel #qt-canvas{border:none !important;border-radius:0 !important;background:rgba(0,2,8,.55) !important;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.25);}
+#qt-panel #dest-scroll{gap:6px !important;}
+#qt-panel .dest-card{border:none !important;border-radius:0 !important;background:linear-gradient(90deg,rgba(var(--acc-rgb),.12),rgba(var(--acc-rgb),.02)) !important;
+  box-shadow:inset 2px 0 0 rgba(var(--acc-rgb),.55);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);}
+#qt-panel .dest-card:hover{background:linear-gradient(90deg,rgba(var(--acc-rgb),.24),rgba(var(--acc-rgb),.05)) !important;}
+#qt-panel .dest-card.active{background:linear-gradient(90deg,rgba(var(--hi-rgb),.26),rgba(var(--hi-rgb),.04)) !important;box-shadow:inset 2px 0 0 var(--gold);}
+
+/* ── Autopilot bubble (the pilot's profile): above the left stick in the sky, beside ANCHOR in space ── */
+#ap-btn-atmo{position:absolute;left:50px;bottom:calc(222px + var(--safe-bot));width:48px;height:48px;z-index:6;pointer-events:auto;}
+.ap-pad .sp-ico{font-size:.95rem !important;display:flex;align-items:center;justify-content:center;}
+.ap-pad .ap-ico{display:block;filter:drop-shadow(0 0 2px rgba(0,0,0,.6));}
+.ap-pad.active{border-color:var(--cyan) !important;color:#fff !important;background:rgba(var(--acc-rgb),.3) !important;animation:apGlow 1.6s ease-in-out infinite;}
+.ap-pad.active .ap-ico{filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 10px rgba(var(--acc-rgb),1));}
+@keyframes apGlow{0%,100%{box-shadow:0 0 12px rgba(var(--acc-rgb),.6)}50%{box-shadow:0 0 26px rgba(var(--acc-rgb),1),0 0 6px rgba(255,255,255,.8)}}
+@media (prefers-reduced-motion:reduce){.ap-pad.active{animation:none;box-shadow:0 0 18px rgba(var(--acc-rgb),.9);}}
+@media (orientation:landscape) and (max-height:500px){#ap-btn-atmo{left:44px;bottom:calc(206px + var(--safe-bot));width:40px;height:40px;}}

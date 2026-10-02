@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "notes": [
+    {
+      "id": "2026-10-01-updates",
+      "date": "2026-10-01",
+      "title": "Having trouble after an update?",
+      "body": "Whenever a new update is released and the game misbehaves (a black screen, missing parts, buttons that do nothing), the best fix is:\n\n1. Close the browser completely (not just the tab).\n2. Clear the browser's cache (cached images and files) for this site.\n3. Open the game again and reload the page.\n\nThe CLEAR GAME CACHE & RELOAD button below does steps 2 and 3 for the game's own stored files. If problems remain, also clear the browser cache from your browser's settings. Your saved journeys are not affected: they are kept separately, and in your GitHub account when signed in."
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+ "targets": [
+  "index.html"
+ ],
+ "rewrites": [
+  {
+   "from": "https://cdn.jsdelivr.net/npm/three@0.185.0/",
+   "to": "./vendor/three-0.185.0/",
+   "hits": 4
+  },
+  {
+   "from": "https://www.gstatic.com/firebasejs/12.15.0/",
+   "to": "./vendor/firebasejs/12.15.0/",
+   "hits": 2
+  },
+  {
+   "from": "https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap",
+   "to": "./vendor/fonts/google-fonts.css",
+   "hits": 1
+  },
+  {
+   "from": "'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_coastline.geojson',",
+   "to": "'./vendor/natural-earth/ne_110m_coastline.geojson',",
+   "hits": 1
+  },
+  {
+   "from": "https://cdn.jsdelivr.net/npm/eruda@3/eruda.min.js",
+   "to": "./vendor/eruda/eruda.min.js",
+   "hits": 1
+  }
+ ]
+}

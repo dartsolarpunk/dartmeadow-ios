@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy · DART Meadow: Journey of the Skyboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&family=Rajdhani:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#02060f;--panel:rgba(6,12,28,.92);--line:rgba(91,127,255,.22);--text:#dfe8ff;--dim:#8a97b8;--cyan:#5b7fff;--green:#39ff9c}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Rajdhani,system-ui,sans-serif;line-height:1.65}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font-family:Orbitron,monospace;font-weight:900;letter-spacing:.18em;font-size:clamp(1.1rem,4vw,1.5rem);color:var(--cyan);margin:0 0 .2rem}
+.sub{font-family:"Share Tech Mono",monospace;font-size:.75rem;letter-spacing:.2em;color:var(--dim);margin-bottom:1.6rem}
+section{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1rem 1.1rem;margin:0 0 1rem}
+h2{font-family:Orbitron,monospace;font-size:.8rem;letter-spacing:.16em;color:var(--cyan);margin:0 0 .5rem}
+p,li{font-size:1rem;margin:.35rem 0}
+ul{padding-left:1.2rem;margin:.3rem 0}
+code{font-family:"Share Tech Mono",monospace;color:var(--green)}
+a{color:var(--cyan)}
+.foot{font-family:"Share Tech Mono",monospace;font-size:.7rem;color:var(--dim);text-align:center;margin-top:1.4rem;letter-spacing:.12em}
+</style>
+</head>
+<body>
+<main>
+<h1>PRIVACY POLICY</h1>
+<div class="sub">DART MEADOW · JOURNEY OF THE SKYBOARD · EFFECTIVE 30 SEPTEMBER 2026</div>
+
+<section>
+<h2>Network Residency</h2>
+<p>While encompassed within our Network, your acceptance of this policy is stored in your browser's local storage (like a cookie), so you won't be asked again on this device or browser. Your guest saves also stay in local storage on your device.</p>
+</section>
+
+<section>
+<h2>Entity Disclosure</h2>
+<p>EXECUTING: DART Meadow LLC. | Radical Deepscale LLC. The game's online services are part of the LEATR framework operated from the DART Meadow network.</p>
+</section>
+
+<section>
+<h2>Playing as a Guest</h2>
+<ul>
+<li>No account and no personal information. You get a random pilot name (<code>Guest-XXXX</code>).</li>
+<li>Your saves stay on your device. Use <b>Save / Export / Import</b> to keep or move them.</li>
+<li>Guests can play Story or join Multiplayer.</li>
+</ul>
+</section>
+
+<section>
+<h2>Signing in with GitHub</h2>
+<ul>
+<li>Sign-in uses GitHub's own sign-in page. After you approve, GitHub sends a one-time code back through leatr.xyz (the LEATR site, which only forwards it to this game), and our Google Apps Script bridge trades it for your access token. A type-in code on github.com/login/device is offered as a fallback. GitHub asks you to approve access to your public profile and your repositories (scopes <code>read:user</code> and <code>repo</code>), which the game needs to create and use your private save repository.</li>
+<li>The access token GitHub issues is kept only in your browser's local storage. The game uses it from your browser to talk to GitHub on your behalf. DART Meadow does not keep a copy.</li>
+<li>The game creates a <b>private</b> repository in your own GitHub account named <code>jots-&lt;your GitHub username&gt;</code>. It holds your saves (<code>saves/</code>), a small pilot profile (<code>profile.json</code>) and, if you play Multiplayer, your chat log (<code>chat/</code>). It belongs to you. You can read, download or delete it at any time on GitHub.</li>
+<li>Signing out removes the token from this browser. You can also revoke the app's access from your GitHub settings under <i>Applications</i>.</li>
+</ul>
+</section>
+
+<section>
+<h2>Multiplayer</h2>
+<ul>
+<li>In Multiplayer everyone online shares one world. Other players see your <b>pilot name</b> (your GitHub username if you're signed in, otherwise your guest name), your <b>board colour</b>, your character, where you are in the game world, and anything you type in <b>chat</b>.</li>
+<li>These live updates travel through the LEATR node bus, DART Meadow's own Google Apps Script bridge (the same one the Autumn apps use for their live scene). Each update is held there for about 30 seconds so other players can pick it up, then it expires. Anyone playing Multiplayer can see what you send, so never share personal details in chat.</li>
+<li>DART Meadow does not keep a record of multiplayer positions or chat. The bridge may occasionally keep a single copy of your latest update (random session number, pilot name, board colour and position) in the private LEATR repository as a backup for when its short-term cache is cold. If you're signed in, your own session's chat is saved to your private <code>jots-</code> repository.</li>
+<li>Story mode sends nothing about you to other players.</li>
+<li>While you play (Story or Multiplayer), the game sends a small "a pilot is online" heartbeat through the LEATR node bus every 15 seconds. It carries only a random session number and your mode, so dartmeadow.com's Session Cube can show how many gamers are online. In Multiplayer your multiplayer update is the heartbeat, so it also carries your pilot name.</li>
+</ul>
+</section>
+
+<section>
+<h2>Anonymous Gameplay Analytics</h2>
+<p>To keep the LEATR network and its Session Cubes alive, the game records <b>anonymous gameplay events</b> for everyone who agrees to this policy. That covers things like "launched", "landed on a planet", "travelled to a galaxy", "visited a black hole", "found an asteroid" and "players online". Each event is a category, a short label, an optional coarse detail (a place name or a count) and a timestamp.</p>
+<p>These events never include your name, account, IP address, chat, device details or exact position. They are stored with LEATR's live analytics and shown as the walked paths of the Session Cubes on dartmeadow.com, in the Autumn apps and above the Bird Temple in this game.</p>
+</section>
+
+<section>
+<h2>Services We Use</h2>
+<ul>
+<li><b>GitHub</b>: sign-in and your private save repository.</li>
+<li><b>Google Apps Script</b>: the LEATR bridge for sign-in, multiplayer, the online heartbeat and anonymous analytics.</li>
+<li><b>jsDelivr</b> and <b>Google Fonts</b>: code libraries and fonts.</li>
+<li><b>Stripe</b>: only if you choose to support development. Payments are processed by Stripe, and DART Meadow never sees your card details.</li>
+</ul>
+</section>
+
+<section>
+<h2>Information Exchange</h2>
+<p>Information obtained via input provided by the Visitor or prior interactions within our network will be kept mutually respectful and private where applicable. Upon interacting with the network, any visitor agrees to uphold their own ethical duties and accepts liability for their conduct, including in multiplayer chat.</p>
+</section>
+
+<section>
+<h2>Asset Licensing</h2>
+<p>Documentation or assets publicly shared by our Network may be freely copied and distributed, but not modified without consent, provided this License Policy remains attached. Commercial distributions are permitted only where this License Policy is attached and distributed as a highlighted reference. Modification requires explicit consent. Outside works the game builds on are credited, with their own licences, under <b>Menu → About</b>.</p>
+</section>
+
+<section>
+<h2>Your Choices</h2>
+<ul>
+<li>Play as a guest, sign in, or sign out at any time from the menu.</li>
+<li>Delete your <code>jots-</code> repository on GitHub to remove your cloud saves.</li>
+<li>Clearing this site's data in your browser removes local saves, your consent and any stored sign-in.</li>
+</ul>
+</section>
+
+<div class="foot">DART MEADOW · RADICAL DEEPSCALE LLC · <a href="https://dartmeadow.com/" target="_blank" rel="noopener">DARTMEADOW.COM</a> · <a href="./">BACK TO THE GAME</a></div>
+</main>
+</body>
+</html>

@@ -1,0 +1,103 @@
+/* DART Meadow — compact landscape: phones (and small tablets) held sideways.
+ * When the screen is short (≤ 520 px tall in landscape — anything under ~8")
+ * the controls shrink and re-flow so nothing overlaps and every thumbstick
+ * has clear space round it. Portrait and larger screens are untouched. */
+@media (orientation:landscape) and (max-height:520px){
+  /* ── flight ───────────────────────────────────────────────────────── */
+  #screen-flight .hud-c{--ks:.6;}
+  #screen-flight .art-btn,#screen-flight .aud-btn{height:24px !important;}
+  #screen-flight .aud-btn{width:28px !important;}
+  #screen-flight #init-progress-btn{height:24px !important;font-size:.42rem !important;}
+  #screen-flight .hud-r-row{top:36px !important;}
+  /* edge tabs: same place as on tablets, just slimmer (less tall, width hugs the label) */
+  #screen-flight .hud-toggle-btn{height:22px !important;font-size:.42rem !important;padding:0 14px 0 8px !important;letter-spacing:.12em !important;}
+  #screen-flight .hud-toggle-btn .htb-ico{font-size:.6rem;}
+  #screen-flight #logs-toggle-btn{top:96px !important;}
+  #screen-flight #qt-toggle-btn{top:122px !important;}
+  #screen-flight #temple-toggle-btn{top:148px !important;}
+  #screen-flight #journal-toggle-btn{top:174px !important;}
+  #screen-flight #shard-game-btn{top:200px !important;}
+  #screen-flight #shard-return-btn{top:226px !important;}
+  #screen-flight #hud-logs-panel{top:200px !important;left:96px !important;max-height:calc(100% - 300px) !important;}
+  #screen-flight #qt-panel{top:122px !important;left:96px !important;}
+  #screen-flight #orbit-skyboard-btn{top:66px !important;height:22px !important;font-size:.42rem !important;}
+  /* minimap: smaller, same corner */
+  #screen-flight #minimap{width:56px !important;height:56px !important;left:6px !important;bottom:calc(126px + var(--safe-bot)) !important;}
+  #screen-flight #minimap-canvas{width:54px !important;height:54px !important;}
+  #screen-flight .joystick-zone{width:92px !important;height:92px !important;}
+  /* round pads: icon only, filling the bubble, semi-transparent */
+  #screen-flight .side-pad{width:36px !important;height:36px !important;font-size:0 !important;gap:0 !important;opacity:.78;
+    background:radial-gradient(circle at 50% 40%,rgba(var(--acc-rgb),.16),rgba(var(--panel-rgb),.28) 72%) !important;}
+  #screen-flight .side-pad .sp-ico{font-size:1.15rem !important;line-height:1;}
+  #screen-flight .side-pad.active{opacity:1;}
+  #screen-flight #roll-row{left:68px !important;gap:4px !important;}
+  #screen-flight #level-stack{left:122px !important;gap:6px !important;}
+  #screen-flight .dart-pad{width:38px !important;height:38px !important;opacity:.8;font-size:.4rem !important;}
+  #screen-flight #dart-pads{grid-template-columns:38px 38px !important;gap:4px !important;right:122px !important;}
+  #screen-flight .assist-btn{height:22px !important;font-size:.42rem !important;padding:0 10px !important;}
+
+  /* ── on the ground and in the sky: shared top bar ──────────────────── */
+  .mini-kite{transform:translateX(-50%) scale(.72) !important;transform-origin:50% 0;left:40% !important;}
+  #surface-overlay>div:nth-of-type(1),#atmo-overlay>div:nth-of-type(1){padding:6px 8px !important;}
+  #surface-overlay>div:nth-of-type(1) button,#atmo-overlay>div:nth-of-type(1) button{height:22px !important;padding:0 9px !important;font-size:.42rem !important;letter-spacing:.08em !important;}
+  #surface-overlay>div:nth-of-type(1)>div:last-child,#atmo-overlay>div:nth-of-type(1)>div:last-child{gap:4px !important;}
+  #surface-overlay .orbit-skyboard-btn{height:22px !important;font-size:.42rem !important;}
+  .surf-view-btn{height:22px !important;font-size:.42rem !important;}
+
+  /* ── ground: same places as on tablets, slimmer buttons, a clear gap above the stick ── */
+  #surf-climb-btn,#surf-jump-btn,#surf-run-btn{height:24px !important;width:60px !important;padding:0 !important;font-size:.42rem !important;}
+  #surf-jump-btn,#surf-run-btn{bottom:calc(146px + var(--safe-bot)) !important;}
+  #surf-run-btn{left:90px !important;}
+  #surf-climb-btn{bottom:calc(176px + var(--safe-bot)) !important;}
+
+  /* ── sky: Mach presets as a compact grid above the right stick ──────── */
+  #atmo-presets{display:grid !important;grid-template-columns:repeat(2,58px);gap:3px !important;top:40px !important;right:8px !important;}
+  #atmo-presets button{min-width:0 !important;width:58px !important;height:20px !important;font-size:.38rem !important;letter-spacing:.04em !important;padding:0 !important;}
+  #atmo-overlay .orbit-skyboard-btn{height:22px !important;font-size:.42rem !important;}
+
+  /* Land map and Journal: fit the short screen */
+  #land-map .lm-panel,#dm-journal .jn-panel{max-height:calc(100vh - 16px) !important;}
+}
+
+/* ── Any orientation: panels and the music pill never sit on each other ── */
+body:has(#settings-modal.open) #float-music,
+body:has(#profile-modal.open) #float-music{opacity:0 !important;pointer-events:none !important;}
+@media (orientation:landscape) and (max-height:520px){
+  /* main menu: the fullscreen toggle tucks into the corner, clear of the menu panel */
+  body:has(#screen-menu.active) #fs-exit,
+  body:has(#screen-menu.active) #fs-enter{top:6px !important;left:6px !important;width:28px !important;height:28px !important;}
+}
+@media (orientation:portrait) and (max-width:600px){
+  /* the world label drops below the top-bar buttons instead of covering them */
+  #screen-surface .mini-kite,#screen-atmo .mini-kite,.mini-kite{top:46px !important;}
+  /* builder: fullscreen toggle sits right of the drawer button, not on it */
+  body:has(#screen-builder.active) #fs-exit,
+  body:has(#screen-builder.active) #fs-enter{left:56px !important;}
+}
+
+/* ── Phone bubbles (both orientations): the round pads hug their icons —
+   icon-only, see-through, just big enough to wrap the glyph — in their
+   original places ── */
+@media (orientation:landscape) and (max-height:520px){
+  #screen-flight .side-pad{width:28px !important;height:28px !important;opacity:.72;border-width:1px !important;
+    background:radial-gradient(circle at 50% 40%,rgba(var(--acc-rgb),.16),rgba(var(--panel-rgb),.22) 72%) !important;}
+  #screen-flight .side-pad .sp-ico{font-size:1.3rem !important;line-height:1;}
+  #screen-flight .side-pad .sp-ico img,#screen-flight .side-pad img{width:22px !important;height:22px !important;}
+  #screen-flight #roll-row{gap:5px !important;}
+  #screen-flight #level-stack{gap:5px !important;}
+  #screen-flight .dart-pad{width:32px !important;height:32px !important;}
+  #screen-flight #dart-pads{grid-template-columns:32px 32px !important;gap:4px !important;}
+}
+@media (orientation:portrait) and (max-width:600px){
+  #screen-flight .side-pad{width:30px !important;height:30px !important;font-size:0 !important;gap:0 !important;opacity:.74;border-width:1px !important;
+    background:radial-gradient(circle at 50% 40%,rgba(var(--acc-rgb),.16),rgba(var(--panel-rgb),.22) 72%) !important;}
+  #screen-flight .side-pad .sp-ico{font-size:1.35rem !important;line-height:1;}
+  #screen-flight .side-pad .sp-ico img,#screen-flight .side-pad img{width:24px !important;height:24px !important;}
+  #screen-flight .side-pad.active{opacity:1;}
+  #screen-flight #roll-row{gap:6px !important;}
+  #screen-flight #level-stack{gap:6px !important;}
+  #screen-flight .dart-pad{width:34px !important;height:34px !important;font-size:.38rem !important;opacity:.8;}
+  #screen-flight #dart-pads{grid-template-columns:34px 34px !important;gap:5px !important;}
+  /* the minimap sits above the roll row, clear of the stick and the GAL/SYS pads */
+  #screen-flight #minimap{width:64px !important;height:64px !important;left:8px !important;bottom:calc(280px + var(--safe-bot)) !important;}
+}

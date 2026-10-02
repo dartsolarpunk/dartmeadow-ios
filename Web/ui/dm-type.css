@@ -1,0 +1,39 @@
+/* DART Meadow — typography. The company logo face (Audiowide, set italic)
+ * carries the game's titles and labels; the HUD and reading text keep
+ * Orbitron / Rajdhani / Share Tech Mono. Title colours and glow come from
+ * the active theme (--cyan, --gold, --acc-rgb), so they change with it. */
+:root{--font-title:'DM Title','Audiowide',var(--font-hud);}
+/* self-hosted (static/fonts, SIL OFL 1.1 — see Audiowide-OFL.txt) so titles never wait on a font CDN */
+@font-face{font-family:'DM Title';font-style:normal;font-weight:400;font-display:swap;
+  src:url(../static/fonts/audiowide-latin.woff2) format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'DM Title';font-style:normal;font-weight:400;font-display:swap;
+  src:url(../static/fonts/audiowide-latin-ext.woff2) format('woff2');
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
+
+/* the shared title treatment */
+.dm-title,#screen-menu .menu-logo,.menu-logo,.modal-title,.exit-title,.jn-t1,.lm-t1,
+#screen-flight .art-logo,.art-logo,.mini-kite .mk-name{
+  font-family:var(--font-title)!important;font-style:italic;font-weight:400!important;font-synthesis:style;}
+
+/* the game's name on the main menu — the logo itself */
+#screen-menu .menu-logo{font-size:clamp(1.9rem,5.4vw,3.8rem);letter-spacing:.02em;line-height:1.05;
+  background:linear-gradient(100deg,#fff 0%,#fff 18%,var(--cyan) 52%,var(--gold) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:none;filter:drop-shadow(0 0 14px rgba(var(--acc-rgb),.55)) drop-shadow(0 0 2px rgba(255,255,255,.35));
+  padding:0 .12em;}
+#screen-menu .menu-tagline{font-family:var(--font-title);font-style:italic;font-size:clamp(.72rem,1.7vw,1.15rem);
+  letter-spacing:.06em;color:#fff;opacity:.95;text-shadow:0 0 10px rgba(var(--hi-rgb),.55);}
+@media (max-width:620px){#screen-menu .menu-logo{font-size:1.7rem;}}
+
+/* panel and dialog titles */
+.modal-title,.exit-title{letter-spacing:.06em!important;font-size:.9rem!important;
+  background:linear-gradient(90deg,#fff,var(--cyan) 70%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent!important;
+  filter:drop-shadow(0 0 6px rgba(var(--acc-rgb),.45));}
+.exit-title{background:linear-gradient(90deg,#fff,#ff7a7a);-webkit-background-clip:text;background-clip:text;}
+.modal-title[style*="color:#fff"]{color:transparent!important;}
+.jn-t1,.lm-t1{letter-spacing:.08em!important;font-size:1.05rem!important;}
+.lm-t1{font-size:.9rem!important;}
+
+/* world names on the HUD kites */
+.mini-kite .mk-name,#screen-flight .art-logo{letter-spacing:.1em!important;font-size:.82rem!important;}

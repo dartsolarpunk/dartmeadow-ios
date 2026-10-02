@@ -1,0 +1,16 @@
+# Paths from dartmeadow-space that the game never loads at runtime.
+# rsync exclude patterns (relative to the dartmeadow-space root).
+.git/
+.github/
+*.zip
+*.fbx
+*.blend
+README.md
+sw.js
+dartmeadow-original-backup.html
+reference-assets/
+static/splash-menu-plate-backup.mp4
+static/og-share*.jpg
+characterassests/Meshy_AI_T_Pose_Sentinel_*
+Filler.txt
+CNAME
