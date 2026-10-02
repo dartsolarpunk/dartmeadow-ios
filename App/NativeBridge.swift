@@ -36,6 +36,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         return """
         (function(){
           window.DM_IOS_APP = \(json);
+          // Already a full-screen app: no "Add to Home Screen" tip.
+          try { sessionStorage.setItem('dm_a2hs_hint', '1'); } catch (e) {}
           // Forward console + uncaught errors to the device log (Xcode / Console.app / CI smoke test).
           var post = function(level, args){
             try {

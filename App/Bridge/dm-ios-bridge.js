@@ -11,7 +11,7 @@
  *     a pilot identity in the game's JOTS identity, credential checks on
  *     launch and when Apple revokes it
  */
-(function () {
+try { (function () {
   'use strict';
   if (window.__dmIOSBridge) return;
   window.__dmIOSBridge = true;
@@ -26,6 +26,12 @@
     },
   };
   document.documentElement.classList.add('dm-ios-app');
+  try {
+    const st = document.createElement('style');
+    // the app is always full screen: the web's enter-fullscreen button has nothing to do
+    st.textContent = '.dm-ios-app #fs-enter{display:none!important}';
+    document.head.appendChild(st);
+  } catch (e) {}
 
   // ── window.open → native Safari sheet ─────────────────────────────
   const origOpen = window.open;
@@ -235,4 +241,6 @@
 
   window.dmAppleSignIn = appleSignIn;
   window.dmAppleSignOut = appleSignOut;
+  console.log('[dm-ios] bridge ready');
 })();
+} catch (e) { console.error('[dm-ios] bridge failed: ' + (e && (e.stack || e.message) || e)); }
