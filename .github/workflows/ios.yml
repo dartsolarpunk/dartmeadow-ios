@@ -48,7 +48,7 @@ jobs:
           xcodebuild build -project DartMeadow.xcodeproj -scheme DartMeadow -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | grep -E "error:|warning: .*Swift|BUILD" || true
-          test -d build/Build/Products/Debug-iphonesimulator/DartMeadow.app || { grep -B2 -A6 "error:" build.log | head -120; exit 1; }
+          grep -q "BUILD SUCCEEDED" build.log || { grep -B2 -A6 "error:" build.log | head -150; exit 1; }
           du -sh build/Build/Products/Debug-iphonesimulator/DartMeadow.app
 
       - name: Boot game in Simulator

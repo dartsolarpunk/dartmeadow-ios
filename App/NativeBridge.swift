@@ -79,7 +79,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             }
 
         case "appleState":
-            apple.credentialState { state, user in replyHandler(["state": state, "user": user ?? NSNull()], nil) }
+            apple.credentialState { state, user in
+                var out: [String: Any] = ["state": state]
+                if let user { out["user"] = user }
+                replyHandler(out, nil)
+            }
 
         case "appleSignOut":
             apple.forget()
