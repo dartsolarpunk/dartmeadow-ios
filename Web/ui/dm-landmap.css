@@ -74,3 +74,16 @@ body.lp-active #atmo-canvas{cursor:none;}
   background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 20%,rgba(160,220,255,.55) 70%,rgba(255,255,255,.9));
   animation:lmWarp .9s ease-out both;}
 @keyframes lmWarp{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+
+/* auto-flight strip: cancel / IDLE / drop a marker / Mach bubbles (sky only) */
+.lm-flight{display:flex;flex-direction:column;gap:5px;}
+.lm-fl-top{display:flex;gap:5px;align-items:center;}
+.lm-fl-state{flex:1.2;font-family:var(--font-mono);font-size:.48rem;letter-spacing:.1em;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lm-flight .lm-btn{height:26px;font-size:.44rem;padding:0 8px;}
+.lm-cancel{color:#ffb3bb;box-shadow:inset 0 -2px 0 rgba(255,90,110,.75);}
+.lm-idle.on{color:#fff;box-shadow:inset 0 -2px 0 var(--gold),0 0 10px rgba(var(--hi-rgb),.5);}
+.lm-drop{color:var(--gold);}
+.lm-mach{display:flex;gap:4px;justify-content:space-between;}
+.lm-mb{width:28px;height:28px;border-radius:50%;cursor:pointer;padding:0;font-family:var(--font-hud);font-size:.44rem;font-weight:700;color:var(--cyan);
+  border:1.5px solid rgba(var(--acc-rgb),.45);background:radial-gradient(circle at 50% 35%,rgba(var(--acc-rgb),.18),rgba(var(--panel-rgb),.42) 70%);}
+.lm-mb.on{border-color:var(--gold);color:#fff;background:radial-gradient(circle at 50% 35%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 70%);box-shadow:0 0 8px rgba(var(--hi-rgb),.8);}

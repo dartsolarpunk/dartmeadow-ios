@@ -44,13 +44,13 @@
 /* surface / atmosphere titles live in the small kite (see .mini-kite in dm-hud.css) */
 #surface-overlay>div:nth-of-type(1)>div:last-child,#atmo-overlay>div:nth-of-type(1)>div:last-child{margin-left:auto;}
 #surface-overlay>div:nth-of-type(1) button,#atmo-overlay>div:nth-of-type(1) button,
-#surf-jump-btn,#surf-run-btn,#surf-climb-btn,#atmo-presets button{
+#surf-jump-btn,#surf-run-btn,#surf-climb-btn{
   height:30px !important;padding:0 14px !important;border:none !important;border-radius:0 !important;
   font-family:var(--font-hud) !important;font-size:.5rem !important;letter-spacing:.14em !important;color:var(--text) !important;
   background:linear-gradient(180deg,rgba(var(--acc-rgb),.18),rgba(var(--panel-rgb),.4)) !important;
   box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.6) !important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);display:inline-flex !important;align-items:center;justify-content:center;}
-#surface-overlay>div:nth-of-type(1) button:hover,#atmo-overlay>div:nth-of-type(1) button:hover,#atmo-presets button:hover{background:linear-gradient(180deg,rgba(var(--acc-rgb),.34),rgba(var(--acc-rgb),.1)) !important;}
+#surface-overlay>div:nth-of-type(1) button:hover,#atmo-overlay>div:nth-of-type(1) button:hover{background:linear-gradient(180deg,rgba(var(--acc-rgb),.34),rgba(var(--acc-rgb),.1)) !important;}
 #liftoff-btn,#atmo-land-btn{box-shadow:inset 0 -2px 0 var(--gold) !important;}
 #surf-run-btn{box-shadow:inset 0 -2px 0 rgba(120,235,170,.8) !important;}
 #surf-climb-btn{box-shadow:inset 0 -2px 0 rgba(255,200,80,.8) !important;}
@@ -62,7 +62,6 @@
 #surf-climb-btn.on{color:#fff !important;text-shadow:0 0 8px rgba(255,210,100,1);
   background:linear-gradient(180deg,rgba(255,200,80,.6),rgba(255,160,40,.25)) !important;box-shadow:inset 0 -3px 0 #ffd77a,inset 0 0 14px rgba(255,210,120,.9) !important;}
 @media (prefers-reduced-motion:reduce){#surf-run-btn.on{animation:none;}}
-#atmo-presets button{min-width:84px !important;height:26px !important;font-size:.44rem !important;}
 /* thumbsticks: slim rings, glowing knob */
 #surf-move-zone>div:nth-child(2),#surf-look-zone>div:nth-child(2),#atmo-steer-zone>div:nth-child(2),#atmo-climb-zone>div:nth-child(2){
   background:radial-gradient(circle,rgba(var(--panel-rgb),.16) 0 60%,rgba(var(--acc-rgb),.07) 61% 100%) !important;

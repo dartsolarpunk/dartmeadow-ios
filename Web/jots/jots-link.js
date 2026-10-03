@@ -42,6 +42,7 @@
     nodeReadMs: 1800,                             // multiplayer read cadence
     presenceMs: 15000,                            // story-mode "online" heartbeat
     chatHoldMs: 20000,                            // how long a chat line rides along on our node
+    dmHoldMs: 45000,                              // friend messages ride a little longer (they're for one reader)
     mqttLib: 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js',
     topic: 'dartmeadow/jots/v1',
     room: 'world',
@@ -476,6 +477,11 @@
   function gasTransport(room, onMsg, onStatus) {
     let closed = false, state = null, chatK = 0, fails = 0, first = true;
     const chatOut = [];                          // [{k,text,ts,at}]
+    // Friend messages travel in their own field, `dm`, addressed to one
+    // pilot name; the world chat (`ch`) never carries them, so older game
+    // versions on the bus never show them.
+    const dmOut = [];                            // [{k,to,b,ts,at}]
+    const dmSeen = new Set();
     const lastTs = new Map();                    // peer id → last state ts delivered
     const chatSeen = new Set();                  // peer id + ':' + k
     let wTimer = null, rTimer = null;
@@ -483,9 +489,11 @@
       if (closed) return;
       const now = Date.now();
       while (chatOut.length && now - chatOut[0].at > CFG.chatHoldMs) chatOut.shift();
+      while (dmOut.length && now - dmOut[0].at > CFG.dmHoldMs) dmOut.shift();
       if (state && !document.hidden) {
         const payload = Object.assign({}, state, { room, ts: now });
         if (chatOut.length) payload.ch = chatOut.map((c) => ({ k: c.k, text: c.text, ts: c.ts }));
+        if (dmOut.length) payload.dm = dmOut.map((c) => ({ k: c.k, to: c.to, b: c.b, ts: c.ts }));
         try { const r = await nodeBus.write(payload, state.n, state.c); if (!r.ok) throw 0; fails = 0; onStatus('online'); }
         catch (e) { if (++fails >= 3) onStatus('reconnecting'); }
       }
@@ -509,8 +517,16 @@
               chatSeen.add(key);
               if (!first) onMsg({ t: 'chat', id: nd.id, n: m.n, text: c.text, ts: c.ts });
             }
+            for (const c of Array.isArray(m.dm) ? m.dm : []) {
+              if (!c || typeof c.to !== 'string') continue;
+              const key = nd.id + ':' + c.k;
+              if (dmSeen.has(key)) continue;
+              dmSeen.add(key);
+              onMsg({ t: 'dm', id: nd.id, n: m.n, kd: m.k, to: c.to, b: c.b, ts: c.ts });   // first read too: the friends side drops repeats
+            }
           }
           if (chatSeen.size > 2000) chatSeen.clear();
+          if (dmSeen.size > 2000) dmSeen.clear();
           first = false;
         } catch (e) {}
       }
@@ -523,6 +539,11 @@
         if (msg.t === 'state') { state = msg; return; }
         if (msg.t === 'chat') {
           chatOut.push({ k: ++chatK, text: msg.text, ts: msg.ts, at: Date.now() });
+          clearTimeout(wTimer); wTimer = setTimeout(writeLoop, 150);
+        }
+        if (msg.t === 'dm') {
+          dmOut.push({ k: ++chatK, to: msg.to, b: msg.b, ts: msg.ts, at: Date.now() });
+          while (dmOut.length > 12) dmOut.shift();
           clearTimeout(wTimer); wTimer = setTimeout(writeLoop, 150);
         }
       },
@@ -585,8 +606,26 @@
       this.transport.send(m);
       this.onMsg(m, true);
     },
+    // A message for one pilot (friends: requests, private chat, shared
+    // Journal markers). Addressed by pilot name; only that player's game
+    // shows it. body: a small object, at most ~4 KB once packed.
+    sendDirect(to, body) {
+      to = String(to || '').slice(0, 40);
+      if (!to || !this.transport || !body) return false;
+      let packed; try { packed = JSON.stringify(body); } catch (e) { return false; }
+      if (packed.length > 4500) return false;
+      this.transport.send({ t: 'dm', id: sessionId, n: identity.name, kd: identity.kind === 'github' ? 'h' : 'g', to, b: body, ts: Date.now() });
+      return true;
+    },
     onMsg(m, self) {
       if (!m || !m.t) return;
+      if (m.t === 'dm') {
+        if (m.id === sessionId || typeof m.to !== 'string') return;
+        if (m.to.toLowerCase() !== String(identity.name || '').toLowerCase()) return;
+        if (!m.b || typeof m.b !== 'object') return;
+        emit('dm', { from: String(m.n || '?').slice(0, 40), kind: m.kd === 'h' ? 'github' : 'guest', peer: m.id, body: m.b, ts: +m.ts || Date.now() });
+        return;
+      }
       if (m.t === 'state' && m.id !== sessionId) {
         const had = this.peers.has(m.id), prev = this.peers.get(m.id), now = Date.now();
         // Velocity from the last two samples (sender clock), so ghosts can

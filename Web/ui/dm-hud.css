@@ -362,3 +362,57 @@ body.ship-walk #screen-flight .hud-c .kite-board{display:flex;}
 @keyframes apGlow{0%,100%{box-shadow:0 0 12px rgba(var(--acc-rgb),.6)}50%{box-shadow:0 0 26px rgba(var(--acc-rgb),1),0 0 6px rgba(255,255,255,.8)}}
 @media (prefers-reduced-motion:reduce){.ap-pad.active{animation:none;box-shadow:0 0 18px rgba(var(--acc-rgb),.9);}}
 @media (orientation:landscape) and (max-height:500px){#ap-btn-atmo{left:44px;bottom:calc(206px + var(--safe-bot));width:40px;height:40px;}}
+
+/* ── Ground & sky soundtrack player: the space HUD's top-left chip row,
+   first item in each world's own header row ─────────────────────────── */
+.world-music{position:relative;display:flex;align-items:center;gap:2px;pointer-events:auto;flex:none;z-index:2;
+  --g-fill:rgba(var(--panel-rgb),.34);--g-fill-hi:rgba(var(--acc-rgb),.16);}
+.world-music::after{content:'';position:absolute;left:6px;right:6px;bottom:-5px;height:1px;background:linear-gradient(90deg,transparent,rgba(var(--acc-rgb),.55),transparent);}
+#surface-overlay .world-music .aud-btn,#atmo-overlay .world-music .aud-btn{
+  height:30px !important;width:34px !important;min-width:34px;padding:0 !important;margin:0;border:none !important;border-radius:0 !important;
+  display:inline-flex !important;align-items:center;justify-content:center;
+  font-family:var(--font-hud) !important;font-size:.7rem !important;letter-spacing:0 !important;color:rgba(var(--acc-rgb),.95) !important;
+  background:linear-gradient(180deg,var(--g-fill-hi),var(--g-fill)) !important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.45) !important;cursor:pointer;}
+#surface-overlay .world-music .aud-btn:hover,#atmo-overlay .world-music .aud-btn:hover{background:linear-gradient(180deg,rgba(var(--acc-rgb),.32),rgba(var(--acc-rgb),.1)) !important;box-shadow:inset 0 -2px 0 var(--cyan),0 0 14px rgba(var(--acc-rgb),.35) !important;}
+.world-music .aud-btn.playing{color:#7dffc0 !important;}
+.world-music .wm-vol-wrap{display:flex;align-items:center;gap:3px;height:30px;padding:0 10px 0 8px;
+  background:linear-gradient(180deg,var(--g-fill-hi),var(--g-fill));box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.45);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+.world-music .wm-vol-ico{font-size:.6rem;color:rgba(var(--acc-rgb),.85);width:14px;text-align:center;}
+.world-music .wm-vol{-webkit-appearance:none;appearance:none;width:64px;height:4px;border-radius:2px;outline:none;cursor:pointer;margin:0;
+  background:linear-gradient(90deg,var(--cyan),rgba(var(--acc-rgb),.18));}
+.world-music .wm-vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle,#fff 0 22%,var(--cyan) 26%);border:none;box-shadow:0 0 8px rgba(var(--acc-rgb),.8);}
+.world-music .wm-vol::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--cyan);border:none;}
+.world-music .wm-name{margin-left:6px;font-family:var(--font-mono);font-size:.46rem;letter-spacing:.06em;color:rgba(var(--acc-rgb),.75);max-width:130px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+/* same thinning as the space bar */
+@media (max-width:1240px){ .world-music .wm-name{display:none;} }
+@media (max-width:1080px){ #surface-overlay .world-music .aud-btn:nth-child(n+5),#atmo-overlay .world-music .aud-btn:nth-child(n+5){display:none !important;} #surface-overlay .world-music .aud-btn,#atmo-overlay .world-music .aud-btn{width:30px !important;min-width:30px;} .world-music .wm-vol{width:50px;} }
+@media (max-width:620px){ #surface-overlay .world-music .aud-btn:nth-child(n+3),#atmo-overlay .world-music .aud-btn:nth-child(n+3){display:none !important;} .world-music .wm-vol-wrap{display:none;}
+  /* phones: right-hand button row scrolls instead of pushing off-screen */
+  #surface-overlay>div:nth-of-type(1)>div:last-child,#atmo-overlay>div:nth-of-type(1)>div:last-child{min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none;}
+  #surface-overlay>div:nth-of-type(1)>div:last-child::-webkit-scrollbar,#atmo-overlay>div:nth-of-type(1)>div:last-child::-webkit-scrollbar{display:none;}
+  #surface-overlay>div:nth-of-type(1)>div:last-child>*,#atmo-overlay>div:nth-of-type(1)>div:last-child>*{flex:none;} }
+@media (orientation:landscape) and (max-height:520px){
+  #surface-overlay .world-music .aud-btn,#atmo-overlay .world-music .aud-btn{height:24px !important;width:28px !important;min-width:28px;font-size:.62rem !important;}
+  .world-music .wm-vol-wrap{height:24px;}
+}
+
+/* ── Sky: IDLE bubble above the right stick (mirrors AUTO above the left) ── */
+#atmo-idle-btn{position:absolute;right:50px;bottom:calc(222px + var(--safe-bot));width:48px;height:48px;z-index:6;pointer-events:auto;font-size:.42rem;}
+#atmo-idle-btn .sp-ico{font-size:.9rem;}
+#atmo-idle-btn.active{border-color:var(--gold);color:#fff;background:radial-gradient(circle at 50% 35%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 70%);
+  box-shadow:0 0 10px rgba(var(--hi-rgb),.85),0 0 22px rgba(var(--hi-rgb),.45);}
+@media (orientation:landscape) and (max-height:500px){#atmo-idle-btn{right:44px;bottom:calc(206px + var(--safe-bot));width:40px;height:40px;}}
+
+/* ── Sky: Mach bubbles M1…M8 — round pads in one column ── */
+#atmo-presets{gap:4px !important;align-items:center;}
+#atmo-presets .mach-pad{width:32px;height:32px;font-size:.5rem;font-weight:700;letter-spacing:.04em;color:var(--cyan);
+  border:1.5px solid rgba(var(--acc-rgb),.45);background:radial-gradient(circle at 50% 35%,rgba(var(--acc-rgb),.18),rgba(var(--panel-rgb),.42) 70%);}
+#atmo-presets .mach-pad.active{border-color:var(--gold);color:#fff;background:radial-gradient(circle at 50% 35%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 70%);
+  box-shadow:0 0 10px rgba(var(--hi-rgb),.85),0 0 20px rgba(var(--hi-rgb),.4);}
+/* the column runs where ORBIT used to sit: ORBIT steps down below it */
+@media (min-height:641px){ #atmo-overlay .orbit-skyboard-btn{top:404px !important;} }
+/* shorter screens: the same bubbles, two to a row, so they clear the stick */
+@media (max-height:640px){ #atmo-overlay #atmo-presets{display:grid !important;grid-template-columns:repeat(2,auto);} }
+@media (orientation:landscape) and (max-height:520px){ #atmo-presets .mach-pad{width:26px;height:26px;font-size:.44rem;} }

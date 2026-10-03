@@ -1,0 +1,61 @@
+/* DART Meadow — Friends (ui/dm-friends.js): chat tabs, friends list, private
+ * chat, the name-tag pop-up and the marker share picker. */
+.fr-tabs{display:flex;gap:4px;}
+.fr-tabs button{flex:1;height:24px;border:none;cursor:pointer;font-family:var(--font-hud);font-size:.5rem;letter-spacing:.16em;color:rgba(255,255,255,.7);
+  background:linear-gradient(180deg,rgba(var(--acc-rgb),.14),rgba(var(--acc-rgb),.03));box-shadow:inset 0 -1px 0 rgba(var(--acc-rgb),.35);
+  clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);}
+.fr-tabs button.on{color:#fff;background:linear-gradient(180deg,rgba(var(--acc-rgb),.34),rgba(var(--acc-rgb),.08));box-shadow:inset 0 -2px 0 var(--cyan);}
+.fr-badge{display:inline-block;min-width:14px;height:14px;line-height:14px;margin-left:5px;padding:0 3px;border-radius:7px;background:#ff4fa3;color:#fff;font-size:.42rem;letter-spacing:0;text-align:center;vertical-align:middle;}
+.fr-pane{max-height:40vh;overflow-y:auto;font-size:.6rem;line-height:1.4;background:rgba(4,10,22,.6);border:1px solid rgba(var(--acc-rgb),.22);border-radius:4px;padding:.35rem .45rem;display:flex;flex-direction:column;gap:3px;}
+.fr-h{font-family:var(--font-hud);font-size:.44rem;letter-spacing:.18em;color:rgba(var(--acc-rgb),.75);margin:.3rem 0 .1rem;}
+.fr-note{font-size:.55rem;color:rgba(255,255,255,.6);padding:.2rem 0;}
+.fr-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:3px;}
+.fr-friend{cursor:pointer;}
+.fr-friend:hover{background:rgba(var(--acc-rgb),.14);}
+.fr-row.fr-dim{opacity:.7;}
+.fr-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#eaf0ff;}
+.fr-go{opacity:.7;}
+.fr-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.25);flex:none;}
+.fr-dot.on{background:#39ff9c;box-shadow:0 0 6px #39ff9c;}
+.fr-q{font-size:.5rem;color:rgba(255,255,255,.55);font-style:normal;}
+.fr-b{height:22px;border:none;cursor:pointer;padding:0 8px;font-family:var(--font-hud);font-size:.44rem;letter-spacing:.1em;color:#eaf0ff;
+  background:rgba(var(--acc-rgb),.16);box-shadow:inset 0 -1px 0 rgba(var(--acc-rgb),.5);white-space:nowrap;}
+.fr-b:hover{background:rgba(var(--acc-rgb),.34);}
+.fr-b:disabled{opacity:.5;cursor:default;}
+.fr-b.fr-ok{color:#bfffe0;background:rgba(57,255,156,.14);box-shadow:inset 0 -1px 0 rgba(57,255,156,.6);}
+.fr-b[data-armed]{background:rgba(255,80,90,.45);}
+.fr-th-head{display:flex;align-items:center;gap:6px;padding-bottom:4px;border-bottom:1px solid rgba(var(--acc-rgb),.18);}
+.fr-un{margin-left:auto;color:#ffb3bb;}
+.fr-log{flex:1;min-height:60px;max-height:26vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding:3px 0;}
+.fr-line{color:#eaf0ff;word-wrap:break-word;}
+.fr-line b{color:var(--cyan,#5b7fff);font-weight:600;}
+.fr-line.me b{color:#39ff9c;}
+.fr-t{margin-left:6px;font-size:.46rem;color:rgba(255,255,255,.4);}
+.fr-addmk{display:block;margin-top:3px;}
+#fr-in{width:100%;box-sizing:border-box;padding:.45rem .5rem;border-radius:3px;border:1px solid rgba(var(--acc-rgb),.35);background:rgba(4,10,22,.8);color:#fff;font-size:.64rem;}
+/* name tag pop-up */
+.fr-tagpop{position:fixed;z-index:9000;display:none;min-width:160px;padding:8px 10px;pointer-events:auto;
+  background:linear-gradient(180deg,rgba(var(--acc-rgb),.24),rgba(var(--panel-rgb),.86));box-shadow:inset 0 -2px 0 var(--cyan),0 0 18px rgba(var(--acc-rgb),.35);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  animation:frPop .22s cubic-bezier(.2,.9,.25,1) both;}
+@keyframes frPop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+.fr-tp-name{font-family:var(--font-hud);font-size:.58rem;letter-spacing:.12em;color:#fff;margin-bottom:6px;}
+.fr-gh{color:#bfffe0;}
+.fr-tagpop .fr-b{width:100%;height:26px;font-size:.5rem;}
+/* share picker */
+.fr-share{position:fixed;inset:0;z-index:5300;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter:blur(3px);}
+.fr-share.open{display:flex;}
+.fr-sh-card{width:min(320px,calc(100vw - 24px));max-height:min(440px,calc(100vh - 40px));display:flex;flex-direction:column;gap:7px;padding:12px;box-sizing:border-box;
+  --cut:14px;font-family:var(--font-hud);color:var(--text);animation:frPop .25s cubic-bezier(.2,.9,.25,1) both;}
+.fr-sh-head{display:flex;align-items:center;justify-content:space-between;}
+.fr-sh-t{font-size:.62rem;letter-spacing:.3em;background:linear-gradient(90deg,#fff,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.fr-sh-lab{font-family:var(--font-mono);font-size:.56rem;color:var(--gold);}
+.fr-sh-list{flex:1;min-height:60px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
+.fr-sh-row{display:flex;align-items:center;gap:8px;padding:5px 6px;cursor:pointer;font-size:.58rem;color:#eaf0ff;border-radius:3px;}
+.fr-sh-row:hover{background:rgba(var(--acc-rgb),.14);}
+.fr-sh-row input{accent-color:#39ff9c;width:16px;height:16px;margin:0;}
+#fr-sh-note{width:100%;box-sizing:border-box;padding:.4rem .5rem;border-radius:3px;border:1px solid rgba(var(--acc-rgb),.35);background:rgba(4,10,22,.8);color:#fff;font-size:.6rem;}
+.fr-sh-foot{display:flex;gap:6px;justify-content:flex-end;}
+.fr-sh-foot .fr-b{height:28px;font-size:.5rem;}
+/* the Journal row's share button */
+.jn-share{display:inline-flex;align-items:center;justify-content:center;color:rgba(var(--acc-rgb),.95);}

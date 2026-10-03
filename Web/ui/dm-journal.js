@@ -11,6 +11,7 @@
  *   here()        → {kind, place, title} of where the player is now, or null
  *   go(entry)     → travel there
  *   describe(e)   → one-line "where" text for an entry
+ *   share(e)      → (ui/dm-friends.js) pick friends to send this waypoint to
  */
 (function () {
   'use strict';
@@ -82,6 +83,8 @@
   const EYE = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></svg>';
   const EYE_OFF = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M2 12s3.6 5 10 5 10-5 10-5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 15.5l-1.6 2M9 16.8l-.8 2.3M15 16.8l.8 2.3M19 15.5l1.6 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4l16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
   const KIND_NAME = { space: 'SPACE', atmo: 'SKY', surface: 'GROUND' };
+  // share: a node with two branches (send this waypoint to friends)
+  const SHARE = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="18" cy="5.5" r="2.6" fill="currentColor"/><circle cx="6" cy="12" r="2.6" fill="currentColor"/><circle cx="18" cy="18.5" r="2.6" fill="currentColor"/><path d="M8.3 10.8l7.4-4.1M8.3 13.2l7.4 4.1" stroke="currentColor" stroke-width="1.8"/></svg>';
   // the Journal's mark: a kite-shaped cover with a compass star over open pages
   const LOGO = '<svg class="jn-logo" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
     '<linearGradient id="jn-g" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" class="jn-s1"/><stop offset=".55" class="jn-s2"/><stop offset="1" class="jn-s3"/></linearGradient>' +
@@ -162,10 +165,11 @@
       const row = document.createElement('div'); row.className = 'jn-row jn-k-' + e.kind;
       row.innerHTML = '<span class="jn-dot jn-' + e.kind + '" title="' + KIND_NAME[e.kind] + '">' + ICON[e.kind] + '</span>' +
         '<div class="jn-main"><div class="jn-lab"></div><div class="jn-meta"></div></div>' +
-        '<div class="jn-acts"><button class="jn-mini jn-eye' + (e.hidden ? ' off' : '') + '" title="' + (e.hidden ? 'Show this marker' : 'Hide this marker') + '" aria-pressed="' + (!e.hidden) + '">' + (e.hidden ? EYE_OFF : EYE) + '</button><button class="jn-btn jn-go" title="Quick travel here">GO ▸</button><button class="jn-mini" title="Rename">✎</button><button class="jn-mini" title="Delete">✕</button></div>';
+        '<div class="jn-acts"><button class="jn-mini jn-eye' + (e.hidden ? ' off' : '') + '" title="' + (e.hidden ? 'Show this marker' : 'Hide this marker') + '" aria-pressed="' + (!e.hidden) + '">' + (e.hidden ? EYE_OFF : EYE) + '</button><button class="jn-btn jn-go" title="Quick travel here">GO ▸</button><button class="jn-mini jn-share" title="Share with friends">' + SHARE + '</button><button class="jn-mini" title="Rename">✎</button><button class="jn-mini" title="Delete">✕</button></div>';
       row.querySelector('.jn-lab').textContent = e.label;
       row.querySelector('.jn-meta').textContent = (ui.hooks.describe ? ui.hooks.describe(e) : KIND_NAME[e.kind]) + ' · ' + fmtDate(e.ts);
-      const [eye, go, ren, del] = row.querySelectorAll('button');
+      const [eye, go, shr, ren, del] = row.querySelectorAll('button');
+      shr.onclick = () => { if (ui.hooks.share) ui.hooks.share(e); else toast('Sharing needs the multiplayer link — try again in a moment'); };
       if (e.hidden) row.classList.add('jn-hidden');
       eye.onclick = () => { store.setHidden(e.id, !e.hidden); toast((e.hidden ? 'Marker shown: ' : 'Marker hidden: ') + e.label); };
       go.onclick = () => { close(); try { ui.hooks.go && ui.hooks.go(e); } catch (x) { console.warn('[journal] go', x); } };

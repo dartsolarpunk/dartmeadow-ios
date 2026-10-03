@@ -51,8 +51,8 @@
   #surf-climb-btn{bottom:calc(176px + var(--safe-bot)) !important;}
 
   /* ── sky: Mach presets as a compact grid above the right stick ──────── */
-  #atmo-presets{display:grid !important;grid-template-columns:repeat(2,58px);gap:3px !important;top:40px !important;right:8px !important;}
-  #atmo-presets button{min-width:0 !important;width:58px !important;height:20px !important;font-size:.38rem !important;letter-spacing:.04em !important;padding:0 !important;}
+  #atmo-presets{display:grid !important;grid-template-columns:repeat(2,auto);gap:3px !important;top:40px !important;right:8px !important;}
+  #atmo-presets .mach-pad{width:24px !important;height:24px !important;font-size:.4rem !important;}
   #atmo-overlay .orbit-skyboard-btn{height:22px !important;font-size:.42rem !important;}
 
   /* Land map and Journal: fit the short screen */
