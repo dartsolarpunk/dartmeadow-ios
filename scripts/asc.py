@@ -160,6 +160,11 @@ def provision():
     if not has_siwa:
         raise SystemExit("FATAL: provisioning profile lacks com.apple.developer.applesignin")
     if not app:
+        try:
+            for a in get_all("/apps", {"fields[apps]": "name,bundleId"}):
+                summary(f"  - existing app record: {a['attributes'].get('name')} · `{a['attributes'].get('bundleId')}`")
+        except Exception as e:
+            print("could not list apps:", e)
         summary(f"- **BLOCKER:** no App Store Connect app record for `{BUNDLE}`. Create it once in App Store Connect → "
                 f"Apps → + → New App (iOS, name \"{APP_NAME}\", bundle ID {BUNDLE}, SKU dartmeadow-jots), then re-run.")
         (OUT / "app_missing").write_text("1")
