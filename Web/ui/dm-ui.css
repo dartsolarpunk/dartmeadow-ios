@@ -51,7 +51,7 @@
   box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.6) !important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);display:inline-flex !important;align-items:center;justify-content:center;}
 #surface-overlay>div:nth-of-type(1) button:hover,#atmo-overlay>div:nth-of-type(1) button:hover{background:linear-gradient(180deg,rgba(var(--acc-rgb),.34),rgba(var(--acc-rgb),.1)) !important;}
-#liftoff-btn,#atmo-land-btn{box-shadow:inset 0 -2px 0 var(--gold) !important;}
+#liftoff-btn{box-shadow:inset 0 -2px 0 var(--gold) !important;}
 #surf-run-btn{box-shadow:inset 0 -2px 0 rgba(120,235,170,.8) !important;}
 #surf-climb-btn{box-shadow:inset 0 -2px 0 rgba(255,200,80,.8) !important;}
 /* RUN glows while run mode is on (it's a toggle: stays on until tapped off) */

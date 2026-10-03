@@ -983,6 +983,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 <script src="ui/dm-friends.js?v=1" defer></script>
 <script src="ui/dm-spectator.js?v=1" defer></script>
 <script src="ui/dm-stack.js?v=1" defer></script>
+<script src="ui/dm-globe.js?v=1" defer></script>
 </head>
 <body>
 <!-- LOADING -->
@@ -1650,7 +1651,6 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
     <div style="display:flex;gap:8px;">
 <button class="shot-btn" onclick="takeScreenshot()" title="Screenshot — save a full-screen photo (P)" aria-label="Take a screenshot"><svg viewBox="0 0 28 24" width="22" height="19" aria-hidden="true"><path d="M9.4 5.6 11 3.2h6l1.6 2.4" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><rect x="2" y="5.6" width="24" height="15.4" rx="3.2" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="13.3" r="5.1" fill="currentColor" fill-opacity=".3" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="13.3" r="2.5" fill="currentColor" fill-opacity=".55"/><circle cx="12.3" cy="11.6" r="1.05" fill="#fff" fill-opacity=".85"/><rect x="20.4" y="8.2" width="3.2" height="1.9" rx=".7" fill="currentColor" fill-opacity=".8"/><rect x="4.2" y="8.4" width="3.4" height="1.2" rx=".5" fill="currentColor" fill-opacity=".5"/></svg></button><button class="jn-open-btn" onclick="window.DMJournal&&DMJournal.toggle()" title="Journal — mark this spot, travel to your waypoints (J)"><span class="jn-ico">✦</span>JOURNAL</button>
             <button onclick="openTempleHub()" style="pointer-events:auto;padding:5px 12px;background:rgba(255,255,255,.1);border:1px solid #fff;color:#fff;font-family:var(--font-hud);font-size:.5rem;letter-spacing:.1em;cursor:pointer;border-radius:2px;">🕊 TEMPLE</button>
-      <button id="surf-map-btn" onclick="openLandMap()" title="Land map — pick a place and fly there automatically" style="pointer-events:auto;padding:5px 12px;background:rgba(var(--hi-rgb),.12);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-hud);font-size:.5rem;letter-spacing:.1em;cursor:pointer;border-radius:2px;">🗺 MAP</button>
       <button id="surf-fly-btn" onclick="surfRemountSkyboard()" style="pointer-events:auto;padding:5px 12px;background:rgba(var(--acc-rgb),.1);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-hud);font-size:.5rem;letter-spacing:.1em;cursor:pointer;border-radius:2px;">🛹 FLY</button>
       <button id="liftoff-btn" onclick="exitSurface()" style="pointer-events:auto;padding:5px 14px;background:rgba(var(--hi-rgb),.12);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-hud);font-size:.52rem;letter-spacing:.12em;cursor:pointer;border-radius:2px;">🚀 LIFTOFF</button>
     </div>
@@ -1677,32 +1677,6 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
   </div>
 </div>
 
-<!-- ✦ ORBITAL APPROACH (Google-Earth-style body view + landing-site plotting) -->
-<div id="orbit-overlay" style="display:none;position:fixed;inset:0;z-index:3400;background:#000;">
-  <canvas id="orbit-canvas" style="position:absolute;inset:0;display:block;touch-action:none;"></canvas>
-  <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(var(--panel-rgb),.55);backdrop-filter:blur(10px);border-bottom:1px solid rgba(var(--acc-rgb),.15);pointer-events:none;">
-    <span id="orbit-title" style="font-family:var(--font-hud);font-size:.62rem;letter-spacing:.15em;color:var(--cyan);">ORBITAL APPROACH</span>
-    <span id="orbit-sub" style="font-family:var(--font-mono);font-size:.5rem;color:rgba(var(--acc-rgb),.7);"></span>
-    <button onclick="closeOrbitApproach()" style="pointer-events:auto;padding:5px 14px;background:rgba(var(--acc-rgb),.08);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-hud);font-size:.52rem;letter-spacing:.12em;cursor:pointer;border-radius:2px;">CLOSE ✕</button>
-  </div>
-  <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 16px calc(16px + var(--safe-bot));background:linear-gradient(to top,rgba(var(--panel-rgb),.85),transparent);text-align:center;pointer-events:none;">
-    <div id="orbit-hint" style="font-family:var(--font-hud);font-size:.5rem;letter-spacing:.12em;color:rgba(var(--acc-rgb),.6);margin-bottom:10px;">DRAG TO ROTATE THE BODY · PINCH TO ZOOM · TAP THE SURFACE TO PLOT A LANDING SITE</div>
-    <div id="orbit-site" style="font-family:var(--font-mono);font-size:.55rem;color:var(--gold);margin-bottom:10px;min-height:14px;"></div>
-    <button id="orbit-descend" onclick="descendToSite()" style="display:none;pointer-events:auto;padding:9px 26px;background:rgba(var(--hi-rgb),.16);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-hud);font-size:.6rem;letter-spacing:.15em;cursor:pointer;border-radius:3px;box-shadow:0 0 18px rgba(var(--hi-rgb),.3);">⬇ DESCEND TO SITE</button>
-  </div>
-</div>
-
-<!-- ✦ DESCENT CHOICE (after reaching 150ft: skyboard-fly or land & walk) -->
-<div id="descent-choice" style="display:none;position:fixed;inset:0;z-index:3600;background:rgba(var(--panel-rgb),.82);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
-  <div style="max-width:420px;margin:auto;padding:28px 26px;border:1px solid rgba(var(--acc-rgb),.3);border-radius:8px;background:rgba(0,8,16,.9);box-shadow:0 0 40px rgba(var(--acc-rgb),.15);text-align:center;">
-    <div style="font-family:var(--font-hud);font-size:.7rem;letter-spacing:.18em;color:var(--cyan);margin-bottom:6px;">⬇ 150 FT ABOVE SURFACE</div>
-    <canvas id="descent-globe" width="160" height="160" style="display:block;margin:0 auto 14px;border-radius:50%;box-shadow:0 0 22px rgba(var(--acc-rgb),.25);"></canvas>
-    <div id="descent-body" style="font-family:var(--font-mono);font-size:.58rem;color:rgba(var(--acc-rgb),.65);margin-bottom:22px;">Hovering over the landing site.</div>
-    <button onclick="chooseSkyboard()" style="display:block;width:100%;margin-bottom:12px;padding:12px;background:rgba(var(--acc-rgb),.12);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-hud);font-size:.6rem;letter-spacing:.14em;cursor:pointer;border-radius:4px;">🛹 FLY THE SKYBOARD</button>
-    <button onclick="chooseLandWalk()" style="display:block;width:100%;padding:12px;background:rgba(var(--hi-rgb),.12);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-hud);font-size:.6rem;letter-spacing:.14em;cursor:pointer;border-radius:4px;">🚶 LAND & WALK AROUND</button>
-  </div>
-</div>
-
 <!-- ✦ ATMOSPHERIC FLIGHT (skyboard flight within a planet's atmosphere) -->
 <div id="atmo-overlay" style="display:none;position:fixed;inset:0;z-index:3450;background:#000;">
   <canvas id="atmo-canvas" style="position:absolute;inset:0;display:block;touch-action:none;"></canvas>
@@ -1712,7 +1686,6 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
     <div style="display:flex;gap:8px;">
 <button class="shot-btn" onclick="takeScreenshot()" title="Screenshot — save a full-screen photo (P)" aria-label="Take a screenshot"><svg viewBox="0 0 28 24" width="22" height="19" aria-hidden="true"><path d="M9.4 5.6 11 3.2h6l1.6 2.4" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><rect x="2" y="5.6" width="24" height="15.4" rx="3.2" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="13.3" r="5.1" fill="currentColor" fill-opacity=".3" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="13.3" r="2.5" fill="currentColor" fill-opacity=".55"/><circle cx="12.3" cy="11.6" r="1.05" fill="#fff" fill-opacity=".85"/><rect x="20.4" y="8.2" width="3.2" height="1.9" rx=".7" fill="currentColor" fill-opacity=".8"/><rect x="4.2" y="8.4" width="3.4" height="1.2" rx=".5" fill="currentColor" fill-opacity=".5"/></svg></button><button class="jn-open-btn" onclick="window.DMJournal&&DMJournal.toggle()" title="Journal — mark this spot, travel to your waypoints (J)"><span class="jn-ico">✦</span>JOURNAL</button>
             <button onclick="openTempleHub()" style="pointer-events:auto;padding:5px 12px;background:rgba(255,255,255,.1);border:1px solid #fff;color:#fff;font-family:var(--font-hud);font-size:.5rem;letter-spacing:.1em;cursor:pointer;border-radius:2px;">🕊 TEMPLE</button>
-      <button id="atmo-land-btn" onclick="openLandMap()" title="Land — pick a spot on the map, or mark the ground near you" style="pointer-events:auto;padding:5px 12px;background:rgba(var(--hi-rgb),.12);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-hud);font-size:.5rem;letter-spacing:.1em;cursor:pointer;border-radius:2px;">🚶 LAND</button>
       <button onclick="atmoExitToSpace()" style="pointer-events:auto;padding:5px 12px;background:rgba(var(--acc-rgb),.08);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-hud);font-size:.5rem;letter-spacing:.1em;cursor:pointer;border-radius:2px;">🚀 TO SPACE</button>
     </div>
   </div>
@@ -2422,7 +2395,7 @@ function _jnHere(){
       return {kind:'atmo',title:_atmoBody.name+' sky · '+Math.round((atmoState.pos.y-gh)*3.28084)+' ft'+(site?' · '+_jnSiteText(site):''),
         place:Object.assign(r,{body:_atmoBody.name,site,x:+atmoState.pos.x.toFixed(2),y:+atmoState.pos.y.toFixed(2),z:+atmoState.pos.z.toFixed(2),yaw:+atmoState.yaw.toFixed(3)})};
     }
-    if(STATE.screen==='flight'&&flightInited&&STATE.flight&&!orbitActive&&!SHIP_WALK.active){
+    if(STATE.screen==='flight'&&flightInited&&STATE.flight&&!SHIP_WALK.active){
       const w=_saveWhere(); if(!w) return null;
       const sysName=(w.sys&&w.sys.name)||'Sol';
       return {kind:'space',title:w.near?'Near '+w.near.name:'Deep space · '+sysName,place:w};
@@ -2446,11 +2419,9 @@ function _jnSyncNote(){
 // Leave whatever we're in (ground, sky, orbit view, ship) for open space.
 function _jnLeaveScenes(){
   try{ if(typeof _clearLandPrompt==='function') _clearLandPrompt(); }catch(e){}
-  try{ const dc=$('descent-choice'); if(dc) dc.style.display='none'; }catch(e){}
   if(surfaceActive){ try{ _exitSurfaceFinish(); }catch(e){ console.warn('[journal] leave ground',e); } }
   if(atmoActive){ try{ _atmoCleanup(); rebuildFlightBoardIfBroken('journal');
     if(CHAR.loaded&&CHAR.root&&boardFlight){ mountSkyboard(boardFlight); _forceCharVisible(); boardFlight.visible=true; } }catch(e){ console.warn('[journal] leave sky',e); } }
-  if(orbitActive){ try{ closeOrbitApproach(); }catch(e){} }
   if(SHIP_WALK.active){ try{ exitShipWalk(); }catch(e){} }
   if(STATE.screen!=='flight'||!flightAnimId) launchFlight();
 }
@@ -5749,7 +5720,6 @@ function _resizeAllViews(){
   const fit=(r,cam,w,h,style)=>{ if(!r||!cam) return; try{ r.setPixelRatio(effectivePixelRatio()); r.setSize(w,h,style!==false); r._dr=null; cam.aspect=w/h; cam.updateProjectionMatrix(); }catch(e){} };
   try{ if(typeof surfRenderer!=='undefined') fit(surfRenderer,surfCamera,W,H); }catch(e){}
   try{ if(typeof atmoRenderer!=='undefined') fit(atmoRenderer,atmoCamera,W,H); }catch(e){}
-  try{ if(typeof orbitRenderer!=='undefined') fit(orbitRenderer,orbitCamera,W,H); }catch(e){}
   try{ if(typeof gmRenderer!=='undefined'&&gmRenderer) fit(gmRenderer,gmCamera,Math.min(W*.92,1100),Math.min(H*.74,640)); }catch(e){}
   try{ if(typeof qtRenderer!=='undefined'&&qtRenderer){ const cv=qtRenderer.domElement; if(cv&&cv.clientWidth>10) fit(qtRenderer,qtCamera,cv.clientWidth,cv.clientHeight,false); } }catch(e){}
 }
@@ -9587,7 +9557,7 @@ document.addEventListener('pointerdown',e=>{
   if(document.pointerLockElement||!_mlPlayable()) return;
   if(!e.target||e.target.tagName!=='CANVAS') return;
   if(typeof charOrbitActive!=='undefined'&&charOrbitActive) return;   // ORBIT view drags with the mouse instead
-  if(e.target.closest('#land-map,#dm-journal')||(typeof LP!=='undefined'&&LP.on)) return;   // map panning / the marker tool keep the cursor
+  if(e.target.closest('#dm-globe,#dm-journal')||(typeof LP!=='undefined'&&LP.on)) return;   // globe spinning / the marker tool keep the cursor
   try{ const r=e.target.requestPointerLock(); if(r&&r.catch) r.catch(()=>{}); }catch(err){}
 });
 document.addEventListener('pointerlockchange',()=>{
@@ -10514,7 +10484,6 @@ function onLandPromptTap(){
       ()=>{ _clearLandPrompt(); fastTravelToSystem(sys, typeof GALAXY_DB!=='undefined'?GALAXY_DB.current:'milkyway'); });
     return;
   }
-  if(typeof openOrbitApproach==='function')openOrbitApproach(_landTargetBody);
 }
 /** Build a GALAXY_DB-compatible system chart from an arm-aligned distant star. */
 function systemChartFromArmCell(ds){
@@ -10676,21 +10645,21 @@ function updateBodies(dt){
   // Show proximity prompt — LAND for surface-eligible bodies; TAP TO ENTER
   // for arm-cell system descend. Brief interact only (hide out of range);
   // no permanent floating nameplates (Cosmos QT label rule).
+  // A landable world close by brings up the landing globe (ui/dm-globe.js);
+  // an arm-cell star still offers TAP TO ENTER in the middle of the screen.
   const ld=$('land-prompt');
+  const _nearB=_approachBestBody;
+  try{ if(window.DMGlobe) DMGlobe.near(_nearB&&!_nearB.isSystemEnter?_nearB:null); }catch(e){}
   if(ld){
-    if(_approachBestBody){
-      const b=_approachBestBody;
-      // Only touch the DOM when the target actually CHANGES — this ran
-      // innerHTML + 4 style writes every frame while near any body.
-      if(_landTargetBody!==b){
+    if(_nearB&&_nearB.isSystemEnter){
+      // Only touch the DOM when the target actually CHANGES
+      if(_landTargetBody!==_nearB){
         ld.style.display='block';ld.style.pointerEvents='auto';ld.style.cursor='pointer';
-        ld.innerHTML=b.isSystemEnter
-          ? ('✦ TAP TO ENTER '+b.name.toUpperCase())
-          : ('⬇ LAND ON '+b.name.toUpperCase());
-        _landTargetBody=b;
+        ld.innerHTML='✦ TAP TO ENTER '+_nearB.name.toUpperCase();
+        _landTargetBody=_nearB;
       }
-    } else {
-      try{ _clearLandPrompt(); }catch(e){ ld.style.display='none'; ld.innerHTML=''; _landTargetBody=null; }
+    } else if(_landTargetBody){
+      try{ ld.style.display='none'; ld.innerHTML=''; _landTargetBody=null; }catch(e){}
     }
   }
   // Sun rotation + procedural surface time
@@ -16017,17 +15986,8 @@ function getSurfacePalette(body){
   return Object.assign({grav:g},base);
 }
 // ════════════════════════════════════════════════════════════════════
-//  ✦ ORBITAL APPROACH  — Google-Earth-style body view + landing-site plot
-// ────────────────────────────────────────────────────────────────────
-//  Tapping a body opens this: a rotating 3D globe of the target world that
-//  you can spin and zoom. Tap the surface to drop a landing pin, then DESCEND
-//  takes you to ~150 ft above that exact spot, where you choose to fly the
-//  skyboard or land and walk.
+//  ✦ WORLD GLOBE TEXTURES — the landing globe (ui/dm-globe.js) wears these
 // ════════════════════════════════════════════════════════════════════
-let orbitActive=false,orbitRenderer,orbitScene,orbitCamera,orbitAnimId=null;
-let orbitGlobe=null,orbitPin=null,_orbitBody=null,_orbitSite=null;
-let orbitCamDist=3.4,orbitYaw=0,orbitPitch=0,_orbitDrag=null,_orbitPinch=null;
-
 // Builds a high-res "Mantis Radar"-style globe texture for the orbital-approach
 // view: shaded terrain/water from the body palette, PLUS a glowing lat/long
 // graticule grid and bright coastline outlines mapped onto the sphere — the
@@ -16140,7 +16100,6 @@ function makeOrbitGlobeTexture(body){
   cx.beginPath();cx.moveTo(S,0);cx.lineTo(S,S);cx.stroke();
   const tex=new THREE.CanvasTexture(cv);
   tex.wrapS=THREE.RepeatWrapping;
-  if(GFX.aniso>1&&orbitRenderer){try{tex.anisotropy=Math.min(GFX.aniso,orbitRenderer.capabilities.getMaxAnisotropy());}catch(e){}}
   _orbitTexCache[key]=tex;return tex;
 }
 
@@ -16278,74 +16237,6 @@ function _worldMapRelief(geo,m){
   }
   pos.needsUpdate=true; geo.computeVertexNormals();
 }
-async function openOrbitApproach(body){
-  if(orbitActive)return;
-  _orbitBody=body;orbitActive=true;_orbitSite=null;
-  // pause flight loop while orbiting
-  if(flightAnimId){cancelAnimationFrame(flightAnimId);flightAnimId=null;}
-  const ov=$('orbit-overlay');ov.style.display='block';
-  $('orbit-title').textContent='ORBITAL APPROACH — '+body.name.toUpperCase();
-  const landable=isBodyLandable(body);
-  $('orbit-sub').textContent=(body.type||'World')+(landable?' · landable':' · gas/hostile — flyover only');
-  $('orbit-site').textContent='';
-  $('orbit-descend').style.display='none';
-  const cv=_freshCanvas('orbit-canvas');const W=window.innerWidth,H=window.innerHeight;cv.width=W;cv.height=H;   // fresh each visit: a reused canvas keeps its old context
-  orbitRenderer=new THREE.WebGPURenderer({canvas:cv,antialias:!GFX.isMobile});
-  await orbitRenderer.init();
-  orbitRenderer.setPixelRatio(effectivePixelRatio());orbitRenderer.setSize(W,H);
-  orbitRenderer.outputColorSpace=THREE.SRGBColorSpace;
-  orbitScene=new THREE.Scene();
-  orbitCamera=new THREE.PerspectiveCamera(50,W/H,0.01,100);
-  orbitCamDist=3.4;orbitYaw=0;orbitPitch=0.2;
-  // starfield backdrop
-  const sn=1500,sp=new Float32Array(sn*3);
-  for(let i=0;i<sn;i++){const ph=Math.acos(2*Math.random()-1),th=Math.random()*6.28,r=40;sp[i*3]=r*Math.sin(ph)*Math.cos(th);sp[i*3+1]=r*Math.cos(ph);sp[i*3+2]=r*Math.sin(ph)*Math.sin(th);}
-  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
-  orbitScene.add(new THREE.Points(sg,new THREE.PointsMaterial({size:0.08,color:0xffffff})));
-  // lighting — bright enough that the mapped globe reads clearly
-  const sun=new THREE.DirectionalLight(0xfff4e2,2.6);sun.position.set(5,3,4);orbitScene.add(sun);
-  orbitScene.add(new THREE.AmbientLight(0x445566,0.9));
-  orbitScene.add(new THREE.HemisphereLight(0x88bbff,0x223344,0.5));
-  // the globe — high-res Mantis-Radar-style mapped texture (graticule grid +
-  // glowing coastlines over shaded terrain/water from the body palette)
-  const pal=getSurfacePalette(body);
-  let tex=null;
-  try{ tex=makeOrbitGlobeTexture(body); }catch(e){}
-  const mat=tex?new THREE.MeshStandardMaterial({map:tex,roughness:0.85,metalness:0.1,emissive:0x06141c,emissiveMap:tex,emissiveIntensity:0.35})
-               :new THREE.MeshStandardMaterial({color:body.color||pal.ground,roughness:0.9});
-  orbitGlobe=new THREE.Mesh(new THREE.SphereGeometry(1,192,128),mat);
-  orbitScene.add(orbitGlobe);
-  // the whole-planet map: the true ground, coarse first then full detail
-  try{ const g=orbitGlobe, isEarth=body.name==='Earth';
-    worldMapFor(body,(m)=>{ if(orbitGlobe!==g) return;
-      if(!isEarth){ mat.map=m.tex; mat.emissiveMap=m.tex; mat.color&&mat.color.set(0xffffff); mat.needsUpdate=true; }   // Earth keeps its continent chart, gains the relief
-      _worldMapRelief(g.geometry,m); });
-  }catch(e){ console.warn('[worldmap]',e); }
-  // atmosphere glow for atmospheric worlds
-  if(pal.atmos){
-    const atm=new THREE.Mesh(new THREE.SphereGeometry(1.06,48,32),new THREE.MeshBasicMaterial({color:pal.sky?pal.sky[0]:0x88bbff,transparent:true,opacity:0.16,side:THREE.BackSide,blending:THREE.AdditiveBlending}));
-    orbitScene.add(atm);
-  }
-  // landing pin (hidden until placed)
-  orbitPin=new THREE.Group();
-  const pinHead=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,12),new THREE.MeshBasicMaterial({color:0xf5c400}));
-  pinHead.position.y=0.06;orbitPin.add(pinHead);
-  const pinStem=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.12,6),new THREE.MeshBasicMaterial({color:0xf5c400}));
-  pinStem.position.y=0.0;orbitPin.add(pinStem);
-  orbitPin.visible=false;orbitGlobe.add(orbitPin);
-  // input
-  setupOrbitInput(cv);
-  // loop
-  (function oloop(){
-    orbitAnimId=requestAnimationFrame(oloop);
-    if(!_orbitDrag)orbitGlobe.rotation.y+=0.0015; // gentle auto-spin when idle
-    const cy=Math.cos(orbitYaw),sy=Math.sin(orbitYaw),cp=Math.cos(orbitPitch),spp=Math.sin(orbitPitch);
-    orbitCamera.position.set(sy*cp*orbitCamDist,spp*orbitCamDist,cy*cp*orbitCamDist);
-    orbitCamera.lookAt(0,0,0);
-    orbitRenderer.render(orbitScene,orbitCamera); _shotGrab(orbitRenderer);
-  })();
-}
-
 function isBodyLandable(b){
   if(!b)return false;
   return (b.landable!==undefined)?b.landable
@@ -16367,139 +16258,6 @@ function isProximityLandEligible(b){
   }
   // Landable planets/moons — always eligible for LAND when near
   return true;
-}
-
-function setupOrbitInput(cv){
-  const ray=new THREE.Raycaster();
-  const placePin=(cx,cy)=>{
-    const rect=cv.getBoundingClientRect();
-    const mx=(cx-rect.left)/rect.width*2-1, my=-((cy-rect.top)/rect.height)*2+1;
-    ray.setFromCamera(new THREE.Vector2(mx,my),orbitCamera);
-    const hit=ray.intersectObject(orbitGlobe,false);
-    if(hit.length){
-      // convert hit point (world) into globe-local lat/lon for the pin + site
-      const local=orbitGlobe.worldToLocal(hit[0].point.clone()).normalize();
-      orbitPin.position.copy(local.clone().multiplyScalar(1.0));
-      // orient pin to stand up from surface
-      orbitPin.up=new THREE.Vector3(0,1,0);
-      const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),local);
-      orbitPin.quaternion.copy(q);
-      orbitPin.visible=true;
-      let lat=(Math.asin(local.y)*180/Math.PI), lon=(Math.atan2(local.z,local.x)*180/Math.PI);
-      // Prefer continental interior over thin snow-coast strips (height field
-      // still primary; this only nudges the land-pick when clearly coastal snow).
-      try{
-        if(_orbitBody&&_orbitBody.name==='Earth'&&typeof earthLandMask==='function'){
-          const seed=(_orbitBody.name.length*7)+3;
-          let lv=earthLandMask(lat,lon,seed);
-          if(lv>0 && lv<0.14 && Math.abs(lat)>48){
-            let bestLat=lat, bestLon=lon, best=lv;
-            for(let k=0;k<8;k++){
-              const ang=k*Math.PI/4;
-              for(const step of [1.2,2.5,4,6.5]){
-                const la=THREE.MathUtils.clamp(lat+Math.cos(ang)*step,-89.5,89.5);
-                let lo=lon+Math.sin(ang)*step; lo=((lo+540)%360)-180;
-                const v=earthLandMask(la,lo,seed);
-                if(v>best){ best=v; bestLat=la; bestLon=lo; }
-              }
-            }
-            if(best>lv+0.06){
-              lat=bestLat; lon=bestLon;
-              const phi=lat*Math.PI/180, th=lon*Math.PI/180;
-              local.set(Math.cos(phi)*Math.cos(th), Math.sin(phi), Math.cos(phi)*Math.sin(th)).normalize();
-              orbitPin.position.copy(local.clone().multiplyScalar(1.0));
-              const q2=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),local);
-              orbitPin.quaternion.copy(q2);
-            }
-          }
-        }
-      }catch(e){}
-      _orbitSite={lat,lon,local:local.clone()};
-      $('orbit-site').textContent='📍 SITE: '+lat.toFixed(1)+'°, '+lon.toFixed(1)+'°';
-      $('orbit-descend').style.display='inline-block';
-    }
-  };
-  let moved=false,downX=0,downY=0;
-  const down=(x,y)=>{_orbitDrag={x,y};moved=false;downX=x;downY=y;};
-  const move=(x,y)=>{if(!_orbitDrag)return;const dx=x-_orbitDrag.x,dy=y-_orbitDrag.y;if(Math.abs(x-downX)+Math.abs(y-downY)>6)moved=true;orbitYaw-=dx*0.006;orbitPitch=Math.max(-1.4,Math.min(1.4,orbitPitch+dy*0.006));_orbitDrag={x,y};};
-  const up=(x,y)=>{if(_orbitDrag&&!moved)placePin(x,y);_orbitDrag=null;};
-  cv.addEventListener('mousedown',e=>down(e.clientX,e.clientY));
-  window.addEventListener('mousemove',e=>move(e.clientX,e.clientY));
-  window.addEventListener('mouseup',e=>up(e.clientX,e.clientY));
-  cv.addEventListener('touchstart',e=>{e.preventDefault();if(e.touches.length===1)down(e.touches[0].clientX,e.touches[0].clientY);else if(e.touches.length===2)_orbitPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:false});
-  cv.addEventListener('touchmove',e=>{e.preventDefault();if(e.touches.length===1)move(e.touches[0].clientX,e.touches[0].clientY);else if(e.touches.length===2&&_orbitPinch){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);orbitCamDist=Math.max(1.6,Math.min(8,orbitCamDist*(_orbitPinch/d)));_orbitPinch=d;}},{passive:false});
-  cv.addEventListener('touchend',e=>{if(e.touches.length===0){if(_orbitDrag&&!moved){const t=e.changedTouches[0];up(t.clientX,t.clientY);}else _orbitDrag=null;_orbitPinch=null;}});
-  cv.addEventListener('wheel',e=>{e.preventDefault();orbitCamDist=Math.max(1.6,Math.min(8,orbitCamDist*(1+Math.sign(e.deltaY)*0.08)));},{passive:false});
-}
-
-function closeOrbitApproach(){
-  if(!orbitActive)return;orbitActive=false;
-  if(orbitAnimId){cancelAnimationFrame(orbitAnimId);orbitAnimId=null;}
-  $('orbit-overlay').style.display='none';
-  if(orbitRenderer)orbitRenderer.dispose();
-  orbitScene=null;orbitGlobe=null;orbitPin=null;
-  // resume flight
-  resumeFlightLoop();
-}
-
-// DESCEND: take the player to ~150 ft above the chosen site, then offer the
-// skyboard-or-walk choice.
-function descendToSite(){
-  if(!_orbitSite||!_orbitBody)return;
-  const body=_orbitBody;
-  // close orbit view with a brief descent toast
-  toast('⬇ Descending to '+_orbitSite.lat.toFixed(1)+'°, '+_orbitSite.lon.toFixed(1)+'°…',1800);
-  if(orbitAnimId){cancelAnimationFrame(orbitAnimId);orbitAnimId=null;}
-  orbitActive=false;
-  $('orbit-overlay').style.display='none';
-  if(orbitRenderer)orbitRenderer.dispose();
-  orbitScene=null;orbitGlobe=null;orbitPin=null;
-  // present the choice dialog (150 ft hover)
-  const dc=$('descent-choice');dc.style.display='flex';
-  $('descent-body').textContent='Hovering 150 ft over '+body.name+' at '+_orbitSite.lat.toFixed(1)+'°, '+_orbitSite.lon.toFixed(1)+'°.';
-  // draw a Mantis-style globe preview centered on the landing site
-  try{
-    const gc=$('descent-globe');if(gc){
-      const tex=makeOrbitGlobeTexture(body);const src=tex&&tex.image;
-      const ctx=gc.getContext('2d');ctx.clearRect(0,0,gc.width,gc.height);
-      // circular clip
-      ctx.save();ctx.beginPath();ctx.arc(80,80,78,0,Math.PI*2);ctx.clip();
-      if(src){
-        // map the landing lon to a horizontal crop of the equirectangular texture
-        const lon=_orbitSite.lon; // -180..180
-        const u=((lon+180)/360); // 0..1
-        const cropW=src.width*0.5, cropH=src.height*0.9;
-        let sx=u*src.width-cropW/2; if(sx<0)sx+=src.width;
-        // draw (with horizontal wrap)
-        if(sx+cropW<=src.width){
-          ctx.drawImage(src,sx,(src.height-cropH)/2,cropW,cropH,0,0,160,160);
-        } else {
-          const w1=src.width-sx;
-          ctx.drawImage(src,sx,(src.height-cropH)/2,w1,cropH,0,0,160*(w1/cropW),160);
-          ctx.drawImage(src,0,(src.height-cropH)/2,cropW-w1,cropH,160*(w1/cropW),0,160*((cropW-w1)/cropW),160);
-        }
-      } else { ctx.fillStyle='#0a2030';ctx.fillRect(0,0,160,160); }
-      // rim shading for a spherical look
-      const rg=ctx.createRadialGradient(80,80,30,80,80,80);
-      rg.addColorStop(0,'rgba(0,0,0,0)');rg.addColorStop(1,'rgba(0,0,0,0.55)');
-      ctx.fillStyle=rg;ctx.fillRect(0,0,160,160);
-      ctx.restore();
-      // landing pin marker at center
-      ctx.fillStyle='#f5c400';ctx.beginPath();ctx.arc(80,80,4,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle='rgba(255,79,163,0.7)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(80,80,9,0,Math.PI*2);ctx.stroke();
-    }
-  }catch(e){}
-}
-
-// Player chose to FLY the skyboard in the atmosphere from the hover point.
-function chooseSkyboard(){
-  $('descent-choice').style.display='none';
-  enterAtmosphericFlight(_orbitBody,_orbitSite);
-}
-// Player chose to LAND and walk around.
-function chooseLandWalk(){
-  $('descent-choice').style.display='none';
-  enterSurface(_orbitBody,_orbitSite);
 }
 
 function resumeFlightLoop(){
@@ -16550,7 +16308,7 @@ const MACH_PRESETS=[
   {name:'M1',max:1},{name:'M2',max:2},{name:'M3',max:3},{name:'M4',max:4},
   {name:'M5',max:5},{name:'M6',max:6},{name:'M7',max:7},{name:'M8',max:8}
 ];
-const MACH_AUTO_DEFAULT=4;   // the Land map's auto-flight cruises at M5 unless you pick another bubble
+const MACH_AUTO_DEFAULT=4;   // the landing globe's FLY THERE cruises at M5 unless you pick another bubble
 const MACH_UNITS=70; // scene units/sec per Mach 1 (tuned for feel)
 const ATMO_CEILING=2600; // climb past this → exit atmosphere to space
 const ATMO_TAKEOFF_S=1.6;   // automatic climb after boarding on the surface
@@ -16563,10 +16321,6 @@ window.__whenThreeReady(function(){ _atmoCamRel=new THREE.Vector3(); });
 function _freshCanvas(id){
   const old=$(id); if(!old) return old;
   const c=old.cloneNode(false); old.replaceWith(c); return c;
-}
-function _atmoSetLandBtn(show){
-  const b=$('atmo-land-btn'); if(!b||b._shown===show) return;
-  b._shown=show; b.style.display=show?'':'none';
 }
 let atmoActive=false,atmoRenderer,atmoScene,atmoCamera,atmoAnimId=null;
 let atmoBoard=null,_atmoBody=null,_atmoSite=null,_atmoHeight=null,_atmoCamInit=false;
@@ -16657,8 +16411,6 @@ async function enterAtmosphericFlight(body,site,start){
     _atmoCamRel.copy(start.camRel);
     _atmoCamInit=true;
   }
-  _atmoSetLandBtn(false);
-  { const lb=$('atmo-land-btn'); if(lb) lb.disabled=false; }
   // Character rejoins here, mounted onto the real flight board — she was
   // left parent-less by surfRemountSkyboard() specifically so she'd
   // survive the surface scene's disposal; this is where she reappears.
@@ -16774,11 +16526,11 @@ function _skyGroundRefresh(force){
 }
 
 // Mach speed bubbles: round pads like the ones round the sticks, one
-// column, M1 at the top. The Land map shows the same row while auto-flying.
+// column, M1 at the top. The landing globe's Mach bubble steps through the same presets.
 function setAtmoPreset(i,quiet){
   atmoPreset=Math.max(0,Math.min(MACH_PRESETS.length-1,i|0));
   buildMachPresets();
-  try{ _lmSyncMach(); }catch(e){}
+  try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
   if(!quiet) toast('⚙ '+MACH_PRESETS[atmoPreset].name+' — cap Mach '+MACH_PRESETS[atmoPreset].max,1400);
 }
 function buildMachPresets(){
@@ -16800,7 +16552,7 @@ function buildMachPresets(){
 // place (the auto-flight and the throttle drop out). Any stick, W/A/S/D,
 // Space or a throttle push hands the board back.
 let atmoIdle=false;
-function _atmoIdleUI(){ const b=$('atmo-idle-btn'); if(b) b.classList.toggle('active',atmoIdle); try{ _lmSyncFlight(); }catch(e){} }
+function _atmoIdleUI(){ const b=$('atmo-idle-btn'); if(b) b.classList.toggle('active',atmoIdle); try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){} }
 function toggleAtmoIdle(force){
   if(!atmoState||atmoState.landing) return;
   const on=(typeof force==='boolean')?force:!atmoIdle;
@@ -16843,7 +16595,7 @@ function updateAtmoFlight(dt){
   _atmoApTick(s,dt,Math.abs(atmoSteer.y)>0.15||Math.abs(ml.y)>1e-4||climb!==0||!!KEYS['ArrowUp']||!!KEYS['ArrowDown']);
   // speed from throttle, capped by the selected Mach preset; LAND brakes it
   const cap=MACH_PRESETS[atmoPreset].max;
-  // the Land map's autopilot flies the board itself until you steer
+  // the landing globe's autopilot flies the board itself until you steer
   if(atmoIdle&&!landing){ atmoMach*=0.8; if(atmoMach<0.002) atmoMach=0; s.pitch=THREE.MathUtils.lerp(s.pitch,0,Math.min(1,dt*3)); }
   else if(!_atmoAutopilot(s,dt)) atmoMach=THREE.MathUtils.lerp(atmoMach,landing?0:atmoThrottle*cap,landing?Math.min(1,dt*2.2):0.04);
   // Lift-off after boarding on the surface: rise clear of the ground first.
@@ -16868,7 +16620,6 @@ function updateAtmoFlight(dt){
   }
   if(s.pos.y<groundH+4){s.pos.y=groundH+4;}
   const agl=s.pos.y-groundH;
-  _atmoSetLandBtn(true);   // LAND is always there now — it opens the Land map
   if(landing && !s.touchdown && atmoMach<0.03 && agl<6){
     s.touchdown=true;
     setTimeout(_atmoTouchdown,0);
@@ -17049,7 +16800,7 @@ function atmoLandHere(){
   if(CHAR._transitioning || !atmoState || atmoState.landing) return;
   atmoState.landing=true; atmoState.takeoff=0;
   atmoThrottle=0; try{ $('atmo-throttle').value=0; }catch(e){}
-  const btn=$('atmo-land-btn'); if(btn) btn.disabled=true;
+  try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
   toast('🛬 Landing…',1600);
 }
 function _atmoTouchdown(){
@@ -17060,8 +16811,7 @@ function _atmoTouchdown(){
   // the ground she steps onto is the spot under the board, not where the sky began
   let landSite=_atmoSite;
   try{ if(_atmoSite&&atmoBoard){ const ll=_atmoLatLon(atmoBoard.position.x,atmoBoard.position.z); landSite={lat:+ll.lat.toFixed(4),lon:+ll.lon.toFixed(4)}; } }catch(e){}
-  const btn=$('atmo-land-btn');
-  if(!CHAR.loaded || !CHAR.root || !atmoBoard || !atmoScene){ if(btn) btn.disabled=false; _atmoCleanup(); enterSurface(body,landSite,{yaw:_landYaw}); return; }
+  if(!CHAR.loaded || !CHAR.root || !atmoBoard || !atmoScene){ _atmoCleanup(); enterSurface(body,landSite,{yaw:_landYaw}); return; }
   const groundY = (_atmoHeight ? _atmoHeight(atmoBoard.position.x, atmoBoard.position.z) : atmoBoard.position.y-3);
   // Brief board descent → step off beside (board-left) → surface walk.
   // Clamp side so atmo board.scale≈2.4 does not make a 30ft hop.
@@ -17080,7 +16830,6 @@ function _atmoTouchdown(){
     if(t<1){ requestAnimationFrame(descend); }
     else {
       boardDismountSequence(atmoScene, groundY, ()=>{
-        if(btn) btn.disabled=false;
         _atmoCleanup();
         enterSurface(body,landSite,{yaw:yaw});
       }, {board:atmoBoard, sideOffset:side, yaw:yaw, endYaw:endYaw});
@@ -17100,11 +16849,11 @@ function atmoExitToSpace(){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   LAND MAP — LAND opens a flat map of the whole world. Pan and zoom it,
-   tap anywhere to plot a destination and the board flies you there
-   (the map opens again when you arrive). The ◎ marker tool drops back
-   to the 3D view with a ring-and-dot cursor: tap the ground near you
-   and she sets down right on that spot.
+   LANDING — the landing globe (ui/dm-globe.js) plots a destination
+   anywhere on the world and the board flies you there (the globe opens
+   again when you arrive). Its ◎ PICK bubble drops to the 3D view with a
+   ring-and-dot cursor: tap the ground near you and she sets down right
+   on that spot.
    The sky is laid out on the planet's lat/lon at ATMO_DEG_PER_UNIT
    (the same scale the terrain itself uses), so a spot on the map and a
    spot under the board are the same place.
@@ -17129,93 +16878,6 @@ function _atmoXZ(lat,lon){
   return {x:_wrapLon(lon-s.lon)/ATMO_DEG_PER_UNIT, z:(s.lat-lat)/ATMO_DEG_PER_UNIT};
 }
 const LAND_ICON='<svg viewBox="0 0 24 24" class="lm-ico" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3.6" fill="currentColor"/></svg>';
-const LM={el:null,cv:null,zoom:1.6,cu:0.5,cv0:0.5,target:null,drag:null,pinch:null,tex:null,raf:0};
-function _lmBuild(){
-  if(LM.el) return;
-  const r=document.createElement('div'); r.id='land-map';
-  r.innerHTML=
-    '<div class="lm-panel dm-card">'+
-      '<div class="lm-head">'+LAND_ICON.replace('lm-ico','lm-logo')+
-        '<div class="lm-title"><div class="lm-t1">LAND</div><div class="lm-t2" id="lm-world">—</div></div>'+
-        '<div class="lm-read" id="lm-read"></div>'+
-        '<button class="lm-x" id="lm-close" title="Close — keep flying (Esc)">✕</button></div>'+
-      '<div class="lm-view"><canvas id="lm-canvas"></canvas>'+
-        '<div class="lm-zoom"><button id="lm-zin" title="Zoom in">＋</button><button id="lm-zout" title="Zoom out">－</button><button id="lm-me" title="Centre on me">⌖</button></div>'+
-        '<div class="lm-hint" id="lm-hint">Drag to pan · pinch or scroll to zoom · tap to plot where to fly</div></div>'+
-      '<div class="lm-flight" id="lm-flight">'+
-        '<div class="lm-fl-top"><span class="lm-fl-state" id="lm-fl-state">AUTO-FLIGHT</span>'+
-          '<button class="lm-btn lm-cancel" id="lm-cancel" title="Cancel the auto-flight — you have the board">✕ CANCEL</button>'+
-          '<button class="lm-btn lm-idle" id="lm-idle" title="IDLE — full stop & hover in place">⏸ IDLE</button>'+
-          '<button class="lm-btn lm-drop" id="lm-drop" title="Drop a Journal marker right here">✦ MARKER</button></div>'+
-        '<div class="lm-mach" id="lm-mach"></div>'+
-      '</div>'+
-      '<div class="lm-foot">'+
-        '<button class="lm-btn lm-tool" id="lm-pick" title="Marker tool: tap the ground near you to land there">'+LAND_ICON+'<span>MARK</span></button>'+
-        '<button class="lm-btn lm-fly" id="lm-fly" disabled>⇢ FLY</button>'+
-        '<button class="lm-btn lm-down" id="lm-down" title="Set down right below the board">⬇ BELOW</button>'+
-      '</div>'+
-    '</div>';
-  document.body.appendChild(r);
-  LM.el=r; LM.cv=r.querySelector('#lm-canvas');
-  r.querySelector('#lm-close').onclick=closeLandMap;
-  r.querySelector('#lm-zin').onclick=()=>_lmZoom(1.5);
-  r.querySelector('#lm-zout').onclick=()=>_lmZoom(1/1.5);
-  r.querySelector('#lm-me').onclick=()=>{ const me=_lmMe(); if(me){ LM.cu=me.u; LM.cv0=me.v; } };
-  r.querySelector('#lm-pick').onclick=()=>{ closeLandMap(); startLandPick(); };
-  r.querySelector('#lm-fly').onclick=()=>{
-    if(!LM.target) return;
-    const t=LM.target;
-    if(surfaceActive&&!atmoActive){ closeLandMap(); _lmWalkFly(t.lat,t.lon); return; }   // walk mode: board, take off, auto-fly
-    closeLandMap(); atmoFlyTo(t.lat,t.lon);
-  };
-  r.querySelector('#lm-cancel').onclick=()=>{ if(atmoState&&atmoState.auto){ atmoState.auto=null; try{ _landMarkerClear(); }catch(e){} atmoThrottle=0; try{ $('atmo-throttle').value=0; }catch(e){} toast('Auto-flight cancelled — you have the board',1600); } _lmSyncFlight(); };
-  r.querySelector('#lm-idle').onclick=()=>{ toggleAtmoIdle(); _lmSyncFlight(); };
-  r.querySelector('#lm-drop').onclick=()=>{
-    try{
-      const h=_jnHere(); if(!h||!window.DMJournal){ toast('Nothing to mark here yet'); return; }
-      const e=window.DMJournal.store.add(h.title||'Waypoint',h.kind,h.place);
-      toast(e?'✦ Marked: '+e.label:'Journal is full — delete a waypoint first',1800);
-    }catch(e){}
-  };
-  { const mb=r.querySelector('#lm-mach');
-    MACH_PRESETS.forEach((p,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='lm-mb'; b.textContent=p.name; b.title='Cruise at Mach '+p.max; b.onclick=()=>setAtmoPreset(i); mb.appendChild(b); }); }
-  r.querySelector('#lm-down').onclick=()=>{ closeLandMap(); atmoLandHere(); };
-  r.addEventListener('pointerdown',e=>{ if(e.target===r) closeLandMap(); });
-  const c=LM.cv;
-  c.addEventListener('pointerdown',e=>{ c.setPointerCapture(e.pointerId); LM.drag={x:e.clientX,y:e.clientY,u:LM.cu,v:LM.cv0,moved:0,id:e.pointerId}; });
-  c.addEventListener('pointermove',e=>{
-    const d=LM.drag; if(!d||d.id!==e.pointerId||LM.pinch) return;
-    const W=c.clientWidth, Hh=c.clientHeight, dx=e.clientX-d.x, dy=e.clientY-d.y;
-    d.moved=Math.max(d.moved,Math.hypot(dx,dy));
-    const span=1/LM.zoom; // fraction of the map across the view width
-    LM.cu=d.u-dx/W*span; LM.cv0=Math.max(0,Math.min(1,d.v-dy/W*span*2));
-  });
-  c.addEventListener('pointerup',e=>{
-    const d=LM.drag; LM.drag=null; if(!d||d.moved>6||LM.pinch) return;
-    const p=_lmToUV(e.clientX,e.clientY); if(!p) return;
-    LM.target={lat:90-p.v*180, lon:_wrapLon(p.u*360-180)};
-    r.querySelector('#lm-fly').disabled=false;
-  });
-  c.addEventListener('wheel',e=>{ e.preventDefault(); _lmZoom(e.deltaY<0?1.15:1/1.15,e.clientX,e.clientY); },{passive:false});
-  c.addEventListener('touchstart',e=>{ if(e.touches.length===2){ LM.pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); } },{passive:true});
-  c.addEventListener('touchmove',e=>{ if(e.touches.length===2&&LM.pinch){ e.preventDefault(); const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); _lmZoom(d/LM.pinch,(e.touches[0].clientX+e.touches[1].clientX)/2,(e.touches[0].clientY+e.touches[1].clientY)/2); LM.pinch=d; } },{passive:false});
-  c.addEventListener('touchend',e=>{ if(e.touches.length<2) setTimeout(()=>{LM.pinch=null;},60); });
-  ['keydown','keyup'].forEach(t=>r.addEventListener(t,e=>{ if(e.key==='Escape') closeLandMap(); e.stopPropagation(); }));
-}
-function _lmZoom(k,cx,cy){
-  const before=(cx!=null)?_lmToUV(cx,cy,true):null;
-  LM.zoom=Math.max(1,Math.min(48,LM.zoom*k));
-  if(before){ const after=_lmToUV(cx,cy,true); LM.cu+=before.u-after.u; LM.cv0=Math.max(0,Math.min(1,LM.cv0+before.v-after.v)); }
-}
-// screen → map (u 0..1 wraps, v 0..1 top→bottom)
-function _lmToUV(x,y,free){
-  const c=LM.cv, r=c.getBoundingClientRect(), W=r.width;
-  const span=1/LM.zoom;
-  const u=LM.cu+((x-r.left)/W-0.5)*span;
-  const v=LM.cv0+((y-r.top)-r.height/2)/W*span*2;
-  if(!free&&(v<0||v>1)) return null;
-  return {u:((u%1)+1)%1, v:free?v:Math.max(0,Math.min(1,v))};
-}
 // where you are on the map: the board in the sky, or her on the ground
 // (the ground and the sky share one lat/lon layout per site)
 function _lmBody(){ return atmoActive?_atmoBody:(surfaceActive?_surfBody:null); }
@@ -17228,114 +16890,11 @@ function _lmMe(){
   return {u:(lon+180)/360, v:(90-lat)/180, lat, lon};
 }
 function _lmYaw(){ return atmoActive&&atmoState?atmoState.yaw:(surfaceActive&&surfPlayer?surfPlayer.yaw:0); }
-// the auto-flight strip on the map: cancel, IDLE, drop a marker, change the Mach bubble
-function _lmSyncMach(){
-  if(!LM.el) return;
-  LM.el.querySelectorAll('#lm-mach .lm-mb').forEach((b,i)=>b.classList.toggle('on',i===atmoPreset));
-}
-function _lmSyncFlight(){
-  if(!LM.el) return;
-  const sky=atmoActive&&atmoState, auto=!!(sky&&atmoState.auto);
-  const fl=LM.el.querySelector('#lm-flight'); fl.style.display=sky?'':'none';
-  LM.el.querySelector('#lm-cancel').disabled=!auto;
-  LM.el.querySelector('#lm-idle').classList.toggle('on',!!(sky&&atmoIdle));
-  const st=LM.el.querySelector('#lm-fl-state');
-  const txt=auto?('⇢ AUTO-FLIGHT · '+MACH_PRESETS[atmoPreset].name):(sky&&atmoIdle?'⏸ IDLE':'MANUAL');
-  if(st.textContent!==txt) st.textContent=txt;
-  const walk=surfaceActive&&!atmoActive;
-  LM.el.querySelector('#lm-pick').style.display=walk?'none':'';
-  LM.el.querySelector('#lm-down').style.display=walk?'none':'';
-  LM.el.querySelector('#lm-fly').textContent=walk?'🛹 FLY THERE':'⇢ FLY';
-  LM.el.querySelector('#lm-close').title=walk?'Close (Esc)':'Close — keep flying (Esc)';
-  _lmSyncMach();
-}
 const _lmFmt=(lat,lon)=>Math.abs(lat).toFixed(2)+'°'+(lat>=0?'N':'S')+'  '+Math.abs(lon).toFixed(2)+'°'+(lon>=0?'E':'W');
-function _lmDraw(){
-  if(!LM.el||!LM.el.classList.contains('open')) return;
-  LM.raf=requestAnimationFrame(_lmDraw);
-  const c=LM.cv, dpr=Math.min(2,window.devicePixelRatio||1), W=c.clientWidth, H=c.clientHeight;
-  if(c.width!==Math.round(W*dpr)||c.height!==Math.round(H*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); }
-  const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
-  g.fillStyle='#020812'; g.fillRect(0,0,W,H);
-  const img=LM.tex&&LM.tex.image;
-  const mapW=W*LM.zoom, mapH=mapW/2;
-  const ox=W/2-LM.cu*mapW, oy=H/2-LM.cv0*mapH;
-  if(img){
-    g.imageSmoothingEnabled=true;
-    for(let k=-1;k<=1;k++){ const x=ox+k*mapW; if(x+mapW<0||x>W) continue; g.drawImage(img,x,oy,mapW,mapH); }
-  }
-  const toS=(lat,lon)=>{ let x=ox+((lon+180)/360)*mapW; const y=oy+((90-lat)/180)*mapH; x=((x-W/2)%mapW+mapW*1.5)%mapW-mapW/2+W/2; return [x,y]; };
-  // waypoints from the Journal on this world
-  try{
-    const _mb=_lmBody();
-    if(window.DMJournal&&_mb){
-      window.DMJournal.store.entries.forEach(e=>{
-        const p=e.place||{}; if(e.hidden||e.kind==='space'||p.body!==_mb.name||!p.site) return;
-        let lat=p.site.lat, lon=p.site.lon;
-        if(e.kind==='atmo'&&isFinite(p.x)){ lat=p.site.lat-p.z*ATMO_DEG_PER_UNIT; lon=_wrapLon(p.site.lon+p.x*ATMO_DEG_PER_UNIT); }
-        const [x,y]=toS(lat,lon);
-        g.fillStyle=e.kind==='surface'?'#ffcc33':'#9fd8ff';
-        g.beginPath(); g.moveTo(x,y-5); g.lineTo(x+4,y); g.lineTo(x,y+5); g.lineTo(x-4,y); g.closePath(); g.fill();
-        if(LM.zoom>3){ g.font='600 10px "Share Tech Mono",monospace'; g.fillStyle='rgba(255,255,255,.85)'; g.fillText(e.label,x+7,y+3); }
-      });
-    }
-  }catch(e){}
-  // the plotted destination (or the one the auto-flight is heading for)
-  const t=performance.now()/1000;
-  if(!LM.target&&atmoActive&&atmoState&&atmoState.auto) LM.target={lat:atmoState.auto.lat,lon:atmoState.auto.lon};
-  if(LM.target){
-    const [x,y]=toS(LM.target.lat,LM.target.lon);
-    g.strokeStyle='#ffd23a'; g.lineWidth=2.2; g.beginPath(); g.arc(x,y,9+Math.sin(t*4)*1.5,0,Math.PI*2); g.stroke();
-    g.fillStyle='#ffd23a'; g.beginPath(); g.arc(x,y,3.6,0,Math.PI*2); g.fill();
-    const me=_lmMe();
-    if(me){ const [mx,my]=toS(me.lat,me.lon); g.setLineDash([5,5]); g.strokeStyle='rgba(255,210,58,.6)'; g.lineWidth=1.4; g.beginPath(); g.moveTo(mx,my); g.lineTo(x,y); g.stroke(); g.setLineDash([]); }
-  }
-  // you are here: the board's heading arrow
-  const me=_lmMe();
-  if(me){
-    const [x,y]=toS(me.lat,me.lon), yaw=_lmYaw();
-    g.save(); g.translate(x,y); g.rotate(-yaw);
-    g.fillStyle='rgba(0,229,255,.25)'; g.beginPath(); g.arc(0,0,12+Math.sin(t*3)*2,0,Math.PI*2); g.fill();
-    g.fillStyle='#fff'; g.strokeStyle='#00e5ff'; g.lineWidth=1.6;
-    g.beginPath(); g.moveTo(0,-9); g.lineTo(6,7); g.lineTo(0,3); g.lineTo(-6,7); g.closePath(); g.fill(); g.stroke();
-    g.restore();
-  }
-  if(atmoActive&&((LM._syncT=(LM._syncT||0)+1)%15===0)) _lmSyncFlight();
-  const rd=LM.el.querySelector('#lm-read');
-  const txt=LM.target?('◎ '+_lmFmt(LM.target.lat,LM.target.lon)+(me?'  ·  '+_lmDist(me,LM.target):'')):(me?'⌖ '+_lmFmt(me.lat,me.lon):'');
-  if(rd.textContent!==txt) rd.textContent=txt;
-}
 function _lmDist(a,b){ // as the board flies, in km on the sky map's scale
   const dz=(a.lat-b.lat)/ATMO_DEG_PER_UNIT, dx=_wrapLon(b.lon-a.lon)/ATMO_DEG_PER_UNIT;
   const d=Math.hypot(dx,dz); return d>=1000?(d/1000).toFixed(1)+' km':Math.round(d)+' m';
 }
-function openLandMap(){
-  if(landMapOpen()){ closeLandMap(); return; }   // LAND / MAP again folds it away
-  const walk=surfaceActive&&!atmoActive&&!!surfPlayer;
-  if(!walk&&(!atmoActive||!atmoState||atmoState.landing)) return;
-  if(walk&&CHAR._transitioning) return;
-  _lmBuild(); stopLandPick(true);
-  try{ if(document.pointerLockElement) document.exitPointerLock(); }catch(e){}
-  const body=_lmBody();
-  if(LM._texBody!==body){ try{ LM.tex=makeOrbitGlobeTexture(body); }catch(e){ LM.tex=null; } LM._texBody=body; }
-  LM.el.querySelector('#lm-world').textContent=(body?body.name.toUpperCase():'');
-  LM.el.querySelector('.lm-t1').textContent=walk?'MAP':'LAND';
-  LM.el.querySelector('#lm-hint').textContent=walk?'Drag to pan · pinch or scroll to zoom · tap where to fly, then FLY THERE':'Drag to pan · pinch or scroll to zoom · tap to plot where to fly';
-  const me=_lmMe(); if(me&&!LM._opened){ LM.cu=me.u; LM.cv0=me.v; LM.zoom=2.2; }
-  LM._opened=true;
-  _lmSyncFlight();
-  if(!LM.target) LM.el.querySelector('#lm-fly').disabled=true;
-  LM.el.classList.remove('closing'); LM.el.classList.add('open');
-  cancelAnimationFrame(LM.raf); _lmDraw();
-}
-function closeLandMap(){
-  if(!LM.el||!LM.el.classList.contains('open')) return;
-  LM.el.classList.add('closing');
-  setTimeout(()=>{ if(LM.el) LM.el.classList.remove('open','closing'); },320);
-}
-const landMapOpen=()=>!!(LM.el&&LM.el.classList.contains('open')&&!LM.el.classList.contains('closing'));
-window.openLandMap=openLandMap; window.closeLandMap=closeLandMap;
-
 // ── Autopilot: fly to a spot on the map (or to a marker) ──
 // opts.cruise: the whole journey flown for real at the chosen Mach bubble
 // (no DART skip-ahead), then she sets down at the spot. Used by the walk-mode map.
@@ -17347,9 +16906,9 @@ function atmoFlyTo(lat,lon,opts){
   atmoState.landing=false;
   if(atmoIdle){ atmoIdle=false; _atmoIdleUI(); }
   if(cruise){ atmoThrottle=1; try{ $('atmo-throttle').value=100; }catch(e){} }
-  if(cruise) toast('⇢ Auto-flight to '+_lmFmt(lat,lon)+' at '+MACH_PRESETS[atmoPreset].name+' — open the map to cancel, change speed or drop a marker',3200);
+  if(cruise) toast('⇢ Auto-flight to '+_lmFmt(lat,lon)+' at '+MACH_PRESETS[atmoPreset].name+' — the landing globe can cancel, change speed or drop a marker',3200);
   else if(!(opts&&opts.land)) toast('⇢ Flying to '+_lmFmt(lat,lon)+' — steer to take back control',2600);
-  try{ _lmSyncFlight(); }catch(e){}
+  try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
 }
 // Walk mode: pick a place on the map → she boards, lifts off, and the
 // autopilot flies the whole way there at M5 (throttle full), then lands.
@@ -17408,7 +16967,7 @@ function _atmoAutopilot(s,dt){
   if(dist<(a.land?5:30)){
     s.auto=null; atmoMach*=0.3; atmoThrottle=0; try{ $('atmo-throttle').value=0; }catch(e){}
     if(a.land){ atmoLandHere(); }
-    else { toast('◎ Arrived over '+_lmFmt(a.lat,a.lon),2000); setTimeout(()=>{ if(atmoActive&&atmoState&&!atmoState.landing) openLandMap(); },500); }
+    else { toast('◎ Arrived over '+_lmFmt(a.lat,a.lon),2000); setTimeout(()=>{ if(atmoActive&&atmoState&&!atmoState.landing) window.DMGlobe&&DMGlobe.expand(); },500); }
   }
   return true;
 }
@@ -17419,10 +16978,10 @@ function startLandPick(){
   if(!atmoActive||!atmoState) return;
   if(!LP.el){
     const d=document.createElement('div'); d.id='land-pick';
-    d.innerHTML='<div class="lp-bar">'+LAND_ICON+'<span>Tap the ground near you to land there</span><button id="lp-map" title="Back to the map">MAP</button><button id="lp-x" title="Cancel">✕</button></div><div class="lp-cursor">'+LAND_ICON+'</div>';
+    d.innerHTML='<div class="lp-bar">'+LAND_ICON+'<span>Tap the ground near you to land there</span><button id="lp-map" title="Back to the globe">GLOBE</button><button id="lp-x" title="Cancel">✕</button></div><div class="lp-cursor">'+LAND_ICON+'</div>';
     document.body.appendChild(d); LP.el=d;
     d.querySelector('#lp-x').onclick=()=>stopLandPick();
-    d.querySelector('#lp-map').onclick=()=>{ stopLandPick(); openLandMap(); };
+    d.querySelector('#lp-map').onclick=()=>{ stopLandPick(); window.DMGlobe&&DMGlobe.expand(); };
   }
   LP.on=true; LP.el.classList.add('on'); document.body.classList.add('lp-active');
   try{ if(document.pointerLockElement) document.exitPointerLock(); }catch(e){}
@@ -17455,9 +17014,9 @@ function _landMarkerAt(p){
   _landMarkerClear(); if(!atmoScene) return;
   const g=new THREE.Group(); g.name='land-marker';
   const mat=c=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.9,depthWrite:false,fog:false});
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(5,0.45,8,48),mat(0xffd23a)); ring.rotation.x=Math.PI/2; ring.position.y=0.6; g.add(ring);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(5,0.45,8,48),mat(0x39ff6a)); ring.rotation.x=Math.PI/2; ring.position.y=0.6; g.add(ring);
   const ball=new THREE.Mesh(new THREE.SphereGeometry(1.6,16,12),mat(0xffffff)); ball.position.y=1.8; g.add(ball);
-  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,70,8,1,true),new THREE.MeshBasicMaterial({color:0xffd23a,transparent:true,opacity:0.35,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,70,8,1,true),new THREE.MeshBasicMaterial({color:0x39ff6a,transparent:true,opacity:0.35,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
   beam.position.y=35; g.add(beam);
   g.traverse(o=>{ o.raycast=()=>{}; });
   g.position.copy(p); g.userData.ring=ring; g.userData.t0=performance.now();
@@ -17493,7 +17052,7 @@ document.addEventListener('pointerup',e=>{
 window.addEventListener('keydown',e=>{ if(e.key==='Escape'&&LP.on) stopLandPick(); });
 setInterval(()=>{ try{ _landMarkerTick(); }catch(e){} },50);
 // leaving the sky clears the tools
-function _landToolsReset(){ stopLandPick(); closeLandMap(); LP.marker=null; LM._opened=false; LM.target=null; }
+function _landToolsReset(){ stopLandPick(); LP.marker=null; }
 
 function _atmoCleanup(){
   if(!atmoActive)return;atmoActive=false;
@@ -18943,7 +18502,7 @@ function mountSkyboard(boardObj,opts){
    space flight (flightCamera/boardFlight) and atmospheric flight
    (atmoCamera/atmoBoard), auto-detecting which is active via the
    existing atmoActive flag — same spherical-drag pattern already used
-   by the planet-approach orbit view (openOrbitApproach), just aimed at
+   by the old full-screen planet-approach view, just aimed at
    her instead of a globe, and layered on top of the live flight/atmo
    render loop rather than opening a separate overlay/renderer. */
 let charOrbitActive=false, charOrbitYaw=0, charOrbitPitch=0.25, charOrbitDist=9.0; // was 4.5 — too close on entry per feedback, now starts several yards back so the whole asset group is visible
@@ -22728,7 +22287,6 @@ function _surfRemountSkyboardFinish(){
 
 
 function exitSurface(){
-  try{ closeLandMap(); }catch(e){}
   // LIFTOFF: hop onto board facing mount yaw (CHAR_MOUNT_YAW_OFFSET only —
   // no CHAR_TERRAIN_YAW_EXTRA), then tear down surface → open-space flight.
   if(!surfaceActive || CHAR._transitioning)return;
@@ -23614,14 +23172,15 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 </script>
 
 <!-- ?v= stamps: bump on every UI change so browsers never mix a new page with cached old styles -->
-<link rel="stylesheet" href="ui/dm-ui.css?v=109">
+<link rel="stylesheet" href="ui/dm-ui.css?v=110">
 <link rel="stylesheet" href="ui/dm-hud.css?v=114">
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
 <link rel="stylesheet" href="ui/dm-spectator.css?v=1">
+<link rel="stylesheet" href="ui/dm-globe.css?v=1">
 <link rel="stylesheet" href="ui/dm-menu.css?v=80">
 <link rel="stylesheet" href="ui/dm-journal.css?v=97">
-<link rel="stylesheet" href="ui/dm-landmap.css?v=87">
+<link rel="stylesheet" href="ui/dm-landmap.css?v=88">
 <link rel="stylesheet" href="ui/dm-type.css?v=89">
-<link rel="stylesheet" href="ui/dm-compact.css?v=101">
+<link rel="stylesheet" href="ui/dm-compact.css?v=102">
 </body>
 </html>

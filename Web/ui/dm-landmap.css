@@ -1,53 +1,7 @@
-/* DART Meadow — the Land map and the marker tool (index.html: LAND MAP).
- * The map swings down from the top on a hinge like the menu shutters;
- * chamfered glass comes from .dm-card. */
-#land-map{position:fixed;inset:0;z-index:3700;display:none;perspective:1400px;pointer-events:none;font-family:var(--font-hud);color:var(--text);}
-#land-map.open{display:block;}
-/* a compact HUD card docked at the left, like the Journal — the world stays visible around it */
-#land-map .lm-panel{position:absolute;left:max(12px,env(safe-area-inset-left));top:50%;pointer-events:auto;
-  width:min(380px,calc(100vw - 24px));height:min(400px,calc(100vh - 110px));
-  display:flex;flex-direction:column;gap:7px;padding:11px 12px 10px;box-sizing:border-box;
-  --cut:16px;--lc:rgba(var(--acc-rgb),.8);transform-origin:0 50%;transform:translateY(-42%);}
-#land-map.open .lm-panel{animation:lmOpen .6s cubic-bezier(.2,.9,.25,1) both;}
-#land-map.closing .lm-panel{animation:lmClose .32s cubic-bezier(.6,0,.8,.4) both;}
-@keyframes lmOpen{from{transform:translateY(-42%) rotateY(-96deg);opacity:0}55%{opacity:1}to{transform:translateY(-42%);opacity:1}}
-@keyframes lmClose{to{transform:translateY(-42%) rotateY(-100deg);opacity:0}}
-@media (prefers-reduced-motion:reduce){#land-map.open .lm-panel,#land-map.closing .lm-panel{animation:none;}}
-.lm-head{display:flex;align-items:center;gap:10px;}
-.lm-logo{width:24px;height:24px;color:var(--gold);filter:drop-shadow(0 0 6px rgba(var(--hi-rgb),.7));flex:none;}
-.lm-title{flex:none;}
-.lm-t1{font-size:.72rem;font-weight:700;letter-spacing:.34em;background:linear-gradient(90deg,#fff,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;}
-.lm-t2{font-family:var(--font-mono);font-size:.48rem;letter-spacing:.18em;color:rgba(var(--acc-rgb),.85);margin-top:2px;}
-.lm-read{flex:1;min-width:0;text-align:right;font-family:var(--font-mono);font-size:.5rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lm-x{flex:none;width:26px;height:26px;border:none;cursor:pointer;color:var(--text);font-size:.8rem;background:rgba(var(--acc-rgb),.12);
-  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);}
-.lm-x:hover{background:rgba(var(--acc-rgb),.3);}
-.lm-view{position:relative;flex:1;min-height:0;overflow:hidden;
-  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.35);}
-#lm-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;}
-.lm-zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:4px;}
-.lm-zoom button{width:26px;height:26px;border:none;cursor:pointer;color:#fff;font-size:.8rem;background:rgba(var(--panel-rgb),.75);
-  box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.45);backdrop-filter:blur(6px);}
-.lm-zoom button:hover{background:rgba(var(--acc-rgb),.35);}
-.lm-hint{position:absolute;left:8px;bottom:6px;right:40px;font-family:var(--font-mono);font-size:.44rem;color:rgba(255,255,255,.7);
-  background:rgba(var(--panel-rgb),.6);padding:4px 8px;pointer-events:none;}
-.lm-foot{display:flex;gap:6px;justify-content:space-between;}
-.lm-btn{height:30px;border:none;cursor:pointer;display:flex;align-items:center;gap:5px;padding:0 10px;flex:1;justify-content:center;white-space:nowrap;
-  font-family:var(--font-hud);font-size:.48rem;font-weight:700;letter-spacing:.14em;color:var(--text);
-  background:linear-gradient(180deg,rgba(var(--acc-rgb),.22),rgba(var(--panel-rgb),.4));box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.6);
-  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);transition:filter .15s;}
-.lm-btn:hover{filter:brightness(1.25);}
-.lm-btn:disabled{opacity:.4;cursor:default;filter:none;}
-.lm-btn .lm-ico{width:16px;height:16px;}
-.lm-tool{color:var(--gold);box-shadow:inset 0 -2px 0 var(--gold);background:linear-gradient(180deg,rgba(var(--hi-rgb),.24),rgba(var(--hi-rgb),.05));}
-.lm-fly{color:#1a1200;background:linear-gradient(180deg,#ffe27a,var(--gold));box-shadow:none;}
-@media (max-width:620px){
-  #land-map .lm-panel{top:auto;bottom:max(12px,env(safe-area-inset-bottom));transform:none;height:min(360px,calc(100vh - 140px));}
-  @keyframes lmOpen{from{transform:rotateY(-96deg);opacity:0}55%{opacity:1}to{transform:none;opacity:1}}
-  @keyframes lmClose{to{transform:rotateY(-100deg);opacity:0}}
-  .lm-read{display:none;}
-}
-
+/* DART Meadow — the sky's marker tool (index.html: startLandPick) and the
+ * DART cruise flash. The land map that lived here is now the landing globe
+ * (ui/dm-globe.js / dm-globe.css). */
+.lm-ico{display:block;}
 /* the marker tool: a bar across the top and a ring-and-dot cursor */
 #land-pick{position:fixed;inset:0;z-index:3600;pointer-events:none;display:none;}
 #land-pick.on{display:block;}
@@ -74,16 +28,3 @@ body.lp-active #atmo-canvas{cursor:none;}
   background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0) 20%,rgba(160,220,255,.55) 70%,rgba(255,255,255,.9));
   animation:lmWarp .9s ease-out both;}
 @keyframes lmWarp{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
-
-/* auto-flight strip: cancel / IDLE / drop a marker / Mach bubbles (sky only) */
-.lm-flight{display:flex;flex-direction:column;gap:5px;}
-.lm-fl-top{display:flex;gap:5px;align-items:center;}
-.lm-fl-state{flex:1.2;font-family:var(--font-mono);font-size:.48rem;letter-spacing:.1em;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lm-flight .lm-btn{height:26px;font-size:.44rem;padding:0 8px;}
-.lm-cancel{color:#ffb3bb;box-shadow:inset 0 -2px 0 rgba(255,90,110,.75);}
-.lm-idle.on{color:#fff;box-shadow:inset 0 -2px 0 var(--gold),0 0 10px rgba(var(--hi-rgb),.5);}
-.lm-drop{color:var(--gold);}
-.lm-mach{display:flex;gap:4px;justify-content:space-between;}
-.lm-mb{width:28px;height:28px;border-radius:50%;cursor:pointer;padding:0;font-family:var(--font-hud);font-size:.44rem;font-weight:700;color:var(--cyan);
-  border:1.5px solid rgba(var(--acc-rgb),.45);background:radial-gradient(circle at 50% 35%,rgba(var(--acc-rgb),.18),rgba(var(--panel-rgb),.42) 70%);}
-.lm-mb.on{border-color:var(--gold);color:#fff;background:radial-gradient(circle at 50% 35%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 70%);box-shadow:0 0 8px rgba(var(--hi-rgb),.8);}

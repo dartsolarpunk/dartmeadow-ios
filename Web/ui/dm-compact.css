@@ -56,7 +56,7 @@
   #atmo-overlay .orbit-skyboard-btn{height:22px !important;font-size:.42rem !important;}
 
   /* Land map and Journal: fit the short screen */
-  #land-map .lm-panel,#dm-journal .jn-panel{max-height:calc(100vh - 16px) !important;}
+  #dm-journal .jn-panel{max-height:calc(100vh - 16px) !important;}
 }
 
 /* ── Any orientation: panels and the music pill never sit on each other ── */

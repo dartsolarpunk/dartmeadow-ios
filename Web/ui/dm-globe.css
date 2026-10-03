@@ -1,0 +1,36 @@
+/* DART Meadow — the landing globe (ui/dm-globe.js): a round world docked at the
+ * left middle, bubbles arcing round its right side, a fold-away tab at the edge. */
+#dm-globe{--dg-d:124px;--dg-b:34px;--dg-x:24px;position:fixed;left:0;top:40%;z-index:3550;pointer-events:none;font-family:var(--font-hud);}
+#dm-globe .dg-tab{position:absolute;left:var(--dg-tx,0px);top:calc(var(--dg-d)/2 - 22px);width:20px;height:44px;padding:0;border:none;cursor:pointer;pointer-events:auto;z-index:2;
+  color:#dff4ff;font-size:.8rem;line-height:1;border-radius:0 8px 8px 0;
+  background:linear-gradient(90deg,rgba(var(--acc-rgb),.3),rgba(var(--panel-rgb),.55));box-shadow:inset -1px 0 0 rgba(var(--acc-rgb),.6),0 0 10px rgba(var(--acc-rgb),.25);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .2s;}
+#dm-globe .dg-tab span{display:inline-block;transition:transform .3s;}
+#dm-globe.collapsed .dg-tab span{transform:rotate(180deg);}
+#dm-globe .dg-tab:hover{background:linear-gradient(90deg,rgba(var(--acc-rgb),.5),rgba(var(--panel-rgb),.6));}
+#dm-globe .dg-wrap{position:absolute;left:var(--dg-x);top:0;width:var(--dg-d);height:var(--dg-d);transition:transform .45s cubic-bezier(.2,.9,.25,1),opacity .35s;transform-origin:0 50%;}
+#dm-globe.collapsed .dg-wrap{transform:translateX(calc(-100% - 90px - var(--dg-x))) scale(.6);opacity:0;pointer-events:none;}
+#dm-globe.collapsed .dg-wrap *{pointer-events:none !important;}
+#dm-globe .dg-globe{position:absolute;inset:0;border-radius:50%;pointer-events:auto;
+  box-shadow:0 0 18px rgba(110,190,255,.45),0 0 2px rgba(200,235,255,.8);background:radial-gradient(circle at 40% 35%,rgba(20,40,70,.4),rgba(2,6,14,.55));}
+#dm-globe .dg-globe.nudge{animation:dgNudge .45s ease;}
+@keyframes dgNudge{30%{box-shadow:0 0 30px rgba(57,255,106,.8)}60%{transform:scale(1.04)}}
+#dm-globe .dg-cv{display:block;width:100%;height:100%;border-radius:50%;cursor:crosshair;touch-action:none;}
+#dm-globe .dg-read{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);white-space:nowrap;pointer-events:none;padding:1px 6px;border-radius:7px;
+  background:rgba(2,8,18,.62);font-family:var(--font-mono);font-size:.44rem;letter-spacing:.05em;color:#dff4ff;text-shadow:0 0 6px rgba(var(--acc-rgb),.7);}
+#dm-globe .dg-read:empty{display:none;}
+#dm-globe .dg-bubbles{position:absolute;inset:0;pointer-events:none;}
+#dm-globe .dg-b{position:absolute;box-sizing:border-box;width:var(--dg-b);height:var(--dg-b);padding:0;border-radius:50%;cursor:pointer;pointer-events:auto;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#eaf6ff;
+  border:1.5px solid rgba(110,190,255,.7);background:radial-gradient(circle at 50% 38%,rgba(90,170,255,.42),rgba(var(--panel-rgb),.5) 72%);
+  box-shadow:0 0 10px rgba(80,170,255,.55),inset 0 0 6px rgba(160,220,255,.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  transition:transform .12s,box-shadow .15s,opacity .15s;}
+#dm-globe .dg-b i{font-style:normal;font-size:calc(var(--dg-b)*.36);line-height:1;}
+#dm-globe .dg-b span{font-size:calc(var(--dg-b)*.19);letter-spacing:.06em;line-height:1.1;margin-top:1px;font-weight:700;}
+#dm-globe .dg-b:hover{box-shadow:0 0 16px rgba(110,200,255,.9),inset 0 0 8px rgba(190,235,255,.5);}
+#dm-globe .dg-b:active{transform:scale(.9);}
+#dm-globe .dg-b.dim{opacity:.45;}
+#dm-globe .dg-b.lit,#dm-globe .dg-land:not(.dim),#dm-globe .dg-fly:not(.dim){border-color:#39ff6a;box-shadow:0 0 12px rgba(57,255,106,.7),inset 0 0 6px rgba(57,255,106,.35);}
+#dm-globe .dg-cancel{border-color:rgba(255,90,110,.8);}
+#dm-globe .dg-mach i{color:var(--gold);}
+/* HUD off hides it with everything else (ui/dm-spectator.css) */

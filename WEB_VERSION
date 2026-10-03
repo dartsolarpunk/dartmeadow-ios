@@ -1,4 +1,4 @@
-sha=f7cdbe5903ec1b4d0ceced7bf03e8526ab80b1dc
-date=2026-10-03T00:09:26-04:00
-subject=Spectator free-fly camera + HUD hide toggle beside the screenshot camera; chat panel opens under ORBIT / 1ST PERSON / Mach in every view (#115)
+sha=ee182926835377ec7cd09f3a274066898d032ec5
+date=2026-10-03T01:23:39-04:00
+subject=Landing globe: one collapsible 3D globe overlay replaces LAND ON button, orbit approach and land map (space/terrain/atmo) (#116)
 source=https://github.com/dartsolarpunk/dartmeadow-space.git
