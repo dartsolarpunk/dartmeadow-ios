@@ -174,6 +174,55 @@ def provision():
     return 0
 
 
+def req_soft(method, path, **kw):
+    """Like req() but never raises; prints the error body."""
+    url = API + path
+    r = requests.request(method, url, headers={"Authorization": "Bearer " + token(), "Content-Type": "application/json"},
+                         timeout=90, **kw)
+    print(f"{method} {path} -> {r.status_code}")
+    if r.status_code >= 300:
+        print(r.text[:1500])
+    return r
+
+
+def ensure_testers(app_id, group, wanted):
+    """Put the team's people into this internal group so TestFlight shows Install."""
+    gid = group["id"]
+    have = {t["id"] for t in get_all(f"/betaGroups/{gid}/betaTesters")}
+    for tid, email in wanted.items():
+        if tid in have:
+            continue
+        r = req_soft("POST", f"/betaGroups/{gid}/relationships/betaTesters", json={"data": [{"type": "betaTesters", "id": tid}]})
+        print("  tester", email, "->", r.status_code)
+    have = {t["attributes"].get("email", "").lower() for t in get_all(f"/betaGroups/{gid}/betaTesters")}
+    # App Store Connect users (account holder / admins) as internal testers by email
+    try:
+        users = get_all("/users")
+    except Exception as e:
+        users = []
+        print("could not list users:", e)
+    for u in users:
+        a = u["attributes"]
+        email = (a.get("username") or a.get("email") or "").lower()
+        print("ASC user:", email, a.get("roles"))
+        if not email or email in have:
+            continue
+        r = req_soft("POST", "/betaTesters", json={"data": {"type": "betaTesters",
+            "attributes": {"email": email, "firstName": a.get("firstName") or "", "lastName": a.get("lastName") or ""},
+            "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": gid}]}}}})
+        print("  add user", email, "->", r.status_code)
+
+
+def testers_only():
+    app = find_app()
+    groups = [g for g in get_all(f"/apps/{app['id']}/betaGroups") if g["attributes"].get("isInternalGroup")]
+    builds = req("GET", "/builds", params={"filter[app]": app["id"], "sort": "-uploadedDate", "limit": 1})["data"]
+    add_to_internal_groups(app["id"], builds[0]["id"])
+    for g in groups:
+        print("group", g["attributes"])
+    return 0
+
+
 # ── TestFlight readiness ────────────────────────────────────────────────
 def wait(build_number, minutes=75):
     app = find_app()
@@ -235,11 +284,7 @@ def add_to_internal_groups(app_id, build_id):
             if not g["attributes"].get("hasAccessToAllBuilds"):
                 req("POST", f"/betaGroups/{g['id']}/relationships/builds", ok=(204, 409),
                     json={"data": [{"type": "builds", "id": build_id}]})
-            have = {t["id"] for t in get_all(f"/betaGroups/{g['id']}/betaTesters")}
-            missing = [i for i in wanted if i not in have]
-            if missing:
-                req("POST", f"/betaGroups/{g['id']}/relationships/betaTesters", ok=(204, 409, 422),
-                    json={"data": [{"type": "betaTesters", "id": i} for i in missing]})
+            ensure_testers(app_id, g, wanted)
             testers = get_all(f"/betaGroups/{g['id']}/betaTesters")
             summary(f"- internal group \"{g['attributes'].get('name')}\": {len(testers)} tester(s): "
                     + ", ".join(sorted(t["attributes"].get("email") or "?" for t in testers)))
@@ -251,6 +296,8 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "provision":
         sys.exit(provision())
+    if cmd == "testers":
+        sys.exit(testers_only())
     if cmd == "wait":
         sys.exit(wait(sys.argv[2]))
     print(__doc__); sys.exit(1)

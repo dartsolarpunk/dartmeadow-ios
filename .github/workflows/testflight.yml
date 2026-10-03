@@ -10,6 +10,9 @@ on:
       ref:
         type: string
         default: main
+      mode:
+        type: string
+        default: build
     secrets:
       APP_STORE_CONNECT_API_KEY_CONTENT: { required: true }
       APP_STORE_CONNECT_ISSUER_ID: { required: true }
@@ -29,8 +32,28 @@ env:
 
 jobs:
   # ── Archive, sign, upload to TestFlight, wait until installable ──
+  testers:
+    name: TestFlight testers only
+    if: inputs.mode == 'testers'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: dartsolarpunk/dartmeadow-ios
+          ref: ${{ inputs.ref || 'main' }}
+      - name: Internal group + testers
+        env:
+          ASC_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          pip3 install --quiet 'PyJWT[crypto]>=2.8' requests
+          ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8 python3 scripts/asc.py testers
+
   testflight:
     name: Archive & TestFlight
+    if: inputs.mode != 'testers'
     runs-on: macos-15
     timeout-minutes: 140
     steps:
