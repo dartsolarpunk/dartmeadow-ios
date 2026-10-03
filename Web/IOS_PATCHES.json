@@ -28,5 +28,23 @@
    "to": "./vendor/eruda/eruda.min.js",
    "hits": 1
   }
+ ],
+ "blocks": [
+  {
+   "patch": "stripe buy buttons \u2192 StoreKit container",
+   "hits": 1
+  },
+  {
+   "patch": "support tiers text",
+   "hits": 1
+  },
+  {
+   "patch": "no js.stripe.com load",
+   "hits": 1
+  },
+  {
+   "patch": "credits: Stripe \u2192 Apple IAP",
+   "hits": 1
+  }
  ]
 }

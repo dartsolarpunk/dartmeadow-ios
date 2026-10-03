@@ -24,6 +24,29 @@ REWRITES = [
     # ?debug console
     ('https://cdn.jsdelivr.net/npm/eruda@3/eruda.min.js', './vendor/eruda/eruda.min.js'),
 ]
+# iOS only: Apple in-app purchase replaces the Stripe support buttons
+# (App Store guideline 3.1.1). The native StoreKit UI is drawn into
+# #dm-iap-container by App/Bridge/dm-ios-bridge.js.
+import re
+BLOCK_PATCHES = [
+    ('stripe buy buttons → StoreKit container',
+     re.compile(r'<!-- Stripe buy buttons render here -->.*?Payments are processed securely by Stripe\. DART Meadow never sees your card details\.\s*</div>', re.S),
+     '<div id="dm-iap-container" style="display:flex;flex-direction:column;align-items:stretch;gap:1rem;min-height:48px;"></div>\n'
+     '    <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--text-dim);margin-top:0.9rem;line-height:1.5;opacity:0.8;">\n'
+     '      Purchases are handled by Apple and charged to your Apple Account. The monthly supporter subscription renews automatically until you cancel it in Settings ▸ Apple Account ▸ Subscriptions (at least 24 hours before renewal).\n'
+     '    </div>'),
+    ('support tiers text',
+     re.compile(r'<div>☄ <strong style="color:var\(--cyan\);">\$5 / month</strong> — recurring supporter</div>\s*<div>🌟 <strong style="color:var\(--gold\);">\$20</strong> — one-time donation</div>'),
+     '<div>🌟 <strong style="color:var(--gold);">Game Development Support</strong> — one-time donation</div>\n'
+     '        <div>☄ <strong style="color:var(--cyan);">Game Development Supporter</strong> — monthly subscription</div>'),
+    ('no js.stripe.com load',
+     re.compile(r"    s\.src='https://js\.stripe\.com/v3/buy-button\.js';"),
+     "    return; /* iOS app: Apple in-app purchase replaces Stripe */"),
+    ('credits: Stripe → Apple IAP',
+     re.compile(r"\{t:'Stripe',a:'Stripe, Inc\.',l:'Service terms',use:'service',u:\['https://stripe\.com/'\],w:'Support payments\.'\},"),
+     "{t:'App Store In-App Purchase',a:'Apple Inc.',l:'Service terms',use:'service',u:['https://www.apple.com/legal/internet-services/itunes/'],w:'Support purchases in the iOS app.'},"),
+]
+
 # Files to patch (relative to Web/)
 TARGETS = ['index.html']
 
@@ -36,11 +59,15 @@ for rel in TARGETS:
         report.setdefault(old, 0)
         report[old] += n
         s = s.replace(old, new)
+    for label, rx, rep in BLOCK_PATCHES:
+        s, n = rx.subn(rep, s)
+        report[label] = report.get(label, 0) + n
     open(p, 'w', encoding='utf-8').write(s)
 
-json.dump({'targets': TARGETS, 'rewrites': [{'from': o, 'to': n, 'hits': report[o]} for o, n in REWRITES]},
+json.dump({'targets': TARGETS, 'rewrites': [{'from': o, 'to': n, 'hits': report[o]} for o, n in REWRITES],
+           'blocks': [{'patch': l, 'hits': report[l]} for l, _, _ in BLOCK_PATCHES]},
           open(os.path.join(WEB, 'IOS_PATCHES.json'), 'w'), indent=1)
-missing = [o for o, _ in REWRITES if report[o] == 0]
+missing = [o for o, _ in REWRITES if report[o] == 0] + [l for l, _, _ in BLOCK_PATCHES if report[l] == 0]
 for o in missing:
     print('WARNING: patch target not found upstream (CDN URL changed?):', o[:90])
 print('patched:', {o[:60]: n for o, n in report.items()})

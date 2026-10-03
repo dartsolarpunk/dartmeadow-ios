@@ -239,6 +239,100 @@ try { (function () {
     window.addEventListener('dmnative:appleRevoked', check);
   });
 
+
+  // ── Support: Apple in-app purchases (replaces the web's Stripe buttons) ──
+  const IAP = { donation: 'com.dartmeadow.jots.support.donation', monthly: 'com.dartmeadow.jots.support.monthly' };
+  const iapState = { products: null, status: { subscribed: false }, busy: false };
+  const THANKS_LS = 'dm_support_thanks_v1';
+
+  function iapEl(tag, css, text) { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text != null) e.textContent = text; return e; }
+
+  function renderSupport(msg) {
+    const box = $('dm-iap-container'); if (!box) return;
+    box.innerHTML = '';
+    const ps = iapState.products || [];
+    const byId = {}; ps.forEach((p) => { byId[p.id] = p; });
+    const thanks = lsGet(THANKS_LS) || { donations: 0 };
+    if (iapState.status.subscribed) {
+      box.appendChild(iapEl('div', 'font-family:var(--font-hud);font-size:.62rem;letter-spacing:.1em;color:var(--gold);line-height:1.6;',
+        '✓ THANK YOU — YOU\'RE A GAME DEVELOPMENT SUPPORTER' + (iapState.status.willRenew === false ? ' (ends ' + String(iapState.status.expires || '').slice(0, 10) + ')' : ' · RENEWS MONTHLY')));
+    }
+    if (thanks.donations > 0) {
+      box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.6rem;color:var(--cyan);', '❤ Thank you for ' + thanks.donations + ' donation' + (thanks.donations === 1 ? '' : 's') + '!'));
+    }
+    const mk = (id, label, color) => {
+      const p = byId[id];
+      const b = iapEl('button', 'width:100%;padding:.8rem 1rem;background:rgba(var(--hi-rgb),.10);border:1px solid ' + color + ';color:' + color +
+        ';font-family:var(--font-hud);font-size:.62rem;letter-spacing:.12em;cursor:pointer;border-radius:3px;');
+      b.textContent = label + (p ? ' — ' + p.displayPrice + (p.type === 'subscription' ? ' / ' + (p.period || 'month') : '') : '');
+      b.disabled = !p || iapState.busy || (id === IAP.monthly && iapState.status.subscribed);
+      if (!p) b.style.opacity = '.5';
+      b.onclick = () => buy(id);
+      return b;
+    };
+    box.appendChild(mk(IAP.donation, '🌟 GAME DEVELOPMENT SUPPORT', 'var(--gold)'));
+    box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);margin-top:-.6rem;', 'One-time donation · give again any time'));
+    box.appendChild(mk(IAP.monthly, '☄ GAME DEVELOPMENT SUPPORTER', 'var(--cyan)'));
+    box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);margin-top:-.6rem;', 'Monthly subscription · renews automatically until you cancel'));
+    const row = iapEl('div', 'display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;');
+    const restore = iapEl('button', 'background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-hud);font-size:.52rem;letter-spacing:.1em;padding:.45rem .9rem;border-radius:2px;cursor:pointer;', 'RESTORE PURCHASES');
+    restore.onclick = doRestore;
+    row.appendChild(restore);
+    if (iapState.status.subscribed) {
+      const manage = iapEl('button', restore.style.cssText, 'MANAGE SUBSCRIPTION');
+      manage.onclick = () => DMNative.call('iapManage').catch(() => {});
+      row.appendChild(manage);
+    }
+    box.appendChild(row);
+    const legal = iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);');
+    const link = (t, u) => { const a = iapEl('a', 'color:var(--cyan);text-decoration:underline;cursor:pointer;', t); a.onclick = (ev) => { ev.preventDefault(); window.open(u, '_blank'); }; return a; };
+    legal.append(link('Privacy Policy', 'https://dartmeadow.space/privacy.html'), document.createTextNode(' · '),
+                 link('Terms of Use (EULA)', 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'));
+    box.appendChild(legal);
+    if (!ps.length) box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.56rem;color:var(--text-dim);', msg || 'Loading prices from the App Store…'));
+    else if (msg) box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.56rem;color:var(--text-dim);', msg));
+  }
+
+  async function loadIAP() {
+    try { iapState.products = await DMNative.call('iapProducts'); } catch (e) { iapState.products = []; renderSupport('The App Store isn\'t reachable right now — try again in a moment.'); }
+    try { iapState.status = await DMNative.call('iapStatus'); } catch (e) {}
+    renderSupport(iapState.products && !iapState.products.length ? 'Support options aren\'t available in this build yet.' : '');
+  }
+
+  async function buy(id) {
+    if (iapState.busy) return;
+    iapState.busy = true; renderSupport('Opening the App Store…');
+    try {
+      const r = await DMNative.call('iapPurchase', { id });
+      if (r.status === 'success') {
+        if (id === IAP.donation) { const t = lsGet(THANKS_LS) || { donations: 0 }; t.donations++; t.last = Date.now(); lsSet(THANKS_LS, t); }
+        iapState.status = Object.assign(iapState.status, r);
+        say(id === IAP.donation ? '❤ Thank you for supporting DART Meadow!' : '☄ Thank you — you\'re a Game Development Supporter!', 4200);
+        try { J().analytics.track('support', id === IAP.donation ? 'donation' : 'monthly'); } catch (e) {}
+        iapState.busy = false; renderSupport('');
+      } else {
+        iapState.busy = false;
+        renderSupport(r.status === 'cancelled' ? '' : (r.message || 'The purchase didn\'t go through.'));
+      }
+    } catch (e) { iapState.busy = false; renderSupport(String((e && e.message) || e)); }
+  }
+
+  async function doRestore() {
+    renderSupport('Checking your purchases with the App Store…');
+    try { iapState.status = await DMNative.call('iapRestore'); } catch (e) {}
+    renderSupport(iapState.status.subscribed ? 'Supporter subscription restored.' : 'No active subscription found. (Donations are one-time and don\'t need restoring.)');
+  }
+
+  window.addEventListener('dmnative:iap', (e) => { if (e.detail) { iapState.status = Object.assign(iapState.status, e.detail); renderSupport(''); } });
+  function hookSupport() {
+    const orig = window.openSupport;
+    if (typeof orig !== 'function' || orig.__dmIAP) return;
+    const wrapped = function () { const r = orig.apply(this, arguments); renderSupport(); loadIAP(); return r; };
+    wrapped.__dmIAP = true;
+    window.openSupport = wrapped;
+  }
+  hookSupport(); setTimeout(hookSupport, 1500);
+
   window.dmAppleSignIn = appleSignIn;
   window.dmAppleSignOut = appleSignOut;
   console.log('[dm-ios] bridge ready');

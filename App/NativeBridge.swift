@@ -18,6 +18,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                                                object: nil, queue: .main) { [weak self] _ in
             self?.host?.evaluate("window.dispatchEvent(new CustomEvent('dmnative:appleRevoked'))")
         }
+        Task { @MainActor [weak self] in
+            StoreService.shared.onChange = { status in
+                guard let data = try? JSONSerialization.data(withJSONObject: status),
+                      let json = String(data: data, encoding: .utf8) else { return }
+                self?.host?.evaluate("window.dispatchEvent(new CustomEvent('dmnative:iap',{detail:\(json)}))")
+            }
+            StoreService.shared.start()
+        }
     }
 
     /// Injected at document start, before any game script runs.
@@ -103,6 +111,28 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "copy":
             UIPasteboard.general.string = body["text"] as? String ?? ""
             replyHandler(true, nil)
+
+        case "iapProducts":
+            Task { @MainActor in
+                do { replyHandler(try await StoreService.shared.loadProducts(), nil) }
+                catch { replyHandler(nil, error.localizedDescription) }
+            }
+
+        case "iapPurchase":
+            guard let id = body["id"] as? String, StoreService.allIDs.contains(id) else { return replyHandler(nil, "unknown product") }
+            Task { @MainActor in replyHandler(await StoreService.shared.purchase(id), nil) }
+
+        case "iapRestore":
+            Task { @MainActor in replyHandler(await StoreService.shared.restore(), nil) }
+
+        case "iapStatus":
+            Task { @MainActor in replyHandler(await StoreService.shared.status(), nil) }
+
+        case "iapManage":
+            Task { @MainActor in
+                await StoreService.shared.manageSubscriptions(in: self.host?.view.window?.windowScene)
+                replyHandler(true, nil)
+            }
 
         case "haptic":
             let style: UIImpactFeedbackGenerator.FeedbackStyle = (body["style"] as? String) == "heavy" ? .heavy : .light

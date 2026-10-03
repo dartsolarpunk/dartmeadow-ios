@@ -176,10 +176,10 @@ def provision():
 
 def req_soft(method, path, **kw):
     """Like req() but never raises; prints the error body."""
-    url = API + path
+    url = path if path.startswith("http") else API + path
     r = requests.request(method, url, headers={"Authorization": "Bearer " + token(), "Content-Type": "application/json"},
                          timeout=90, **kw)
-    print(f"{method} {path} -> {r.status_code}")
+    print(f"{method} {url.replace(API, '')} -> {r.status_code}")
     if r.status_code >= 300:
         print(r.text[:1500])
     return r
@@ -382,6 +382,9 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "provision":
         sys.exit(provision())
+    if cmd == "iap":
+        import asc_iap
+        sys.exit(asc_iap.main())
     if cmd == "testers":
         sys.exit(testers_only())
     if cmd == "wait":
