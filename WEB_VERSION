@@ -1,4 +1,4 @@
-sha=db2e1b3a595229a6fbcb316bbb014a7227e93ae1
-date=2026-10-02T23:14:50-04:00
-subject=Ground & sky music bar: same top-left header-row chips as the space player (#114)
+sha=f7cdbe5903ec1b4d0ceced7bf03e8526ab80b1dc
+date=2026-10-03T00:09:26-04:00
+subject=Spectator free-fly camera + HUD hide toggle beside the screenshot camera; chat panel opens under ORBIT / 1ST PERSON / Mach in every view (#115)
 source=https://github.com/dartsolarpunk/dartmeadow-space.git

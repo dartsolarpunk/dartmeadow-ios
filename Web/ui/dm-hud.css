@@ -270,7 +270,12 @@ body:has(#screen-flight.active) #fs-exit,body:has(#screen-flight.active) #fs-ent
   #atmo-overlay #atmo-presets{top:62px !important;}
 }
 @media (orientation:portrait) and (max-width:600px){
-  .world-rail{top:auto;bottom:calc(200px + env(safe-area-inset-bottom,0px));right:8px;flex-direction:column;align-items:flex-end;}
+  /* as in space: the chat / progress / exit column sits up top on the right, under the kite,
+     and ORBIT · 1ST PERSON / the Mach bubbles step down beneath it (the chat panel opens under those) */
+  .world-rail{top:calc(96px + env(safe-area-inset-top,0px));bottom:auto;right:8px;flex-direction:column;align-items:flex-end;gap:6px;}
+  #surface-overlay .orbit-skyboard-btn{top:212px !important;}
+  #surface-overlay .surf-view-btn{top:252px !important;}
+  #atmo-overlay #atmo-presets{top:212px !important;}
 }
 
 /* ── skyboard PARK / SUMMON: two small glass discs inside the kite, under the title on its left wing ── */

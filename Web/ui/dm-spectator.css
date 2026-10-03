@@ -1,0 +1,49 @@
+/* DART Meadow — spectator camera + HUD toggle (ui/dm-spectator.js) */
+/* camera · spectator · HUD: one see-through group, same look as the camera */
+.shot-grp{display:inline-flex;align-items:center;gap:2px;pointer-events:auto;flex:0 0 auto;}
+.shot-btn.spec-btn.on,.shot-btn.hudt-btn.on{color:var(--gold,#ffcc00) !important;opacity:1;filter:drop-shadow(0 0 1px rgba(0,0,0,.85)) drop-shadow(0 0 6px rgba(var(--hi-rgb),.95));}
+.shot-btn .hud-slash{opacity:0;transition:opacity .15s;}
+.shot-btn.hudt-btn.on .hud-slash{opacity:1;}
+/* space: the group rides in the second row beside ONLINE · CHAT, like the camera did */
+.world-rail #shot-btn-flight-grp,body:not(:has(#screen-flight.active)) #shot-btn-flight-grp{display:none;}
+#shot-btn-flight-grp .shot-btn{width:32px;height:30px;}
+#shot-btn-flight-grp #shot-btn-flight{display:inline-flex;}
+/* ground / sky bars: no slanted tab behind any of the three */
+#surface-overlay>div:nth-of-type(1) button.shot-btn,#atmo-overlay>div:nth-of-type(1) button.shot-btn{width:30px !important;}
+@media (max-width:620px){
+  #surface-overlay>div:nth-of-type(1) button.shot-btn,#atmo-overlay>div:nth-of-type(1) button.shot-btn{width:26px !important;}
+  #surface-overlay>div:nth-of-type(1) button.shot-btn svg,#atmo-overlay>div:nth-of-type(1) button.shot-btn svg{width:21px;height:18px;}
+  #shot-btn-flight-grp .shot-btn{width:28px;}
+}
+
+/* ── spectator: the drone's touch layer, its sticks and the small control bar ── */
+#spec-layer{position:absolute;inset:0;touch-action:none;pointer-events:auto;cursor:grab;-webkit-user-select:none;user-select:none;}
+#spec-layer:active{cursor:grabbing;}
+.spec-stick{position:absolute;display:none;width:96px;height:96px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(var(--acc-rgb),.10),rgba(var(--panel-rgb),.25) 70%);border:1px solid rgba(var(--acc-rgb),.45);box-shadow:0 0 14px rgba(var(--acc-rgb),.25);}
+.spec-stick i{position:absolute;display:block;left:29px;top:29px;width:38px;height:38px;border-radius:50%;background:rgba(var(--acc-rgb),.28);border:1px solid rgba(var(--acc-rgb),.7);box-shadow:0 0 10px rgba(var(--acc-rgb),.5);}
+#spec-bar{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:6px;
+  padding:5px 8px;pointer-events:auto;background:linear-gradient(180deg,rgba(var(--acc-rgb),.16),rgba(var(--panel-rgb),.45));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:inset 0 -2px 0 rgba(var(--acc-rgb),.55);clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 100%,0 100%);font-family:var(--font-hud);}
+#spec-bar .spec-tag{font-size:.46rem;letter-spacing:.18em;color:var(--gold,#ffcc00);padding:0 4px;white-space:nowrap;}
+#spec-bar button{width:38px;height:32px;border:none;cursor:pointer;color:#eaf4ff;font-size:.8rem;border-radius:50%;touch-action:none;
+  background:radial-gradient(circle at 50% 38%,rgba(var(--acc-rgb),.26),rgba(var(--panel-rgb),.35) 72%);box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.5);}
+#spec-bar button.held,#spec-bar button:active{background:radial-gradient(circle at 50% 38%,rgba(var(--hi-rgb),.55),rgba(var(--hi-rgb),.14) 72%);}
+#spec-bar .spec-exit{color:#ffb3bb;box-shadow:inset 0 0 0 1px rgba(255,90,110,.6);}
+#spec-bar .spec-spd{min-width:34px;text-align:center;font-family:var(--font-mono);font-size:.56rem;color:var(--text,#fff);}
+@media (max-width:620px){ #spec-bar .spec-tag{display:none;} #spec-bar button{width:34px;height:30px;} }
+/* the game's own sticks step aside while the drone flies (the layer takes the touches) */
+body.spec-on #surf-move-zone,body.spec-on #surf-look-zone,body.spec-on #surf-jump-btn,body.spec-on #surf-run-btn,body.spec-on #surf-climb-btn,
+body.spec-on #atmo-steer-zone,body.spec-on #atmo-climb-zone,body.spec-on #joysticks,body.spec-on #dart-pads,
+body.spec-on #screen-flight .side-pad,body.spec-on #ar-crosshair,body.spec-on #atmo-overlay>.side-pad:not(#atmo-idle-btn),body.spec-on #atmo-overlay div:has(>#atmo-throttle){visibility:hidden !important;}
+
+/* ── HUD off: only the live view and the three buttons (faint) remain ── */
+body.hud-off *{visibility:hidden !important;}
+body.hud-off canvas.dm-keep,body.hud-off #spec-layer,body.hud-off #spec-layer *{visibility:visible !important;}
+body.hud-off .shot-grp,body.hud-off .shot-grp *{visibility:visible !important;}
+body.hud-off .shot-grp{opacity:.4;transition:opacity .2s;}
+body.hud-off .shot-grp:hover,body.hud-off .shot-grp:focus-within{opacity:1;}
+body.hud-off #spec-bar,body.hud-off #spec-bar *{visibility:visible !important;}
+body.hud-off #spec-bar{opacity:.35;}
+body.hud-off #spec-bar:hover,body.hud-off #spec-bar:active{opacity:1;}
+body.hud-off #spec-layer .spec-stick{visibility:hidden !important;}

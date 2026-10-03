@@ -981,6 +981,8 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 </script>
 <script src="jots/jots-link.js?v=82" defer></script>
 <script src="ui/dm-friends.js?v=1" defer></script>
+<script src="ui/dm-spectator.js?v=1" defer></script>
+<script src="ui/dm-stack.js?v=1" defer></script>
 </head>
 <body>
 <!-- LOADING -->
@@ -2314,7 +2316,8 @@ async function _shotBackup(c,name){
 }
 // in space the camera sits in the second row, just left of the ONLINE · CHAT chip (it travels with the chip)
 function _placeFlightShot(){
-  const b=document.getElementById('shot-btn-flight'), hud=document.getElementById('jots-mp-hud'); if(!b||!hud) return;
+  let b=document.getElementById('shot-btn-flight'), hud=document.getElementById('jots-mp-hud'); if(!b||!hud) return;
+  if(b.parentNode&&b.parentNode.classList&&b.parentNode.classList.contains('shot-grp')) b=b.parentNode;   // camera · spectator · HUD (ui/dm-spectator.js)
   if(b.parentNode!==hud) hud.insertBefore(b,hud.firstChild);
 }
 setInterval(_placeFlightShot,1500);
@@ -15644,8 +15647,10 @@ function renderWithPostFX(){
   if(!useBloom&&!useMotion || true){
     const _rt0 = performance.now();
     flightRenderer.setRenderTarget(null);
+    const _spec=window.DMSpec&&DMSpec.on; if(_spec) try{ DMSpec.pre(flightCamera); }catch(e){}
     try{ if(galSky.ready) updateGalSky(); }catch(e){}
-    flightRenderer.render(flightScene,flightCamera); _shotGrab(flightRenderer);
+    try{ flightRenderer.render(flightScene,flightCamera); _shotGrab(flightRenderer); }
+    finally{ if(_spec) try{ DMSpec.post(flightCamera); }catch(e){} }
     const _rtMs = performance.now()-_rt0;
     if(!window._renderTimingSamples) window._renderTimingSamples=[];
     window._renderTimingSamples.push(_rtMs);
@@ -16688,11 +16693,12 @@ async function enterAtmosphericFlight(body,site,start){
     try{ CHAR.mixer && CHAR.mixer.update(dt); _updateCharDebugHUD(); }catch(e){_animLoopWarn('charMixer',e);}
     try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){_animLoopWarn('headOverride',e);}
     try{updateBirdTemple(dt);}catch(e){_animLoopWarn('birdTemple',e);}
+    const _spec=window.DMSpec&&DMSpec.on; if(_spec) try{ DMSpec.pre(atmoCamera); }catch(e){}
     try{ _skyGroundRefresh(false); }catch(e){ _animLoopWarn('skyGround',e); }
     { const _bn=performance.now(); if(_bn-(atmoScene.userData._bendT||0)>500){ atmoScene.userData._bendT=_bn; try{ for(const o of atmoScene.children) _bendTag(o); }catch(e){} } }
     _bendSet(atmoCamera,window.DM_FLAT_WORLD?0:_planetR());
-    atmoRenderer.render(atmoScene,atmoCamera); _shotGrab(atmoRenderer);
-    _bendOff();
+    try{ atmoRenderer.render(atmoScene,atmoCamera); _shotGrab(atmoRenderer); }
+    finally{ _bendOff(); if(_spec) try{ DMSpec.post(atmoCamera); }catch(e){} }
     if(_firstFrame){
       _firstFrame=false;
       requestAnimationFrame(()=>{ ov.style.background='#000'; try{ start.onFirstFrame&&start.onFirstFrame(); }catch(e){} });
@@ -19312,6 +19318,7 @@ async function enterSurface(body,site,opts){
     try{ updateSurface(dt); }catch(e){ _animLoopWarn('updateSurface',e); }
     try{ updateCharOrbitCamera(); }catch(e){_animLoopWarn('charOrbit',e);}
     try{ _dynRes(surfRenderer); }catch(e){}
+    const _spec=window.DMSpec&&DMSpec.on; if(_spec) try{ DMSpec.pre(surfCamera); }catch(e){}
     try{ _updateCharDebugHUD(); }catch(e){_animLoopWarn('charDbg',e);}
     try{updateCaustics(dt);}catch(e){_animLoopWarn('caustics',e);}
     try{ _surfFluidTick(dt); }catch(e){_animLoopWarn('fluid',e);}
@@ -19321,6 +19328,7 @@ async function enterSurface(body,site,opts){
     _bendSet(surfCamera,window.DM_FLAT_WORLD?0:_planetR());
     try{ surfRenderer.render(surfScene,surfCamera); _shotGrab(surfRenderer); }catch(e){ _animLoopWarn('surf-render',e); }
     _bendOff();
+    if(_spec) try{ DMSpec.post(surfCamera); }catch(e){}
   })();
 }
 let surfBoard=null,surfTerrainMesh=null,_surfHeight=null,_surfBoardV=null;
@@ -21619,7 +21627,8 @@ function _disposeProps(g){
 // water, the sun's shadow box and the sky. Called from the surface loop.
 function _surfStreamTick(dt){
   const p=surfPlayer; if(!p||!TERRAIN.group) return;
-  const px=p.pos.x, pz=p.pos.z;
+  const _sf=window.DMSpec&&DMSpec.focusXZ&&DMSpec.focusXZ();
+  const px=_sf?_sf.x:p.pos.x, pz=_sf?_sf.z:p.pos.z;
   _surfStreamUpdate(px,pz,false);
   _surfStreamWork(GFX.isMobile?3:5);
   // new ground pieces (chunks, rocks, water, beacons…) take the planet's curve
@@ -23606,12 +23615,13 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 
 <!-- ?v= stamps: bump on every UI change so browsers never mix a new page with cached old styles -->
 <link rel="stylesheet" href="ui/dm-ui.css?v=109">
-<link rel="stylesheet" href="ui/dm-hud.css?v=113">
+<link rel="stylesheet" href="ui/dm-hud.css?v=114">
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
+<link rel="stylesheet" href="ui/dm-spectator.css?v=1">
 <link rel="stylesheet" href="ui/dm-menu.css?v=80">
 <link rel="stylesheet" href="ui/dm-journal.css?v=97">
 <link rel="stylesheet" href="ui/dm-landmap.css?v=87">
 <link rel="stylesheet" href="ui/dm-type.css?v=89">
-<link rel="stylesheet" href="ui/dm-compact.css?v=100">
+<link rel="stylesheet" href="ui/dm-compact.css?v=101">
 </body>
 </html>

@@ -20,7 +20,7 @@
   #screen-flight #shard-return-btn{top:226px !important;}
   #screen-flight #hud-logs-panel{top:200px !important;left:96px !important;max-height:calc(100% - 300px) !important;}
   #screen-flight #qt-panel{top:122px !important;left:96px !important;}
-  #screen-flight #orbit-skyboard-btn{top:66px !important;height:22px !important;font-size:.42rem !important;}
+  #screen-flight #orbit-skyboard-btn{top:76px !important;height:22px !important;font-size:.42rem !important;}
   /* minimap: smaller, same corner */
   #screen-flight #minimap{width:56px !important;height:56px !important;left:6px !important;bottom:calc(126px + var(--safe-bot)) !important;}
   #screen-flight #minimap-canvas{width:54px !important;height:54px !important;}
