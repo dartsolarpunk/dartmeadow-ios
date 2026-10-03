@@ -261,7 +261,44 @@ def diagnose():
         summary(f"users error {e}")
 
 
+def fix_invites_and_public_group():
+    app = find_app()
+    summary("### DART Meadow invites")
+    groups = get_all(f"/apps/{app['id']}/betaGroups")
+    # re-send the TestFlight invitation to every internal tester still only INVITED
+    for g in groups:
+        if not g["attributes"].get("isInternalGroup"):
+            continue
+        for t in get_all(f"/betaGroups/{g['id']}/betaTesters"):
+            ta = t["attributes"]
+            if ta.get("state") in ("INVITED", "NOT_INVITED", None):
+                r = req_soft("POST", "/betaTesterInvitations", json={"data": {"type": "betaTesterInvitations",
+                    "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}},
+                                      "betaTester": {"data": {"type": "betaTesters", "id": t["id"]}}}}})
+                summary(f"- re-sent TestFlight invite to {ta.get('email')} (was {ta.get('state')}) -> HTTP {r.status_code}")
+    # mirror the other apps: an external group with a public TestFlight link
+    ext = [g for g in groups if not g["attributes"].get("isInternalGroup")]
+    if not ext:
+        r = req_soft("POST", "/betaGroups", json={"data": {"type": "betaGroups",
+            "attributes": {"name": "DART Meadow Skyboarders", "publicLinkEnabled": True, "publicLinkLimitEnabled": False,
+                           "feedbackEnabled": True},
+            "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}}}})
+        if r.status_code < 300:
+            ext = [r.json()["data"]]
+    for g in ext:
+        if not g["attributes"].get("publicLinkEnabled"):
+            req_soft("PATCH", f"/betaGroups/{g['id']}", json={"data": {"type": "betaGroups", "id": g["id"],
+                     "attributes": {"publicLinkEnabled": True, "publicLinkLimitEnabled": False}}})
+        builds = req("GET", "/builds", params={"filter[app]": app["id"], "sort": "-uploadedDate", "limit": 1})["data"]
+        if builds:
+            req_soft("POST", f"/betaGroups/{g['id']}/relationships/builds", json={"data": [{"type": "builds", "id": builds[0]["id"]}]})
+        g2 = req("GET", f"/betaGroups/{g['id']}")["data"]["attributes"]
+        summary(f"- external group \"{g2.get('name')}\" public link: {g2.get('publicLink')} (enabled={g2.get('publicLinkEnabled')}); "
+                "external testers get builds only after Beta App Review")
+
+
 def testers_only():
+    fix_invites_and_public_group()
     diagnose()
     app = find_app()
     groups = [g for g in get_all(f"/apps/{app['id']}/betaGroups") if g["attributes"].get("isInternalGroup")]
