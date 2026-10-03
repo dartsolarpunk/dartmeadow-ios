@@ -213,7 +213,56 @@ def ensure_testers(app_id, group, wanted):
         print("  add user", email, "->", r.status_code)
 
 
+def diagnose():
+    """Print who tests what across the team's apps (emails, invite type/state, groups, public links)."""
+    summary("### TestFlight testers across the team")
+    apps = get_all("/apps", {"fields[apps]": "name,bundleId"})
+    for a in apps:
+        name = a["attributes"].get("name")
+        summary(f"**{name}** `{a['attributes'].get('bundleId')}` ({a['id']})")
+        try:
+            for g in get_all(f"/apps/{a['id']}/betaGroups"):
+                ga = g["attributes"]
+                summary(f"- group \"{ga.get('name')}\" internal={ga.get('isInternalGroup')} allBuilds={ga.get('hasAccessToAllBuilds')} "
+                        f"publicLinkEnabled={ga.get('publicLinkEnabled')} publicLink={ga.get('publicLink')}")
+                for t in get_all(f"/betaGroups/{g['id']}/betaTesters"):
+                    ta = t["attributes"]
+                    summary(f"  - {ta.get('email')} invite={ta.get('inviteType')} state={ta.get('state')} id={t['id']}")
+        except Exception as e:
+            summary(f"- groups error {e}")
+        try:
+            r = req_soft("GET", "/betaTesters", params={"filter[apps]": a["id"], "limit": 200})
+            for t in (r.json().get("data") or []):
+                ta = t["attributes"]
+                summary(f"  · app tester {ta.get('email')} invite={ta.get('inviteType')} state={ta.get('state')}")
+        except Exception as e:
+            summary(f"- app testers error {e}")
+        try:
+            r = req_soft("GET", "/builds", params={"filter[app]": a["id"], "sort": "-uploadedDate", "limit": 2,
+                                                  "include": "buildBetaDetail,individualTesters"})
+            j = r.json()
+            for b in j.get("data") or []:
+                ba = b["attributes"]
+                summary(f"  · build {ba.get('version')} uploaded={ba.get('uploadedDate')} state={ba.get('processingState')} expired={ba.get('expired')}")
+            for inc in j.get("included") or []:
+                if inc["type"] == "buildBetaDetails":
+                    summary(f"    betaDetail internal={inc['attributes'].get('internalBuildState')} external={inc['attributes'].get('externalBuildState')}")
+                if inc["type"] == "betaTesters":
+                    summary(f"    individual tester {inc['attributes'].get('email')}")
+        except Exception as e:
+            summary(f"- builds error {e}")
+    try:
+        for u in get_all("/users"):
+            ua = u["attributes"]
+            summary(f"ASC user {ua.get('username')} roles={ua.get('roles')} allApps={ua.get('allAppsVisible')}")
+        for inv in get_all("/userInvitations"):
+            summary(f"pending ASC user invitation {inv['attributes'].get('email')}")
+    except Exception as e:
+        summary(f"users error {e}")
+
+
 def testers_only():
+    diagnose()
     app = find_app()
     groups = [g for g in get_all(f"/apps/{app['id']}/betaGroups") if g["attributes"].get("isInternalGroup")]
     builds = req("GET", "/builds", params={"filter[app]": app["id"], "sort": "-uploadedDate", "limit": 1})["data"]
