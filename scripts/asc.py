@@ -382,6 +382,9 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "provision":
         sys.exit(provision())
+    if cmd == "external":
+        import asc_external
+        sys.exit(asc_external.main())
     if cmd == "iap":
         import asc_iap
         sys.exit(asc_iap.main())
