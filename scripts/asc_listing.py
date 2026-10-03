@@ -38,6 +38,8 @@ def replace_shot(get_url, create_path, rel_key, owner_type, owner_id):
     g = req_soft("GET", get_url)
     cur = (g.json().get("data") or None) if g.status_code == 200 else None
     if cur:
+        if cur["attributes"].get("sourceFileChecksum") == hashlib.md5(asc_iap.SHOT.read_bytes()).hexdigest():
+            return "unchanged (already uploaded)"
         req_soft("DELETE", f"{create_path}/{cur['id']}")
     return asc_iap.upload_screenshot(create_path, rel_key, owner_type, owner_id)
 

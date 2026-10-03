@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Create / update DART Meadow's support purchases in App Store Connect.
 
-  * com.dartmeadow.jots.support.donation  CONSUMABLE  "Game Development Support"   $9.99
-  * com.dartmeadow.jots.support.monthly   ONE_MONTH   "Game Development Supporter" $4.99/mo
+  * com.dartmeadow.jots.support.donation  CONSUMABLE  "Support Early Alpha"        $4.99
+  * com.dartmeadow.jots.support.monthly   ONE_MONTH   "Monthly Alpha Supporter"    $4.99/mo
     in subscription group "DART Meadow Support"
 
 Idempotent: finds existing items by product id and fills in whatever is
@@ -69,7 +69,7 @@ def ensure_donation(app_id, territories):
         req_soft("POST", "/inAppPurchaseLocalizations", json={"data": {"type": "inAppPurchaseLocalizations",
             "attributes": {"locale": "en-US", "name": p["name"], "description": p["desc"]},
             "relationships": {"inAppPurchaseV2": {"data": {"type": "inAppPurchases", "id": iid}}}}})
-    # price ($9.99 USA base, Apple equalizes the rest)
+    # price ($4.99 USA base, Apple equalizes the rest)
     pts = req("GET", v2 + "/pricePoints", params={"filter[territory]": "USA", "limit": 8000})["data"]
     pp = next((x for x in pts if x["attributes"].get("customerPrice") == p["price"]), None)
     if pp:
