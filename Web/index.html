@@ -983,7 +983,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 <script src="ui/dm-friends.js?v=1" defer></script>
 <script src="ui/dm-spectator.js?v=1" defer></script>
 <script src="ui/dm-stack.js?v=1" defer></script>
-<script src="ui/dm-globe.js?v=1" defer></script>
+<script src="ui/dm-globe.js?v=2" defer></script>
 </head>
 <body>
 <!-- LOADING -->
@@ -5914,13 +5914,17 @@ function makeFlightPlanetTexture(kind, colorHex, seedVal, bodyName){
   const S = (GFX && GFX.preset==='low') ? 256 : 512;
   const cv=document.createElement('canvas'); cv.width=S*2; cv.height=S;
   const cx=cv.getContext('2d');
-  const base=new THREE.Color(colorHex||0x888888);
-  const water=new THREE.Color(0x0a3a6a);
-  const land=new THREE.Color(0x3a6a3a);
-  const land2=new THREE.Color(0x274d27);
+  // texel values are sRGB (the texture is tagged sRGB): keep the hex values as
+  // written — THREE.Color(hex) hands back linear, which painted every sea
+  // near-black and every continent murky once the star really lit them
+  const C=h=>new THREE.Color(h).convertLinearToSRGB();
+  const base=C(colorHex||0x888888);
+  const water=C(0x0a3a6a);
+  const land=C(0x3a6a3a);
+  const land2=C(0x274d27);
   const rock=base.clone().multiplyScalar(0.75);
-  const snow=new THREE.Color(0xe8eef6);
-  const marsRock=new THREE.Color(0xb5623a), marsDark=new THREE.Color(0x7a3a24), marsIce=new THREE.Color(0xe8d8c8);
+  const snow=C(0xe8eef6);
+  const marsRock=C(0xb5623a), marsDark=C(0x7a3a24), marsIce=C(0xe8d8c8);
   const img=cx.createImageData(S*2,S); const d=img.data;
   for(let y=0;y<S;y++){
     for(let x=0;x<S*2;x++){
@@ -6101,8 +6105,9 @@ function _attachJotsNearFill(group, radius, tintHex){
           if(m.userData.jotsNearEmissive)return;
           m.userData.jotsNearEmissive=true;
           const ec=col.clone().multiplyScalar(0.22);
-          if(m.map){ m.emissive=new THREE.Color(0xffffff); m.emissiveMap=m.map; m.emissiveIntensity=Math.max(m.emissiveIntensity||0, 0.055); }
-          else { m.emissive=ec; m.emissiveIntensity=Math.max(m.emissiveIntensity||0, 0.06); }
+          // (emissiveIntensity defaults to 1: set it, don't max() it, or the world glows fully lit with no night side)
+          if(m.map){ m.emissive=new THREE.Color(0xffffff); m.emissiveMap=m.map; m.emissiveIntensity=0.055; }
+          else { m.emissive=ec; m.emissiveIntensity=0.06; }
           m.needsUpdate=true;
         } else if(m.isMeshStandardNodeMaterial){
           if(!m.userData) m.userData={};
@@ -6280,8 +6285,8 @@ function _buildJotsDustyRingGroup(planetR, opts){
 
 function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kind, bodyName){
   // Historian FIX INTENT (f1b8547 WebGL look):
-  // Earth → GLSL day/night + rim (useShader), albedo from continent mask (3adec86)
-  // Others → makePlanetTexture / MeshStandard (canvas continents/bands)
+  // Earth → continent-mask albedo; others → makePlanetTexture (canvas
+  // continents/bands). All MeshStandard, lit by the star (addSunLight).
   const group=new THREE.Group();
   group.userData.webglRich=true;
   const seg=_webglPlanetSegForPreset();
@@ -6291,44 +6296,13 @@ function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kin
   const isMars = k==='mars' || nm==='Mars';
   let mesh;
   if(isEarth){
-    // f1b8547 day/night+rim ShaderMaterial, day color from earthLandMask texture
+    // lit by the star itself like every other world (the old GLSL day/night
+    // ShaderMaterial can't run under WebGPURenderer's WebGL2 backend and drew
+    // Earth black); albedo from the continent mask
     const dayMap=makeFlightPlanetTexture('earth', colorHex||0x2244cc, seedVal, 'Earth');
-    const _vs=[
-      'varying vec3 vNormal;','varying vec2 vUv;',
-      'void main(){',
-      '  vNormal=normalize(normalMatrix*normal);',
-      '  vUv=uv;',
-      '  gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);',
-      '}'
-    ].join('\n');
-    const _fs=[
-      'uniform vec3 sunDir;','uniform sampler2D dayMap;',
-      'varying vec3 vNormal;','varying vec2 vUv;',
-      'void main(){',
-      '  float d=dot(vNormal,normalize(sunDir));',
-      '  float t=smoothstep(-0.15,0.18,d);',
-      '  vec3 day=texture2D(dayMap,vUv).rgb;',
-      '  vec3 night=day*0.12+vec3(0.005,0.015,0.048);',
-      '  vec3 col=mix(night,day,t);',
-      '  float nc=pow(clamp(-d,0.0,1.0),0.9)*0.09;',
-      '  col+=vec3(0.9,0.7,0.3)*nc;',
-      '  float rim=1.0-abs(dot(vNormal,vec3(0.0,0.0,1.0)));',
-      '  col+=vec3(0.0,0.3,0.8)*pow(rim,5.0)*0.35;',
-      '  gl_FragColor=vec4(col,1.0);',
-      '}'
-    ].join('\n');
-    const mat=new THREE.ShaderMaterial({
-      uniforms:{
-        sunDir:{value:new THREE.Vector3(1,0.2,0)},
-        dayMap:{value:dayMap}
-      },
-      vertexShader:_vs,
-      fragmentShader:_fs
-    });
+    const mat=new THREE.MeshStandardMaterial({map:dayMap, color:0xffffff, roughness:0.82, metalness:0.02});
     mesh=new THREE.Mesh(new THREE.SphereGeometry(radius, seg, seg), mat);
     mesh.name='JOTS_WebGLPlanet';
-    mesh.userData.useShader=true;
-    group.userData.dayNightMesh=mesh;
   } else {
     // Prefer live makePlanetTexture (f1b8547 applyProceduralTextures path)
     let type='Rocky';
@@ -6351,6 +6325,10 @@ function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kin
     mesh=new THREE.Mesh(new THREE.SphereGeometry(radius, seg, seg), mat);
     mesh.name='JOTS_WebGLPlanet';
   }
+  // three's sphere UVs run west-about in the planet's frame (atan2(z,x) =
+  // −map longitude): mirror the map so its features sit at their true lon —
+  // the same frame the spin lights by the world clock
+  try{ const m=mesh.material; if(m&&m.map){ m.map=m.map.clone(); m.map.wrapS=THREE.RepeatWrapping; m.map.repeat.x=-1; m.map.offset.x=1; m.map.needsUpdate=true; } }catch(e){}
   group.add(mesh);
   if(hasAtmosphere){
     const tint = isMars ? 0xc07040 : (isEarth ? 0x3366ff : 0x6688cc);
@@ -8576,9 +8554,19 @@ function sequenceAltar(){
     else toast('✅ Altar sequence complete',2200);
   })();
 }
+// The star's light. Real inverse-square falloff (decay 2) left every planet
+// unlit (Earth at ~500 units got 1/250000 of it — only the faint emissive
+// fill showed), so the day side and the night side looked the same. A gentle
+// decay keeps the falloff honest in order (Mercury blazes, Neptune is dim)
+// while every world stays readable: ~3.5 at Earth's distance (full albedo at
+// noon), ~1.8 at Jupiter, ~0.9 at Neptune. Procedural systems sit at the same
+// origin and orbit sizes, so the one light serves them too.
+const SUN_LIGHT_DECAY=0.4, SUN_LIGHT_I=42;
+let _sunLight=null;
 function addSunLight(){
   // Sun point light only — illuminates local planets; no scene wash
-  const sl=new THREE.PointLight(0xfff0c8,1.05,300000);sl.position.set(0,0,0);flightScene.add(sl);
+  const sl=new THREE.PointLight(0xfff0c8,SUN_LIGHT_I,0,SUN_LIGHT_DECAY);sl.position.set(0,0,0);flightScene.add(sl);
+  _sunLight=sl;
   // Hemisphere fakeGI REMOVED — was pale blue-grey vacuum wash (sol-bloom-wash.jpg)
   // Ambient capped ≤0.15 so space stays black; planets lit by Sol PointLight
   flightScene.add(new THREE.AmbientLight(0x0a1018,0.12));
@@ -8589,9 +8577,13 @@ function addSunLight(){
 }
 
 // ── Coastline loader — parented to earthMesh in LOCAL coordinates ──────
+// a planet's own frame: lon = atan2(z, x), like its surface (the GPU Earth
+// samples the real map that way) and its spin (updateBodies faces the
+// noon longitude at the star) — so the coastlines sit on the continents and
+// the side in sunlight from orbit is the side in daylight on the ground
 function latLonToFlightVec3(lat,lon,r,cx,cy,cz){
   const la=lat*Math.PI/180,lo=lon*Math.PI/180;
-  return new THREE.Vector3(cx+r*Math.cos(la)*Math.cos(lo),cy+r*Math.sin(la),cz-r*Math.cos(la)*Math.sin(lo));
+  return new THREE.Vector3(cx+r*Math.cos(la)*Math.cos(lo),cy+r*Math.sin(la),cz+r*Math.cos(la)*Math.sin(lo));
 }
 async function loadEarthCoastlines(){
   if(!earthMesh)return;
@@ -10527,7 +10519,11 @@ function solKeplerAnomaly(M, e){
   const rFactor=(1-e*e)/(1+e*Math.cos(nu));
   return {E, nu, rFactor};
 }
+let _spinQ=null, _tiltQ=null, _spinY=null, _spinAx=null;   // made on first use (THREE arrives with the module)
 function updateBodies(dt){
+  if(!_spinQ){ _spinQ=new THREE.Quaternion(); _tiltQ=new THREE.Quaternion(); _spinY=new THREE.Vector3(0,1,0); _spinAx=new THREE.Vector3(); }
+  // inside the ship the hull doesn't cast shadows: keep the star off the cabin walls
+  if(_sunLight) _sunLight.intensity=SUN_LIGHT_I*(SHIP_WALK.active?0.25:1);
   _approachBestDist=Infinity;_approachBestBody=null;
   // Plain for-loop instead of .forEach(b=>{...}) — the arrow-function
   // callback was a NEW closure object allocated every single frame
@@ -10569,10 +10565,16 @@ function updateBodies(dt){
     }
     // Spin on the world clock: turned so the longitude where it is noon
     // faces the star — the side lit from orbit is the side where it is day
-    // on the ground (lon = atan2(z,x) in the body's frame, see _latLonOf).
+    // on the ground (lon = atan2(z,x) in the body's frame) — and leaned so
+    // the star stands over latitude = the sun's declination (the season the
+    // ground sky shows): the lit hemisphere is exactly DMTime.sunDir's day.
     if(b.orbitR>0 && window.DMTime && !b.isAsteroid){
       const alpha=Math.atan2(b.mesh.position.z,b.mesh.position.x);
-      b.mesh.rotation.y=DMTime.subsolarLon(b)*Math.PI/180-alpha-Math.PI;
+      _spinQ.setFromAxisAngle(_spinY,DMTime.subsolarLon(b)*Math.PI/180-alpha-Math.PI);
+      // tilt about the horizontal axis square to the star line (s × up), by −declination
+      _spinAx.set(Math.sin(alpha),0,-Math.cos(alpha));
+      _tiltQ.setFromAxisAngle(_spinAx,-DMTime.declination(b));
+      b.mesh.quaternion.multiplyQuaternions(_tiltQ,_spinQ);
     } else b.mesh.rotation.y+=.001*dt*60;
 
     // Get the actual renderable mesh for distance/LOD checks
@@ -10868,11 +10870,6 @@ async function upgradePlanetLOD(dt){
 }
 
 let _hudT=0;
-let _hudSunDir,_hudZero;
-window.__whenThreeReady(function(){
-  _hudSunDir=new THREE.Vector3();
-  _hudZero=new THREE.Vector3(0,0,0);
-});
 function updateHUD(){
   if(!boardFlight)return;
   // Throttle to 5 Hz. Readable numbers don't need 60fps, and this function
@@ -10909,21 +10906,6 @@ function updateHUD(){
   const staff=STAFFS[STATE.boardConfig.staffIdx];
   $('hud-ability').textContent=staff.icon+' '+staff.name+': '+staff.desc;
   $('hud-grav').textContent=pos.length()<35?'1.0 g':'0.0 g';
-  // Update Earth day/night shader sun direction — sun may be group or mesh
-  // Earth may be a Group (GPU MC or WebGL rich). Day/night shader lives on
-  // userData.dayNightMesh or a child with uniforms.sunDir (f1b8547 path).
-  if(earthMesh){
-    const sunPos = sunMesh ? (sunMesh.parent && sunMesh.parent.isGroup ? sunMesh.parent.position : sunMesh.position) : _hudZero;
-    _hudSunDir.subVectors(sunPos,earthMesh.position).normalize();
-    let dn=earthMesh.userData&&earthMesh.userData.dayNightMesh;
-    if(!dn&&earthMesh.material&&earthMesh.material.uniforms&&earthMesh.material.uniforms.sunDir) dn=earthMesh;
-    if(!dn&&earthMesh.traverse){
-      earthMesh.traverse(o=>{ if(!dn&&o.material&&o.material.uniforms&&o.material.uniforms.sunDir) dn=o; });
-    }
-    if(dn&&dn.material&&dn.material.uniforms&&dn.material.uniforms.sunDir){
-      dn.material.uniforms.sunDir.value.copy(_hudSunDir);
-    }
-  }
   // (approach prompt is managed in updateBodies based on the closest body)
 }
 // Minimap state: solar (local) vs galaxy (realistic position) + pan/zoom
@@ -15534,7 +15516,7 @@ function updateDistantSystems(dt){
     if(!sys.group)return;
     const col=(sys.group.children[0]&&sys.group.children[0].material&&sys.group.children[0].material.color)
       ?sys.group.children[0].material.color.getHex():0xffeecc;
-    const pl=new THREE.PointLight(col,0.9,(sys.starRadius||1)*350);
+    const pl=new THREE.PointLight(col,SUN_LIGHT_I*0.8,(sys.starRadius||1)*350,SUN_LIGHT_DECAY);
     sys.group.add(pl);
     _distActiveLights.push({sys,light:pl});
   });
@@ -16219,23 +16201,6 @@ function _worldMapTexture(m,pal){
   cx.putImageData(img,0,0);
   const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace; tex.wrapS=THREE.RepeatWrapping;
   return tex;
-}
-// lift a unit-sphere globe by the map's heights — the planet's true relief
-// at true scale (planet radius = 360° of the ground's own coordinates)
-function _worldMapRelief(geo,m){
-  const pos=geo.attributes.position, R=360/ATMO_DEG_PER_UNIT/(2*Math.PI), k=1/R, v=new THREE.Vector3();
-  if(!geo.userData.base) geo.userData.base=Float32Array.from(pos.array);
-  const b=geo.userData.base;
-  for(let i=0;i<pos.count;i++){
-    v.set(b[i*3],b[i*3+1],b[i*3+2]).normalize();
-    const lat=Math.asin(Math.max(-1,Math.min(1,v.y)))*180/Math.PI, lon=Math.atan2(v.z,v.x)*180/Math.PI;
-    const fx=((lon+180)/360*m.W-0.5+m.W)%m.W, fy=Math.max(0,Math.min(m.H-1,(90-lat)/180*m.H-0.5));
-    const x0=Math.floor(fx), y0=Math.floor(fy), x1=(x0+1)%m.W, y1=Math.min(m.H-1,y0+1), ux=fx-x0, uy=fy-y0;
-    const H=m.heights, h=(H[y0*m.W+x0]*(1-ux)+H[y0*m.W+x1]*ux)*(1-uy)+(H[y1*m.W+x0]*(1-ux)+H[y1*m.W+x1]*ux)*uy;
-    const r=1+Math.max(m.body&&getSurfacePalette(m.body).water?0:-1e9,h)*k;
-    pos.setXYZ(i,v.x*r,v.y*r,v.z*r);
-  }
-  pos.needsUpdate=true; geo.computeVertexNormals();
 }
 function isBodyLandable(b){
   if(!b)return false;

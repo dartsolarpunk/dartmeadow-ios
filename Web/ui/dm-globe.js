@@ -6,9 +6,13 @@
  *
  *  • The globe is the world itself in miniature: the same whole-planet map the
  *    planet wears from orbit (worldMapFor: the very terrain you walk on, Earth's
- *    real continents), lit and relief-shaded, drawn as a true sphere with a
+ *    real continents), relief-shaded, drawn as a true sphere with a
  *    glowing latitude / meridian grid. It turns slowly on its own; drag to spin
  *    it, pinch or scroll to zoom, and it goes back to turning when left alone.
+ *  • Real sunlight: the day side faces the star for this world at this moment on
+ *    the shared world clock (DMTime — the same sun the ground and the sky use at
+ *    every lat/lon), so a spot in daylight on the globe is in daylight when you
+ *    land there; night is dim, with a soft dusk line between.
  *  • Tap it to plot a neon-green landing marker (tap again to move it).
  *  • The bubbles round its right side change with where you are:
  *      space  — LAND · SKY · ✦ MARK (save the plotted site) · INFO · ⌖ RESET
@@ -46,7 +50,7 @@
     G.tex=null; G.hm=null; G.target=null; G.zoom=1;
     const m=me(); if(m){ G.lat0=Math.max(-60,Math.min(60,m.lat)); G.lon0=m.lon; } else { G.lat0=18; G.lon0=0; }
     const take=src=>{ try{
-        const c=document.createElement('canvas'); c.width=TW; c.height=TH; const x=c.getContext('2d');
+        const c=document.createElement('canvas'); c.width=TW; c.height=TH; const x=c.getContext('2d',{willReadFrequently:true});
         x.drawImage(src,0,0,TW,TH); G.tex=x.getImageData(0,0,TW,TH).data; G.texW=TW; G.texH=TH;
       }catch(e){ console.warn('[globe] texture',e); } };
     const isEarth=b.name==='Earth';
@@ -55,7 +59,25 @@
     try{ worldMapFor(b,mp=>{ if(G.body!==b) return; G.hm={W:mp.W,H:mp.H,h:mp.heights}; if(!isEarth&&mp.tex&&mp.tex.image) take(mp.tex.image); }); }catch(e){ console.warn('[globe] worldmap',e); }
   }
 
-  // ── drawing: a lit sphere, its grid, the markers ──────────────────────
+  // ── the star: where it stands over this world right now ────────────────
+  // The subsolar point (lat = the sun's declination, lon = where it is local
+  // noon), from DMTime — the clock and the formula the ground and sky scenes
+  // light themselves with (DMSky → DMTime.sunDir), so the globe's day side is
+  // exactly where the ground is in daylight. Same lat/lon as land coordinates.
+  function sunVec(){
+    const b=G.body; if(!b||!window.DMTime) return null;
+    try{ const dec=DMTime.declination(b), lo=DMTime.subsolarLon(b)*D2R, cd=Math.cos(dec);
+      return [cd*Math.cos(lo),Math.sin(dec),cd*Math.sin(lo)]; }catch(e){ return null; }
+  }
+  // how high the sun stands at a lat/lon (sin of its elevation); >0 is day
+  function sunAt(lat,lon){ const S=sunVec(); if(!S) return null; const la=lat*D2R, lo=lon*D2R, cl=Math.cos(la);
+    return cl*Math.cos(lo)*S[0]+Math.sin(la)*S[1]+cl*Math.sin(lo)*S[2]; }
+  // the map's dark tones opened up a little so the sunlit side reads bright
+  const LIFT=new Uint8Array(256); for(let i=0;i<256;i++) LIFT[i]=Math.round(255*Math.pow(i/255,0.75));
+  // daylight 0..1 — the ground sky's own day ramp (ui/dm-sky.js)
+  const dayRamp=mu=>Math.max(0,Math.min(1,(mu+0.1)/0.25));
+
+  // ── drawing: a sunlit sphere, its grid, the markers ───────────────────
   function basis(){
     const la=G.lat0*D2R, lo=G.lon0*D2R, cl=Math.cos(la), sl=Math.sin(la), co=Math.cos(lo), so=Math.sin(lo);
     return { f:[cl*co,sl,cl*so], r:[-so,0,co], u:[-sl*co,cl,-sl*so] };
@@ -77,7 +99,7 @@
     const N=G.N, ctx=G.ctx; if(!N||!ctx) return;
     if(!G.img||G.img.width!==N) G.img=ctx.createImageData(N,N);
     const d=G.img.data, c=N/2, R0=c*0.94, Rz=R0*G.zoom, B=basis(), T=G.tex, hm=G.hm;
-    const L=[-0.55,0.5,0.67], R02=R0*R0;
+    const S=sunVec()||[B.f[0]*0.6-B.r[0]*0.5+B.u[0]*0.6,B.f[1]*0.6+B.u[1]*0.6,B.f[2]*0.6-B.r[2]*0.5+B.u[2]*0.6], R02=R0*R0;
     for(let py=0;py<N;py++){
       const dy=(c-py-0.5)/Rz, wy0=(py+0.5-c);
       for(let px=0;px<N;px++){
@@ -88,16 +110,25 @@
         const dz=Math.sqrt(1-q);
         const wx=dx*B.r[0]+dy*B.u[0]+dz*B.f[0], wy=dy*B.u[1]+dz*B.f[1], wz=dx*B.r[2]+dy*B.u[2]+dz*B.f[2];
         const lat=Math.asin(wy>1?1:wy<-1?-1:wy), lon=Math.atan2(wz,wx);
-        let sh=0.28+0.95*Math.max(0,dx*L[0]+dy*L[1]+dz*L[2]);
+        const mu=wx*S[0]+wy*S[1]+wz*S[2], day=mu<-0.1?0:mu>0.15?1:(mu+0.1)/0.25;
+        // night ~0.24 (still readable), full sun up to ~1.8, a soft dusk between
+        const sq=Math.sqrt(mu>0?mu:0);
+        let sh=0.22+day*(0.72+0.86*sq);
         let r=40,g=70,b=110;
-        if(T){ const u=((lon/(2*Math.PI)+0.5)*TW)|0, v=((0.5-lat/Math.PI)*TH)|0, k=((v<0?0:v>=TH?TH-1:v)*TW+(u>=TW?TW-1:u))*4; r=T[k]; g=T[k+1]; b=T[k+2]; }
+        if(T){ const u=((lon/(2*Math.PI)+0.5)*TW)|0, v=((0.5-lat/Math.PI)*TH)|0, k=((v<0?0:v>=TH?TH-1:v)*TW+(u>=TW?TW-1:u))*4; r=LIFT[T[k]]; g=LIFT[T[k+1]]; b=LIFT[T[k+2]]; }
         if(hm){ // relief: the slope of the true ground, lit from the north-west
           const W=hm.W,H=hm.H, u=((lon/(2*Math.PI)+0.5)*W)|0, v=((0.5-lat/Math.PI)*H)|0, vv=v<1?1:v>H-2?H-2:v, uu=u>=W?W-1:u;
           const gx=hm.h[vv*W+(uu+1)%W]-hm.h[vv*W+(uu-1+W)%W], gy=hm.h[(vv-1)*W+uu]-hm.h[(vv+1)*W+uu];
-          let k=(-gx*0.7+gy*0.7)*0.012; k=k<-0.35?-0.35:k>0.35?0.35:k; sh*=1+k;
+          let k=(-gx*0.7+gy*0.7)*0.012*(0.35+0.65*day); k=k<-0.35?-0.35:k>0.35?0.35:k; sh*=1+k;
         }
-        sh*=0.75+0.25*dz;                       // a little limb darkening
-        d[i]=Math.min(255,r*sh); d[i+1]=Math.min(255,g*sh); d[i+2]=Math.min(255,b*sh+6); d[i+3]=255;
+        sh*=0.86+0.14*dz;                       // a little limb darkening
+        let R=r*sh, Gc=g*sh, Bc=b*sh;
+        if(day>0){ const w=day*0.1*(mu>0?mu:0), lum=(r*0.3+g*0.55+b*0.15), a=day*sq*(lum<160?1-lum/160:0);   // sunlit haze: dark seas read bright by day too
+          R+=(255-R)*w+36*a; Gc+=(250-Gc)*w+58*a; Bc+=(235-Bc)*w+92*a; }
+        if(day<1){ const n=1-day; R*=1-0.3*n; Gc*=1-0.2*n; Bc=Bc*(1+0.05*n)+10*n; }      // night: cool and dim
+        const dusk=mu>-0.07&&mu<0.07?(1-Math.abs(mu)/0.07)*0.32:0;                        // the terminator, a warm soft line
+        if(dusk){ R+=(255-R)*dusk; Gc+=(150-Gc)*dusk; Bc+=(70-Bc)*dusk; }
+        d[i]=R>255?255:R; d[i+1]=Gc>255?255:Gc; d[i+2]=Bc>255?255:Bc; d[i+3]=255;
       }
     }
     ctx.putImageData(G.img,0,0);
@@ -223,7 +254,8 @@
   function centreMe(){ const m=me(); if(!m) return; G.lat0=Math.max(-80,Math.min(80,m.lat)); G.lon0=m.lon; G.lastUser=performance.now(); kick(); }
   function info(){
     const b=G.body; if(!b) return; let g=''; try{ const p=getSurfacePalette(b); if(p&&p.grav) g=' · '+(+p.grav).toFixed(2)+' g'; }catch(e){}
-    tst('🪐 '+b.name.toUpperCase()+' · '+(b.type||'World')+g+' — tap the globe to plot a landing site, then LAND or SKY',3200);
+    let t=''; if(G.target){ const c=clock(G.target.lat,G.target.lon); if(c) t=' · marker'+c; }
+    tst('🪐 '+b.name.toUpperCase()+' · '+(b.type||'World')+g+t+' — the lit side is day right now: tap the globe to plot a landing site, then LAND or SKY',3600);
   }
 
   // ── build, place, show ─────────────────────────────────────────────────
@@ -232,7 +264,7 @@
     const r=document.createElement('div'); r.id='dm-globe'; r.style.display='none';
     r.innerHTML='<button type="button" class="dg-tab" title="Hide / show the landing globe" aria-label="Hide or show the landing globe"><span>‹</span></button>'+
       '<div class="dg-wrap"><div class="dg-globe"><canvas class="dg-cv"></canvas><div class="dg-read"></div></div><div class="dg-bubbles"></div></div>';
-    document.body.appendChild(r); G.el=r; G.cv=r.querySelector('.dg-cv'); G.ctx=G.cv.getContext('2d');
+    document.body.appendChild(r); G.el=r; G.cv=r.querySelector('.dg-cv'); G.ctx=G.cv.getContext('2d',{willReadFrequently:true});   // CPU canvas: we write every pixel ourselves, and it can't be lost to GPU pressure
     r.querySelector('.dg-tab').addEventListener('click',e=>{ e.stopPropagation(); setCollapsed(!G.collapsed,true); });
     const cv=G.cv;
     cv.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); try{ cv.setPointerCapture(e.pointerId); }catch(er){}
@@ -303,11 +335,17 @@
     const bs=[...G.el.querySelectorAll('.dg-b')], n=bs.length, ring=D/2+B*0.78, a0=-52, a1=122;
     bs.forEach((e,i)=>{ const a=(n<2?0:a0+(a1-a0)*i/(n-1))*D2R; e.style.left=Math.round(D/2+Math.cos(a)*ring-B/2)+'px'; e.style.top=Math.round(D/2+Math.sin(a)*ring-B/2)+'px'; });
   }
+  // local time and sun at a spot: ' · 14:05 ☀' (☾ at night, ◐ at dusk / dawn)
+  function clock(lat,lon){
+    try{ const c=DMTime.localTime(G.body,lon), mu=sunAt(lat,lon); if(mu==null) return '';
+      return ' · '+String(c.h).padStart(2,'0')+':'+String(c.m).padStart(2,'0')+' '+(mu>0.05?'☀':mu<-0.05?'☾':'◐'); }catch(e){ return ''; }
+  }
   function readout(){
     const r=G.el&&G.el.querySelector('.dg-read'); if(!r) return;
     let tx='';
     const m=me();
-    if(G.target){ tx='◎ '+fmt(G.target.lat,G.target.lon); try{ if(m) tx+=' · '+_lmDist(m,G.target); }catch(e){} }
+    if(G.target){ tx='◎ '+fmt(G.target.lat,G.target.lon); try{ if(m) tx+=' · '+_lmDist(m,G.target); }catch(e){} tx+=clock(G.target.lat,G.target.lon); }
+    else if(m) tx=(G.body?G.body.name.toUpperCase():'')+clock(m.lat,m.lon);
     else tx=G.body?G.body.name.toUpperCase():'';
     if(r.textContent!==tx) r.textContent=tx;
   }
@@ -332,6 +370,7 @@
   window.addEventListener('resize',()=>{ _lastLay=''; setTimeout(tick,80); });
 
   window.DMGlobe={
+    sunAt, dayAt:(lat,lon)=>{ const mu=sunAt(lat,lon); return mu==null?null:dayRamp(mu); },
     near(b){ if(G.spaceNear!==b){ G.spaceNear=b; } },
     sync(){ try{ sync(); }catch(e){} }, expand, collapse(){ setCollapsed(true,true); },
     get target(){ return G.target; }, set target(v){ G.target=v; sync(); },

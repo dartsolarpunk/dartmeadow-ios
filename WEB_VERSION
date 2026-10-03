@@ -1,4 +1,4 @@
-sha=ee182926835377ec7cd09f3a274066898d032ec5
-date=2026-10-03T01:23:39-04:00
-subject=Landing globe: one collapsible 3D globe overlay replaces LAND ON button, orbit approach and land map (space/terrain/atmo) (#116)
+sha=f45c9b6d8dcc4bb9621f2a1f40ffd4eb9caa8153
+date=2026-10-03T03:38:41-04:00
+subject=Real sunlight: landing globe day/night from the shared world clock; planets lit by their star in space (#117)
 source=https://github.com/dartsolarpunk/dartmeadow-space.git
