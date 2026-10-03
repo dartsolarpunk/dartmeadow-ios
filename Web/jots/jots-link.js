@@ -90,6 +90,10 @@
     return r.status === 204 ? {} : r.json();
   }
 
+  // Player safety (ui/dm-safety.js): blocked pilots and the chat filter.
+  const isBlockedName = (n) => { try { return !!(window.DMSafety && window.DMSafety.isBlocked(n)); } catch (e) { return false; } };
+  const safeText = (t) => { try { return window.DMSafety ? window.DMSafety.clean(t) : t; } catch (e) { return t; } };
+
   // ── Sign in: GitHub device flow via the Apps Script bridge ──────────
   const auth = {
     get signedIn() { return identity.kind === 'github' && !!token; },
@@ -309,6 +313,33 @@
       if (!this.ready) return null;
       const t = await this.get('saves/' + (name || 'autosave') + '.json');
       return t ? JSON.parse(t) : null;
+    },
+    // Account deletion (ui/dm-safety.js). Deleting the repository needs the
+    // delete_repo scope, which the game doesn't ask for, so that is tried
+    // once; otherwise every branch is replaced by one parentless commit that
+    // holds only a note, so none of the game's files stay in the
+    // repository's history.
+    async wipe() {
+      if (!auth.signedIn) return { how: 'none' };
+      const owner = identity.name, repo = this.repo, base = '/repos/' + owner + '/' + repo;
+      const url = 'https://github.com/' + owner + '/' + repo + '/settings';
+      this.ready = false;
+      try { const r = await gh('DELETE', base); return { how: r ? 'repo' : 'none', repo }; } catch (e) { /* 403 without delete_repo */ }
+      const info = await gh('GET', base);
+      if (!info) return { how: 'none', repo };
+      const branch = info.default_branch || 'main', day = new Date().toISOString().slice(0, 10);
+      const note = '# Game data deleted\n\nThe DART Meadow data kept here for ' + owner + ' was deleted from inside the game on ' + day +
+        '.\n\nThis repository is now empty. You can delete it: Settings → Danger Zone → Delete this repository.\n';
+      const tree = await gh('POST', base + '/git/trees', { tree: [{ path: 'README.md', mode: '100644', type: 'blob', content: note }] });
+      const commit = await gh('POST', base + '/git/commits', { message: 'Delete DART Meadow game data', tree: tree.sha, parents: [] });
+      await gh('PATCH', base + '/git/refs/heads/' + branch, { sha: commit.sha, force: true });
+      try {
+        const brs = (await gh('GET', base + '/branches?per_page=100')) || [];
+        for (const b of brs) if (b.name !== branch) { try { await gh('DELETE', base + '/git/refs/heads/' + b.name); } catch (e) {} }
+      } catch (e) {}
+      try { await gh('PATCH', base, { description: 'DART Meadow game data deleted ' + day + ' (safe to delete this repository)' }); } catch (e) {}
+      this.shas = {};
+      return { how: 'emptied', repo, url };
     },
     async appendChat(lines) {
       if (!this.ready || !lines.length) return;
@@ -600,7 +631,7 @@
       this.transport.send({ t: 'state', id: sessionId, n: identity.name, k: identity.kind === 'github' ? 'h' : 'g', ts: Date.now(), ...st });
     },
     sendChat(text) {
-      text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+      text = safeText(String(text || '').replace(/\s+/g, ' ').trim().slice(0, 200));
       if (!text || !this.transport) return;
       const m = { t: 'chat', id: sessionId, n: identity.name, text, ts: Date.now() };
       this.transport.send(m);
@@ -623,6 +654,7 @@
         if (m.id === sessionId || typeof m.to !== 'string') return;
         if (m.to.toLowerCase() !== String(identity.name || '').toLowerCase()) return;
         if (!m.b || typeof m.b !== 'object') return;
+        if (isBlockedName(m.n)) return;                                // blocked: no requests, chat or markers
         emit('dm', { from: String(m.n || '?').slice(0, 40), kind: m.kd === 'h' ? 'github' : 'guest', peer: m.id, body: m.b, ts: +m.ts || Date.now() });
         return;
       }
@@ -641,7 +673,10 @@
         if (this.peers.delete(m.id)) emit('peers', { peers: [...this.peers.values()] });
       } else if (m.t === 'chat') {
         if (!self && m.id === sessionId) return;
-        const line = { n: String(m.n || '?').slice(0, 40), text: String(m.text || '').slice(0, 200), ts: m.ts || Date.now(), me: m.id === sessionId };
+        if (!self && isBlockedName(m.n)) return;
+        const raw = String(m.text || '').slice(0, 200);
+        const line = { n: String(m.n || '?').slice(0, 40), text: safeText(raw), ts: m.ts || Date.now(), me: m.id === sessionId };
+        if (line.text !== raw) Object.defineProperty(line, 'raw', { value: raw });   // for a report; not logged to the vault
         this.chat.push(line); if (this.chat.length > 50) this.chat.shift();
         this.chatLog.push(line);
         emit('chat', line);

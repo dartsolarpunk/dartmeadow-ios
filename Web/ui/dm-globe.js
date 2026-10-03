@@ -19,6 +19,10 @@
  *      ground — FLY THERE (boards and auto-flies at M5) · SKY · ✦ MARK · ⌖ ME · ✕ CLEAR
  *      sky    — FLY THERE · LAND here · ◎ PICK (mark the ground near you) · ✦ MARK · Mach
  *               while auto-flying: CANCEL · IDLE · Mach · ✦ MARK · LAND here
+ *  • On the ground and in the sky a ship's-compass halo rings it: N NE E SE S
+ *    SW W NW and degree ticks, a marker that swings to the way you're looking
+ *    (true north on this world), the nearest point lit, and the bearing in
+ *    degrees at the marker when you're between points.
  *  • The small tab at the left edge folds it away and brings it back.
  */
 (function(){
@@ -26,7 +30,7 @@
   const D2R=Math.PI/180, R2D=180/Math.PI;
   const G={ el:null, cv:null, ctx:null, img:null, N:0, mode:null, body:null, spaceNear:null, bodyKey:'',
     lat0:15, lon0:0, zoom:1, target:null, lastUser:0, drag:null, ptrs:new Map(), pinch0:0, zoom0:1,
-    tex:null, texW:0, texH:0, hm:null, raf:0, lastT:0, collapsed:false, pref:null, D:120, B:34 };
+    tex:null, texW:0, texH:0, hm:null, raf:0, lastT:0, collapsed:false, pref:null, D:120, B:34, H:0, hdg:null };
   try{ G.pref=JSON.parse(localStorage.getItem('dm_globe_v1')||'null'); }catch(e){}
   G.collapsed=!!(G.pref&&G.pref.collapsed);
   const $=id=>document.getElementById(id);
@@ -168,10 +172,67 @@
       ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(c,c,R0,0,Math.PI*2); ctx.fill(); }
     ctx.strokeStyle='rgba(140,210,255,.55)'; ctx.lineWidth=1.2*dpr; ctx.beginPath(); ctx.arc(c,c,R0,0,Math.PI*2); ctx.stroke();
   }
+  // ── the compass halo ───────────────────────────────────────────────────
+  // Bearing the camera looks along, clockwise from this world's north: the
+  // ground and sky frames run x → east, −z → north (see _lmMe).
+  const _hv={x:0,y:0,z:0};
+  function heading(){
+    let cam=null; try{ cam=G.mode==='surf'?surfCamera:G.mode==='atmo'?atmoCamera:null; }catch(e){}
+    if(cam&&cam.matrixWorld){ const e=cam.matrixWorld.elements; _hv.x=-e[8]; _hv.z=-e[10];
+      if(_hv.x*_hv.x+_hv.z*_hv.z>1e-6) return ((Math.atan2(_hv.x,-_hv.z)*R2D)%360+360)%360; }
+    try{ return ((-_lmYaw()*R2D)%360+360)%360; }catch(e){ return null; }
+  }
+  const PTS=['N','NE','E','SE','S','SW','W','NW'];
+  function halo(now){
+    const cv=G.hcv; if(!cv||!G.H) return;
+    const h=heading(); if(h==null) return;
+    if(!G.hFont) G.hFont=(getComputedStyle(document.body).getPropertyValue('--font-hud')||'').trim()||'sans-serif';
+    const dt=Math.min(0.1,(now-(G.hT||now))/1000); G.hT=now;
+    if(G.hdg==null) G.hdg=h; else { const d=((h-G.hdg+540)%360)-180; G.hdg=(G.hdg+d*Math.min(1,dt*14)+360)%360; }   // smooth, the short way round
+    const dpr=Math.min(2,window.devicePixelRatio||1), D=G.D, Hh=G.H, S=Math.round((D+2*Hh)*dpr);
+    if(cv.width!==S){ cv.width=S; cv.height=S; }
+    const x=cv.getContext('2d'), c=S/2, r0=(D/2+1)*dpr, r1=(D/2+Hh)*dpr, rm=(r0+r1)/2, small=D<110;
+    x.clearRect(0,0,S,S);
+    x.fillStyle='rgba(4,12,26,.55)'; x.beginPath(); x.arc(c,c,r1,0,Math.PI*2); x.arc(c,c,r0,0,Math.PI*2,true); x.fill();
+    x.strokeStyle='rgba(110,190,255,.55)'; x.lineWidth=dpr; x.beginPath(); x.arc(c,c,r1-0.5*dpr,0,Math.PI*2); x.stroke();
+    const hd=G.hdg, near=Math.round(hd/45)%8, off=Math.abs(((hd-near*45+540)%360)-180);
+    // ticks: every 10° (every 15° on a small globe), longer at the eight points
+    x.lineCap='round';
+    x.strokeStyle='rgba(160,215,255,.5)'; x.lineWidth=dpr*0.9; x.beginPath();
+    const tl=0.28*(r1-r0), ro=r1-1.5*dpr;
+    for(let a=0;a<360;a+=small?15:10){ if(a%45===0) continue;
+      const t=(a-90)*D2R, cs=Math.cos(t), sn=Math.sin(t); x.moveTo(c+cs*ro,c+sn*ro); x.lineTo(c+cs*(ro-tl),c+sn*(ro-tl)); }
+    x.stroke();
+    // the eight points
+    x.textAlign='center'; x.textBaseline='middle';
+    for(let i=0;i<8;i++){
+      const t=(i*45-90)*D2R, lit=i===near, card=i%2===0;
+      const fs=(card?0.72:0.56)*(r1-r0)*(lit?1.12:1);
+      x.font=(lit||card?'700 ':'600 ')+fs.toFixed(1)+'px '+G.hFont;
+      x.fillStyle=lit?'#39ff6a':i===0?'#ff7a7a':card?'rgba(225,242,255,.92)':'rgba(170,210,240,.75)';
+      x.shadowColor=lit?'rgba(57,255,106,.9)':'rgba(0,0,0,0)'; x.shadowBlur=lit?6*dpr:0;
+      x.fillText(PTS[i],c+Math.cos(t)*rm,c+Math.sin(t)*rm+0.5*dpr);
+    }
+    x.shadowBlur=0;
+    // the marker: a bright notch across the band, pointing in at the globe
+    const t=(hd-90)*D2R, ux=Math.cos(t), uy=Math.sin(t), px=-uy, py=ux, w=(r1-r0)*0.42;
+    x.fillStyle='#eaffff'; x.shadowColor='rgba(120,230,255,.95)'; x.shadowBlur=7*dpr;
+    x.beginPath(); x.moveTo(c+ux*(r0+1*dpr),c+uy*(r0+1*dpr)); x.lineTo(c+ux*r1+px*w,c+uy*r1+py*w); x.lineTo(c+ux*r1-px*w,c+uy*r1-py*w); x.closePath(); x.fill();
+    x.shadowBlur=0;
+    // between points: the bearing in degrees, just inside the rim at the marker
+    const deg=G.el.querySelector('.dg-deg');
+    if(deg){
+      const show=off>6;
+      if(show){ const tx=Math.round(hd)%360+'°'; if(deg.textContent!==tx) deg.textContent=tx;
+        const rr=D/2-(small?10:12); deg.style.transform='translate(-50%,-50%) translate('+(ux*rr).toFixed(1)+'px,'+(uy*rr).toFixed(1)+'px)'; }
+      deg.classList.toggle('on',show);
+    }
+  }
   function frame(now){
     G.raf=0;
     if(!G.el||G.el.style.display==='none'||G.collapsed||document.body.classList.contains('hud-off')) return;
     G.raf=requestAnimationFrame(frame);
+    halo(now);
     if(now-G.lastT<33) return;                                // ~30 fps is plenty for a turning globe
     const dt=Math.min(0.1,(now-(G.lastT||now))/1000); G.lastT=now;
     if(!G.drag&&G.ptrs.size===0&&now-G.lastUser>3500) G.lon0=wrap(G.lon0-7*dt);   // the turntable, eastward under you
@@ -263,8 +324,8 @@
     if(G.el) return;
     const r=document.createElement('div'); r.id='dm-globe'; r.style.display='none';
     r.innerHTML='<button type="button" class="dg-tab" title="Hide / show the landing globe" aria-label="Hide or show the landing globe"><span>‹</span></button>'+
-      '<div class="dg-wrap"><div class="dg-globe"><canvas class="dg-cv"></canvas><div class="dg-read"></div></div><div class="dg-bubbles"></div></div>';
-    document.body.appendChild(r); G.el=r; G.cv=r.querySelector('.dg-cv'); G.ctx=G.cv.getContext('2d',{willReadFrequently:true});   // CPU canvas: we write every pixel ourselves, and it can't be lost to GPU pressure
+      '<div class="dg-wrap"><canvas class="dg-halo" aria-hidden="true"></canvas><div class="dg-globe"><canvas class="dg-cv"></canvas><div class="dg-read"></div><div class="dg-deg"></div></div><div class="dg-bubbles"></div></div>';
+    document.body.appendChild(r); G.el=r; G.cv=r.querySelector('.dg-cv'); G.ctx=G.cv.getContext('2d',{willReadFrequently:true}); G.hcv=r.querySelector('.dg-halo');   // CPU canvas: we write every pixel ourselves, and it can't be lost to GPU pressure
     r.querySelector('.dg-tab').addEventListener('click',e=>{ e.stopPropagation(); setCollapsed(!G.collapsed,true); });
     const cv=G.cv;
     cv.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); try{ cv.setPointerCapture(e.pointerId); }catch(er){}
@@ -302,7 +363,10 @@
     const nB=G.el.querySelectorAll('.dg-b').length||5; let S52=0, S122=0;
     for(let i=0;i<nB;i++){ const sn=Math.sin((nB<2?0:-52+174*i/(nB-1))*D2R); S52=Math.max(S52,-sn); S122=Math.max(S122,sn); }
     // how far the globe + its bubble arc reach from the globe's centre
-    const ext=(D,B)=>{ const ring=D/2+B*0.78; return {up:Math.max(D/2,ring*S52+B/2), dn:Math.max(D/2+16,ring*S122+B/2), w:D/2+ring+B/2+8, l:Math.max(0,ring*0.53+B/2-D/2)}; };
+    // the compass halo (ground and sky): a band round the globe; the bubbles move out past it
+    const hal=G.mode==='surf'||G.mode==='atmo', hW=D=>hal?Math.round(Math.max(11,Math.min(15,D*0.115))):0;
+    const ringR=(D,B)=>hal?D/2+hW(D)+B/2+3:D/2+B*0.78;
+    const ext=(D,B)=>{ const ring=ringR(D,B); return {up:Math.max(D/2,ring*S52+B/2), dn:Math.max(D/2+16,ring*S122+B/2), w:D/2+ring+B/2+8, l:Math.max(0,ring*0.53+B/2-D/2)}; };
     let topLim=8, botLim=H-8;
     const rects=[];
     if(root){ const hdr=G.mode==='space'?null:root.querySelector(':scope>div'); if(hdr){ const q=hdr.getBoundingClientRect(); if(q.height) topLim=Math.max(topLim,q.bottom+6); }
@@ -312,7 +376,7 @@
     ['fs-exit','fs-enter','jots-chat'].forEach(id=>{ const e=$(id); if(e&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden'){ const q=e.getBoundingClientRect(); if(q.width) rects.push(q); } });
     const gapsIn=(x0,x1,lo,hi)=>{ const ob=rects.filter(q=>q.left<x1&&q.right>x0&&q.bottom>lo&&q.top<hi).map(q=>[q.top-6,q.bottom+6]).sort((a,b)=>a[0]-b[0]);
       const g=[]; let y=lo; for(const [a,b] of ob){ if(a>y) g.push([y,a]); y=Math.max(y,b); } if(hi>y) g.push([y,hi]); return g; };
-    let X=24, e=ext(D,B), need=e.up+e.dn;
+    const X0=24+hW(D); let X=X0, e=ext(D,B), need=e.up+e.dn;
     // pick the gap down the left edge that fits, nearest the middle; else the biggest
     let gaps=gapsIn(0,X+e.w,topLim,botLim), fit=gaps.filter(g=>g[1]-g[0]>=need);
     const mid=g=>Math.abs((g[0]+g[1])/2-H/2);
@@ -327,12 +391,12 @@
     const minD=Math.round(D*0.62), B0=B, D0=D;
     while(e.up+e.dn>best[1]-best[0]&&D>minD){ D-=2; B=Math.round(Math.max(24,B0*Math.max(0.8,D/D0))); e=ext(D,B); }
     const cy=Math.round(Math.max(best[0]+e.up,Math.min(best[1]-e.dn,(best[0]+e.up+best[1]-e.dn)/2)));
-    G.D=D; G.B=B;
-    const s=G.el.style; s.setProperty('--dg-d',D+'px'); s.setProperty('--dg-b',B+'px'); s.setProperty('--dg-x',X+'px'); s.setProperty('--dg-tx',(X>24?X-22:0)+'px'); s.top=(cy-D/2)+'px';
+    G.D=D; G.B=B; G.H=hW(D);
+    const s=G.el.style; s.setProperty('--dg-d',D+'px'); s.setProperty('--dg-b',B+'px'); s.setProperty('--dg-x',X+'px'); s.setProperty('--dg-tx',(X>X0?X-22-G.H:0)+'px'); s.setProperty('--dg-h',G.H+'px'); s.top=(cy-D/2)+'px';
     const dpr=Math.min(2,window.devicePixelRatio||1), N=Math.round(Math.min(260,D*dpr));
     if(G.cv.width!==N){ G.cv.width=N; G.cv.height=N; G.N=N; G.img=null; }
     // bubbles on an arc round the right side, from upper right to below
-    const bs=[...G.el.querySelectorAll('.dg-b')], n=bs.length, ring=D/2+B*0.78, a0=-52, a1=122;
+    const bs=[...G.el.querySelectorAll('.dg-b')], n=bs.length, ring=ringR(D,B), a0=-52, a1=122;
     bs.forEach((e,i)=>{ const a=(n<2?0:a0+(a1-a0)*i/(n-1))*D2R; e.style.left=Math.round(D/2+Math.cos(a)*ring-B/2)+'px'; e.style.top=Math.round(D/2+Math.sin(a)*ring-B/2)+'px'; });
   }
   // local time and sun at a spot: ' · 14:05 ☀' (☾ at night, ◐ at dusk / dawn)

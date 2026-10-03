@@ -33,4 +33,10 @@
 #dm-globe .dg-b.lit,#dm-globe .dg-land:not(.dim),#dm-globe .dg-fly:not(.dim){border-color:#39ff6a;box-shadow:0 0 12px rgba(57,255,106,.7),inset 0 0 6px rgba(57,255,106,.35);}
 #dm-globe .dg-cancel{border-color:rgba(255,90,110,.8);}
 #dm-globe .dg-mach i{color:var(--gold);}
+/* the compass halo round the globe (ground + sky) and the bearing at its marker */
+#dm-globe .dg-halo{position:absolute;left:calc(-1*var(--dg-h,0px));top:calc(-1*var(--dg-h,0px));width:calc(var(--dg-d) + 2*var(--dg-h,0px));height:calc(var(--dg-d) + 2*var(--dg-h,0px));pointer-events:none;}
+#dm-globe.g-space .dg-halo,#dm-globe.g-space .dg-deg{display:none;}
+#dm-globe .dg-deg{position:absolute;left:50%;top:50%;pointer-events:none;padding:0 4px;border-radius:6px;white-space:nowrap;opacity:0;transition:opacity .2s;
+  background:rgba(2,8,18,.72);border:1px solid rgba(57,255,106,.55);font-family:var(--font-mono);font-size:.46rem;font-weight:700;color:#bfffd0;text-shadow:0 0 5px rgba(57,255,106,.8);}
+#dm-globe .dg-deg.on{opacity:1;}
 /* HUD off hides it with everything else (ui/dm-spectator.css) */

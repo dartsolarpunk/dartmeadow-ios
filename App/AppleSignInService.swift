@@ -66,6 +66,70 @@ final class AppleSignInService: NSObject {
         store.delete("user")
     }
 
+    // MARK: Token revocation (account deletion, App Store guideline 5.1.1(v))
+    //
+    // Apple's REST /auth/token + /auth/revoke need a client_secret JWT signed
+    // with a Sign in with Apple private key, which must never ship in the app.
+    // A tiny server (server/siwa/ in this repo) holds the key; its base URL is
+    // Info.plist DMSiwaServiceURL. Until it's configured, deletion still
+    // forgets everything on the device and tells the page revocation is pending.
+
+    static var serviceURL: URL? {
+        guard let s = Bundle.main.object(forInfoDictionaryKey: "DMSiwaServiceURL") as? String,
+              !s.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return URL(string: s)
+    }
+
+    private static func post(_ path: String, _ body: [String: Any], done: @escaping ([String: Any]?, String?) -> Void) {
+        guard let base = serviceURL else { return done(nil, "not configured") }
+        var r = URLRequest(url: base.appendingPathComponent(path))
+        r.httpMethod = "POST"
+        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        r.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        r.timeoutInterval = 8
+        URLSession.shared.dataTask(with: r) { data, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            let json = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            DispatchQueue.main.async {
+                if let err { return done(nil, err.localizedDescription) }
+                if code < 200 || code >= 300 { return done(json, (json?["error"] as? String) ?? "HTTP \(code)") }
+                done(json ?? [:], nil)
+            }
+        }.resume()
+    }
+
+    /// Swap the one-time authorization code for a refresh token (kept in the Keychain) so it can be revoked later.
+    private func exchange(code: String, user: String) {
+        Self.post("token", ["code": code]) { [store] json, _ in
+            if let rt = json?["refresh_token"] as? String, !rt.isEmpty { store.set("refresh.\(user)", rt) }
+        }
+    }
+
+    /// Revoke this app's Sign in with Apple grant. done(nil) = revoked.
+    func revoke(user: String?, done: @escaping (String?) -> Void) {
+        let user = user.flatMap { $0.isEmpty ? nil : $0 } ?? store.get("user")
+        guard Self.serviceURL != nil else {
+            return done("Apple token revocation isn't set up in this build yet")
+        }
+        var body: [String: Any] = [:]
+        if let u = user, let rt = store.get("refresh.\(u)") {
+            body = ["token": rt, "token_type_hint": "refresh_token"]
+        } else if let code = store.get("code"), let ts = Double(store.get("codeTs") ?? ""),
+                  Date().timeIntervalSince1970 - ts < 290 {
+            body = ["code": code]          // fresh code: the server exchanges then revokes
+        } else {
+            return done("no Apple token on this device to revoke (sign in with Apple again, then delete)")
+        }
+        Self.post("revoke", body) { _, err in done(err) }
+    }
+
+    /// Forget every Sign in with Apple value this app stored.
+    func forgetAll(user: String?) {
+        let u = user.flatMap { $0.isEmpty ? nil : $0 } ?? store.get("user")
+        if let u { ["given", "family", "email", "refresh"].forEach { store.delete("\($0).\(u)") } }
+        ["user", "code", "codeTs"].forEach { store.delete($0) }
+    }
+
     private func finish(_ result: Result<[String: Any], Failure>) {
         let cb = completion
         completion = nil
@@ -110,7 +174,12 @@ extension AppleSignInService: ASAuthorizationControllerDelegate {
             "realUserStatus": cred.realUserStatus.rawValue,
         ]
         if let t = cred.identityToken, let s = String(data: t, encoding: .utf8) { payload["identityToken"] = s }
-        if let c = cred.authorizationCode, let s = String(data: c, encoding: .utf8) { payload["authorizationCode"] = s }
+        if let c = cred.authorizationCode, let s = String(data: c, encoding: .utf8) {
+            payload["authorizationCode"] = s
+            store.set("code", s)
+            store.set("codeTs", String(Date().timeIntervalSince1970))
+            exchange(code: s, user: user)
+        }
         finish(.success(payload))
     }
 

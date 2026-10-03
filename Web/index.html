@@ -913,77 +913,14 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 
 </style>
 
-<!-- ══════════════════════════════════════════════════════════════
-     FIREBASE AUTH — project: dart-meadow-gamedev
-     This is the public, client-safe web app config (not a secret — Firebase
-     access control comes from Security Rules, not from hiding this object).
-     Google sign-in works immediately. Apple sign-in needs the Apple-side
-     Services ID/Team ID/Key ID/private key configured in the Firebase
-     console (Authentication → Sign-in method → Apple) before it'll succeed;
-     the button is wired up and ready for whenever that's done.
-     ══════════════════════════════════════════════════════════════ -->
-<script type="module">
-  import { initializeApp } from "./vendor/firebasejs/12.15.0/firebase-app.js";
-  import {
-    getAuth, GoogleAuthProvider, OAuthProvider,
-    signInWithPopup, signInWithRedirect, getRedirectResult,
-    onAuthStateChanged, signOut
-  } from "./vendor/firebasejs/12.15.0/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "void",
-    authDomain: "dart-meadow-gamedev.firebaseapp.com",
-    projectId: "dart-meadow-gamedev",
-    storageBucket: "dart-meadow-gamedev.firebasestorage.app",
-    messagingSenderId: "279342113339",
-    appId: "1:279342113339:web:b4a5dfc675d3562748321e",
-    measurementId: "G-MZCJ628YRY"
-  };
-
-  const fbApp = initializeApp(firebaseConfig);
-  const fbAuth = getAuth(fbApp);
-  window._fbAuth = fbAuth;
-  window._fbUser = null;
-
-  onAuthStateChanged(fbAuth, (user) => {
-    window._fbUser = user;
-    if (typeof window._onAcctStateChanged === 'function') window._onAcctStateChanged(user);
-  });
-
-  function _handleSignInError(err, provider){
-    const st = document.getElementById('acct-status');
-    // Popups get blocked/dismissed easily, especially on mobile — fall back
-    // to a full-page redirect flow rather than just showing an error.
-    if (err && err.code === 'auth/popup-blocked') { signInWithRedirect(fbAuth, provider); return; }
-    if (err && (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user')) return; // user just closed it
-    if (st) st.textContent = '⚠ Sign-in failed — please try again';
-    console.warn('sign-in error:', err);
-  }
-
-  window.signInWithGoogle = function(){
-    const provider = new GoogleAuthProvider();
-    const btn = document.getElementById('acct-google-btn'); if(btn) btn.disabled = true;
-    signInWithPopup(fbAuth, provider)
-      .catch(err => _handleSignInError(err, provider))
-      .finally(() => { if(btn) btn.disabled = false; });
-  };
-  window.signInWithApple = function(){
-    const provider = new OAuthProvider('apple.com');
-    const btn = document.getElementById('acct-apple-btn'); if(btn) btn.disabled = true;
-    signInWithPopup(fbAuth, provider)
-      .catch(err => _handleSignInError(err, provider))
-      .finally(() => { if(btn) btn.disabled = false; });
-  };
-  window.signOutOfAccount = function(){ signOut(fbAuth); };
-
-  // Picks up the result if signInWithRedirect was used (popup-blocked fallback)
-  getRedirectResult(fbAuth).catch(err => console.warn('redirect result:', err));
-</script>
-<script src="jots/jots-link.js?v=82" defer></script>
-<script src="ui/dm-friends.js?v=1" defer></script>
+<script src="ui/dm-safety.js?v=1" defer></script>
+<script src="jots/jots-link.js?v=83" defer></script>
+<script src="ui/dm-friends.js?v=2" defer></script>
 <script src="ui/dm-spectator.js?v=1" defer></script>
 <script src="ui/dm-stack.js?v=1" defer></script>
-<script src="ui/dm-globe.js?v=2" defer></script>
+<script src="ui/dm-globe.js?v=3" defer></script>
+<script src="ui/dm-star.js?v=1" defer></script>
+<script src="ui/dm-starbubble.js?v=2" defer></script>
 </head>
 <body>
 <!-- LOADING -->
@@ -1761,8 +1698,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
     <div id="acct-signed-out">
       <div class="modal-title" style="text-align:center;">🔑 SIGN IN</div>
       <div class="acct-guest-note" style="margin-bottom:1rem;">You can always play as a guest — signing in just lets you keep a permanent gamer tag and carries your profile across devices.</div>
-      <button class="acct-provider-btn" id="acct-google-btn" onclick="signInWithGoogle()">🇬 Sign in with Google</button>
-      <button class="acct-provider-btn" id="acct-apple-btn" onclick="signInWithApple()"> Sign in with Apple</button>
+      <button class="acct-provider-btn" id="acct-apple-btn" style="display:none;"> Sign in with Apple</button>
       <div class="acct-guest-note" id="acct-status"></div>
     </div>
     <div id="acct-signed-in" style="display:none;">
@@ -1772,7 +1708,9 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
       <div id="acct-email" style="font-size:0.6rem;color:var(--text-dim);margin-bottom:1rem;"></div>
       <button class="btn" onclick="signOutOfAccount()" style="width:100%;">SIGN OUT</button>
     </div>
-    <div class="modal-footer" style="margin-top:1rem;">
+    <div class="acct-guest-note" style="margin-top:.8rem;">Safety, blocked players and account deletion: <a href="#" onclick="closeAccountModal();DMSafety.openSafety();return false;" style="color:var(--cyan);">PROFILE › SAFETY</a> · <a href="mailto:dartmeadow@gmail.com" style="color:var(--cyan);">dartmeadow@gmail.com</a></div>
+    <div class="modal-footer" style="margin-top:1rem;display:flex;flex-direction:column;gap:.5rem;">
+      <button class="btn" onclick="closeAccountModal();DMSafety.deleteAccount();" style="width:100%;color:#ff8a94;border-color:rgba(255,90,110,.5);">DELETE ACCOUNT</button>
       <button class="btn" onclick="closeAccountModal()" style="width:100%;">CLOSE</button>
     </div>
   </div>
@@ -4725,7 +4663,7 @@ let flightAnimId,flightTime=0,celestialBodies=[],sunMesh,earthMesh;
 // rider stays an unresolved speck; CHAR mount math stays Stabilizer-owned
 // (CHAR_BOARD_TARGET_UNITS / remountSkyboard) — they inherit parent scale.
 // Surface LAND: mcRadius = visR (same R); local walk scene keeps human bake.
-// Keep intact: MW sky (#37), near fog (#38), buildVibrantSolSun (radius only),
+// Keep intact: MW sky (#37), near fog (#38), the Sun (ui/dm-star.js; radius only),
 // NO whitewash bloom / corona spr re-add (#30).
 // ═══════════════════════════════════════════════════════════════
 const AU_UNITS = 500;          // 1 AU in scene units (tablet Neptune fill)
@@ -6878,10 +6816,10 @@ async function buildSolarSystem(){
   // ═══════════════════════════════════════════════════════════════
   const AU = AU_UNITS;
 
-  // Sun — vibrant LOCAL body (lava/flare surface + tight additive shells).
-  // Radius SOL_SUN_RADIUS. White Oort/system discs stay DELETED (#30).
-  // Asteroid belt + Oort particulate unchanged. No scene bloom wash.
-  const _solVis=buildVibrantSolSun(SOL_SUN_RADIUS);
+  // Sun — built from its data by the world engine (ui/dm-star.js): boiling
+  // plasma surface, ray-marched corona, prominences. Radius SOL_SUN_RADIUS.
+  // White Oort/system discs stay DELETED (#30). No scene bloom wash.
+  const _solVis=DMStar.build({radius:SOL_SUN_RADIUS,temp:5778,seed:1});
   const sunGroup=_solVis.group;
   const sm=_solVis.mesh;
   flightScene.add(sunGroup);
@@ -10583,7 +10521,8 @@ function updateBodies(dt){
 
     // LOD — increase geometry detail when close, reduce when far
     const dist=b.mesh.position.distanceTo(STATE.flight.pos);
-    if(checkMesh.geometry && checkMesh.geometry.parameters && checkMesh.geometry.parameters.radius){
+    // (not stars: their distances run far past these bands, which cut the Sun to 8 segments; ui/dm-star.js does its own LOD)
+    if(b.type!=='Star' && checkMesh.geometry && checkMesh.geometry.parameters && checkMesh.geometry.parameters.radius){
       // LOD re-tessellation with a per-body cooldown. Without it, hovering
       // near a band boundary (dist≈5/20/80) rebuilt+disposed the sphere
       // geometry over and over — each rebuild is a main-thread spike, and
@@ -10665,21 +10604,8 @@ function updateBodies(dt){
       try{ ld.style.display='none'; ld.innerHTML=''; _landTargetBody=null; }catch(e){}
     }
   }
-  // Sun rotation + procedural surface time
-  if(sunMesh){
-    sunMesh.rotation.y+=.00035;
-    try{
-      if(sunMesh.userData&&sunMesh.userData.paintSol){
-        // ~12 fps canvas repaint — lava motion without per-frame full cost
-        const t=typeof flightTime==='number'?flightTime:0;
-        const gap=(typeof GFX!=='undefined'&&GFX&&(GFX.preset==='low'||GFX.isMobile))?0.16:0.09;
-        if(t- (sunMesh.userData._solPaintT||-99) > gap){
-          sunMesh.userData._solPaintT=t;
-          sunMesh.userData.paintSol(t);
-        }
-      }
-    }catch(e){}
-  }
+  // Sun rotation (its plasma animates on the shader clock)
+  if(sunMesh) sunMesh.rotation.y+=.00035;
   // Sol GAL LOD — yellow arm-dot when far; restore full SYS when near
   try{ if(typeof updateSolGalLod==='function') updateSolGalLod(); }catch(e){}
   try{ if(typeof updateDiscoveries==='function') updateDiscoveries(1/60); }catch(e){}
@@ -12184,22 +12110,14 @@ async function rebuildFlightForSystem(system){
   _clearFlightSystemScene();
   const AU=AU_UNITS;
   const sysRand=seedRand(system.seed||hashStr('sys:'+system.name));
-  const starCol={'G yellow':0xffee88,'K orange':0xffaa55,'M red dwarf':0xff6644,'F white':0xffffee,'B blue giant':0x99bbff,
-    'O/B Blue Giant':0x9db8ff,'A White':0xf0f4ff,'F/G Yellow-White':0xfff2d0,'K Orange':0xffc880,'M Red Dwarf':0xff8860,'Red Giant':0xff6a4a
-  }[system.starType]||0xffee88;
 
-  // Central star — cheap mesh (same stability choice as Sol's Sun)
-  const starGroup=new THREE.Group();
-  const starMesh=new THREE.Mesh(new THREE.SphereGeometry(SOL_SUN_RADIUS,24,24),new THREE.MeshBasicMaterial({color:starCol}));
-  starGroup.add(starMesh);
-  try{
-    const gt=makeCircleTex(64,'#'+new THREE.Color(starCol).getHexString(),1);
-    const spr1=new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:starCol,transparent:true,opacity:0.28,blending:THREE.AdditiveBlending,depthWrite:false}));
-    spr1.scale.set(SOL_SUN_RADIUS*1.35,SOL_SUN_RADIUS*1.35,1);starGroup.add(spr1);
-  }catch(e){}
+  // Central star — from its class, by the world engine (ui/dm-star.js)
+  const starK=DMStar.tempFor(system.starType);
+  const _star=DMStar.build({radius:SOL_SUN_RADIUS,temp:starK,seed:(system.seed||hashStr('sys:'+system.name))%997+1});
+  const starGroup=_star.group, starMesh=_star.mesh;
   starGroup.position.set(0,0,0);flightScene.add(starGroup);
   sunMesh=starMesh;
-  celestialBodies.push({mesh:starGroup,name:system.name,type:'Star',temp:'5000 K',orbitR:0,orbitSpd:0,angle:0,renderMesh:starMesh});
+  celestialBodies.push({mesh:starGroup,name:system.name,type:'Star',temp:Math.round(starK/100)*100+' K',orbitR:0,orbitSpd:0,angle:0,renderMesh:starMesh});
 
   const GIANT_FALLBACK=[0x8a5a3a,0xd9b280,0xf0e0c0,0xc47a52];
   const bodyAngs=[];
@@ -12417,9 +12335,6 @@ const FEEDBACK_GAS_URL='https://script.google.com/macros/s/AKfycbyzkQxLR5miUXP6o
 const FEEDBACK_MAILTO='radicaldeepscale@gmail.com';
 let _fbCat='BUG REPORT';
 
-// ══════════════════════════════════════════════════════════════
-//  ✦ ACCOUNT — Firebase Auth (Google / Apple)
-// ══════════════════════════════════════════════════════════════
 // ── PROFILE MENU ─────────────────────────────────────────────────────
 // Works for guests and GitHub sign-ins alike. Signed in, it shows the
 // GitHub avatar and name; either way it holds display options (saved in
@@ -12494,6 +12409,7 @@ function _pfEnsure(){
     '<div class="pf-sec">DISPLAY</div>'+
     '<div class="pf-row"><div><div class="pf-row-t">Player name tags</div><div class="pf-row-d">Other players\u2019 usernames above them.</div></div><button class="pf-sw" id="pf-sw-players" role="switch"></button></div>'+
     '<div class="pf-row"><div><div class="pf-row-t">Object info</div><div class="pf-row-d">Names of planets, stars and other things when your crosshair is on them.</div></div><button class="pf-sw" id="pf-sw-objects" role="switch"></button></div>'+
+    '<div id="pf-safety"></div>'+
     '<div class="pf-sec">THEME</div>'+
     '<div class="pf-themes" id="pf-themes"></div>'+
     '<div class="pf-row-d" style="margin-top:8px;">Custom colours \u2014 tap one to open the colour picker:</div>'+
@@ -12554,6 +12470,7 @@ function _pfRender(){
   if(who.signedIn) mk('SIGN OUT','',()=>{ closeProfileMenu(); try{ window.signOutOfAccount(); }catch(e){} });
   else if(typeof window.jotsGithubSignIn==='function') mk('\u2325 SIGN IN WITH GITHUB','gh',()=>{ closeProfileMenu(); window.jotsGithubSignIn(); });
   _pfRenderThemes();
+  try{ window.DMSafety&&DMSafety.section($('pf-safety')); }catch(e){}
   $('pf-sw-players').setAttribute('aria-checked', DM_PREFS.playerLabels?'true':'false');
   $('pf-sw-objects').setAttribute('aria-checked', DM_PREFS.objectLabels?'true':'false');
 }
@@ -12686,26 +12603,6 @@ function openAccountModal(){
 }
 function closeAccountModal(){$('account-modal').style.display='none';}
 
-// Called from the Firebase module script (see <head>) whenever sign-in
-// state changes — updates the menu chip and the modal's two views.
-window._onAcctStateChanged=function(user){
-  const chip=$('account-chip');
-  const so=$('acct-signed-out'),si=$('acct-signed-in');
-  if(!chip)return;
-  if(user){
-    chip.innerHTML=(user.photoURL?`<img src="${user.photoURL}" alt="">`:'')+'<span>'+(user.displayName||user.email||'Signed in')+'</span>';
-    if(so)so.style.display='none';
-    if(si)si.style.display='block';
-    if($('acct-name'))$('acct-name').textContent=user.displayName||'Pilot';
-    if($('acct-email'))$('acct-email').textContent=user.email||'';
-    const av=$('acct-avatar');
-    if(av){ if(user.photoURL){av.src=user.photoURL;av.style.display='inline-block';} else av.style.display='none'; }
-  } else {
-    chip.textContent='🔑 SIGN IN';
-    if(so)so.style.display='block';
-    if(si)si.style.display='none';
-  }
-};
 
 function openFeedback(){
   $('fb-ta').value='';
@@ -12862,7 +12759,6 @@ const CREDITS=[
  {sec:'Tools & services'},
  {t:'Meshy AI',a:'Meshy',l:'Meshy terms of use',use:'tool',u:['https://www.meshy.ai/'],w:'Used in the character pipeline (the earlier Sentinel placeholder and animation clips; the files keep its name prefix).'},
  {t:'Blender',a:'Blender Foundation',l:'GPL (tool; output unrestricted)',use:'tool',u:['https://www.blender.org/'],w:'Modelling and the Fields Galaxy template.'},
- {t:'Firebase Authentication',a:'Google',l:'Service terms',use:'service',u:['https://firebase.google.com/'],w:'Sign-in.'},
  {t:'App Store In-App Purchase',a:'Apple Inc.',l:'Service terms',use:'service',u:['https://www.apple.com/legal/internet-services/itunes/'],w:'Support purchases in the iOS app.'},
  {t:'GitHub',a:'GitHub, Inc.',l:'Service terms',use:'service',u:['https://github.com/'],w:'Sign-in (device flow) and each player’s private jots- save repository.'},
  {t:'jsDelivr · Google Fonts · AllOrigins',a:'jsDelivr, Google, AllOrigins',l:'Service terms',use:'service',
@@ -14942,6 +14838,17 @@ function _gsDiscMesh(front){
 // once — the multi-lens form of the thin-lens equation, summing each
 // hole's deflection (weak-field approximation) — so neighbouring holes in
 // a core ring lens each other correctly from a single copy of the frame.
+// Screen uv for a lens sample: this pixel's screen uv moved by `delta`
+// (aspect-corrected ndc, units of half-height). The ndc → screen-uv scale
+// per axis comes from the pixel derivatives, so the sample lands right
+// whichever way the backend orients the screen. Shared by the black hole
+// lens and the star bubble's reverse lens (ui/dm-starbubble.js).
+function _lensWarpUV(T,ndc,delta,uAspect){
+  const jx=T.dFdx(T.screenUV).x.div(T.dFdx(ndc).x), jy=T.dFdy(T.screenUV).y.div(T.dFdy(ndc).y);
+  const dn=delta.div(T.vec2(uAspect,1.0));
+  return T.screenUV.add(T.vec2(dn.x.mul(jx),dn.y.mul(jy)));
+}
+window._lensWarpUV=_lensWarpUV;
 function _gsLensMat(){
   const T=THREE.TSL;
   if(!T||!T.viewportSharedTexture||!T.dFdx||!T.screenUV||!T.positionGeometry)return null;
@@ -14961,12 +14868,7 @@ function _gsLensMat(){
     mask=mask.mul(T.smoothstep(u.s.mul(0.94),u.s.mul(1.05),b));
     photon=photon.add(T.exp(b.sub(u.s.mul(1.07)).div(u.s.mul(0.045)).pow(2).negate()));
   }
-  // ndc → screen-uv scale per axis from the pixel derivatives, so the
-  // sample lands right whichever way the backend orients the screen.
-  const jx=T.dFdx(T.screenUV).x.div(T.dFdx(ndc).x), jy=T.dFdy(T.screenUV).y.div(T.dFdy(ndc).y);
-  const dn=delta.div(T.vec2(uAspect,1.0));
-  const suv=T.screenUV.add(T.vec2(dn.x.mul(jx),dn.y.mul(jy)));
-  const bg=T.viewportSharedTexture(suv).rgb;
+  const bg=T.viewportSharedTexture(_lensWarpUV(T,ndc,delta,uAspect)).rgb;
   m.colorNode=bg.mul(mask).add(T.vec3(1.0,0.78,0.52).mul(photon.min(1.0).mul(0.6)));
   m.toneMapped=false;
   m.userData.u={U,uAspect};
@@ -15165,14 +15067,9 @@ window.disposeGalSky=disposeGalSky;window.galSkyZoomLy=galSkyZoomLy;window.galLo
 
 // ── 3. MULTI-STAR DISTANT SYSTEMS (visible as systems you can fly to) ─
 let distantSystems=[];
-/* Real star surface — same general TSL approach as the gas giant bands
-   (turbulent, animated noise) but tuned for a star: much brighter,
-   emissive, granulation-scale turbulence rather than banding, and a
-   layered corona/flare instead of an atmosphere shell. Reused for every
-   star in the seeded field below, not just the Sun. */
 // Cheap distant-star marker (Sol-home lag fix). One small sphere + single
 // soft corona sprite — no TSL noise, no PointLight. Used by the seeded
-// field; buildProceduralStarMesh remains for rare close-up uses.
+// field; stars you fly to are built by ui/dm-star.js.
 function buildCheapStarMarker(radius, starColor){
   const group=new THREE.Group();
   const mesh=new THREE.Mesh(
@@ -15193,214 +15090,7 @@ function buildCheapStarMarker(radius, starColor){
   return group;
 }
 
-// Sol sun visual — vibrant LOCAL body only (Justin HARD after #30 flat yellow disc).
-// KEEP white Oort/system glow discs DELETED. No 900/1600 wash sprites.
-// Canvas lava texture (mobile-safe) + tight additive shells sized to SOL_SUN_RADIUS.
-// Optional light TSL granulation on real-WebGPU desktop Med/High only (1 noise layer).
-function buildVibrantSolSun(radius){
-  const group=new THREE.Group();
-  let mesh=null;
-  const low=!!(typeof GFX!=='undefined'&&GFX&&(GFX.preset==='low'||GFX.isMobile));
-  const useNode=(!low)&&typeof _isRealWebGPU==='function'&&typeof flightRenderer!=='undefined'&&_isRealWebGPU(flightRenderer)
-    &&!!(THREE&&THREE.MeshBasicNodeMaterial)&&typeof mx_fractal_noise_float!=='undefined';
-  if(useNode){
-    try{
-      const mat=new THREE.MeshBasicNodeMaterial();
-      // Single fractal layer (2 octaves) — NOT dual coarse+fine that hung mobile when Sol is large.
-      mat.colorNode=Fn(()=>{
-        const p=positionLocal.mul(2.4);
-        const n=mx_fractal_noise_float(p.add(vec3(time.mul(0.11),time.mul(0.04),time.mul(0.07))),2,2.0,0.5);
-        const t=n.mul(0.5).add(0.5);
-        const deep=vec3(0.55,0.08,0.01);
-        const lava=vec3(1.0,0.42,0.05);
-        const flare=vec3(1.0,0.88,0.45);
-        const core=vec3(1.0,0.98,0.92);
-        let c=mix(deep,lava,smoothstep(float(0.12),float(0.45),t));
-        c=mix(c,flare,smoothstep(float(0.45),float(0.78),t));
-        c=mix(c,core,smoothstep(float(0.78),float(0.97),t));
-        // Soft limb darkening (body read, not corona wash)
-        const viewN=normalize(cameraPosition.sub(positionWorld));
-        const ndv=normalWorld.dot(viewN).clamp(0.0,1.0);
-        return c.mul(float(0.72).add(ndv.mul(0.55)));
-      })();
-      mesh=new THREE.Mesh(new THREE.SphereGeometry(radius,low?24:36,low?18:28),mat);
-      mesh.userData.solShade='tsl';
-    }catch(e){console.warn('sol TSL fallback:',e);mesh=null;}
-  }
-  if(!mesh){
-    const S=low?128:320;
-    const cv=document.createElement('canvas');cv.width=S*2;cv.height=S;
-    const cx=cv.getContext('2d',{willReadFrequently:true});
-    const img=cx.createImageData(S*2,S);
-    const d=img.data;
-    // Cheap value-noise hash (CPU) — lava cells + flare ribbons
-    function h3(x,y,z){let n=Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453;return n-Math.floor(n);}
-    function vnoise(x,y,z){
-      const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);
-      const xf=x-xi,yf=y-yi,zf=z-zi;
-      const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf),w=zf*zf*(3-2*zf);
-      const n000=h3(xi,yi,zi),n100=h3(xi+1,yi,zi),n010=h3(xi,yi+1,zi),n110=h3(xi+1,yi+1,zi);
-      const n001=h3(xi,yi,zi+1),n101=h3(xi+1,yi,zi+1),n011=h3(xi,yi+1,zi+1),n111=h3(xi+1,yi+1,zi+1);
-      const x00=n000+(n100-n000)*u,x10=n010+(n110-n010)*u,x01=n001+(n101-n001)*u,x11=n011+(n111-n011)*u;
-      const y0=x00+(x10-x00)*v,y1=x01+(x11-x01)*v;
-      return y0+(y1-y0)*w;
-    }
-    function paint(t){
-      const W=S*2,H=S;
-      for(let y=0;y<H;y++){
-        const v=y/(H-1);
-        for(let x=0;x<W;x++){
-          const u=x/(W-1);
-          // equirect → direction-ish coords for stable wrap
-          const lon=u*Math.PI*2, lat=(v-0.5)*Math.PI;
-          const cx0=Math.cos(lat)*Math.cos(lon), cy0=Math.sin(lat), cz0=Math.cos(lat)*Math.sin(lon);
-          const n1=vnoise(cx0*3.1+t*0.15,cy0*3.1,cz0*3.1+t*0.09);
-          const n2=vnoise(cx0*7.0-t*0.22,cy0*7.0+t*0.11,cz0*7.0);
-          const n3=vnoise(cx0*14.0+t*0.4,cy0*14.0,cz0*14.0-t*0.3);
-          let g=n1*0.55+n2*0.3+n3*0.15;
-          g=Math.max(0,Math.min(1,g));
-          // flare ribbons
-          const ribbon=Math.pow(Math.max(0,Math.sin((lat*4.0+lon*2.0+t*0.7)*1.7)*0.5+0.5),3.0)*(0.35+n2*0.65);
-          g=Math.max(g,ribbon*0.85);
-          // palette: deep red → lava orange → yellow flare → near-white core
-          let r,gg,b;
-          if(g<0.35){const k=g/0.35;r=0.45+k*0.55;gg=0.05+k*0.25;b=0.01+k*0.03;}
-          else if(g<0.65){const k=(g-0.35)/0.3;r=1.0;gg=0.3+k*0.45;b=0.04+k*0.12;}
-          else if(g<0.88){const k=(g-0.65)/0.23;r=1.0;gg=0.75+k*0.2;b=0.16+k*0.4;}
-          else{const k=(g-0.88)/0.12;r=1.0;gg=0.95+k*0.05;b=0.56+k*0.4;}
-          const i=(y*W+x)*4;
-          d[i]=(r*255)|0;d[i+1]=(gg*255)|0;d[i+2]=(b*255)|0;d[i+3]=255;
-        }
-      }
-      cx.putImageData(img,0,0);
-      tex.needsUpdate=true;
-    }
-    const tex=new THREE.CanvasTexture(cv);
-    try{tex.colorSpace=THREE.SRGBColorSpace;}catch(e){}
-    tex.needsUpdate=true;
-    paint(0);
-    const mat=new THREE.MeshBasicMaterial({map:tex,color:0xffffff});
-    mesh=new THREE.Mesh(new THREE.SphereGeometry(radius,low?24:36,low?18:28),mat);
-    mesh.userData.solShade='canvas';
-    mesh.userData.paintSol=paint;
-    mesh.userData._solPaintT=-1;
-  }
-  group.add(mesh);
 
-  // LOCAL glow + soft dusty falloff shells — NOT corona bloom spr1/spr2 / whitewash discs (#30 erase stays).
-  try{
-    const mkShell=(mul,hex,op)=>{
-      const m=new THREE.MeshBasicMaterial({
-        color:hex,transparent:true,opacity:op,
-        blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.BackSide
-      });
-      const s=new THREE.Mesh(new THREE.SphereGeometry(radius*mul,20,14),m);
-      s.renderOrder=1;
-      s.userData.jotsSolDustShell=true;
-      group.add(s);
-      return s;
-    };
-    mkShell(1.08,0xff7a18,0.42);
-    mkShell(1.18,0xffc14a,0.18);
-    mkShell(1.32,0xffe9a0,0.07); // still body-local (~1.3× R), not system wash
-    // Soft density falloff shells for close Sol approach (dusty, not bloom corona)
-    mkShell(1.48,0xffa040,0.045);
-    mkShell(1.72,0xff8030,0.028);
-  }catch(e){console.warn('sol local glow:',e);}
-
-  // Local Points dust cloud on Sol group ONLY — readable near limb, no scene wash
-  try{
-    const nDust=low?160:380;
-    const pos=new Float32Array(nDust*3);
-    const cols=new Float32Array(nDust*3);
-    for(let i=0;i<nDust;i++){
-      // Random direction on soft shells between 1.05R and 1.85R
-      const u=Math.random(), v=Math.random();
-      const theta=2*Math.PI*u;
-      const phi=Math.acos(2*v-1);
-      const rr=radius*(1.05+Math.pow(Math.random(),0.65)*0.80);
-      const x=rr*Math.sin(phi)*Math.cos(theta);
-      const y=rr*Math.sin(phi)*Math.sin(theta);
-      const z=rr*Math.cos(phi);
-      pos[i*3]=x; pos[i*3+1]=y; pos[i*3+2]=z;
-      const t=(rr/radius-1.05)/0.80;
-      cols[i*3]=1.0; cols[i*3+1]=0.55+0.35*(1-t); cols[i*3+2]=0.18+0.15*(1-t);
-    }
-    const dg=new THREE.BufferGeometry();
-    dg.setAttribute('position',new THREE.BufferAttribute(pos,3));
-    dg.setAttribute('color',new THREE.BufferAttribute(cols,3));
-    let dtex=null; try{ dtex=typeof makeCircleTex==='function'?makeCircleTex(16,'rgb(255,200,120)',1):null; }catch(e){}
-    const dm=new THREE.PointsMaterial({
-      size:radius*(low?0.018:0.014), sizeAttenuation:true, vertexColors:true,
-      map:dtex, transparent:true, opacity:0.42, depthWrite:false,
-      blending:THREE.AdditiveBlending, alphaTest:0.02
-    });
-    const dustPts=new THREE.Points(dg,dm);
-    dustPts.name='JOTS_SolDustPoints';
-    dustPts.frustumCulled=false;
-    dustPts.renderOrder=2;
-    group.add(dustPts);
-  }catch(e){console.warn('sol dusty points:',e);}
-
-  return {group,mesh};
-}
-
-function buildProceduralStarMesh(radius, seedVal, starColor){
-  const group = new THREE.Group();
-  if(!(_isRealWebGPU(flightRenderer))){
-    // WebGL2: a bright limb-darkened disc with a soft corona and glare, drawn
-    // with plain materials (no compute / node shaders needed)
-    const col=new THREE.Color(starColor);
-    const fallback=new THREE.Mesh(new THREE.SphereGeometry(radius,32,24),new THREE.MeshBasicMaterial({color:col.clone().lerp(new THREE.Color(0xffffff),0.35)}));
-    group.add(fallback);
-    try{
-      const cv=document.createElement('canvas'); cv.width=cv.height=128; const cx=cv.getContext('2d');
-      const g=cx.createRadialGradient(64,64,0,64,64,64);
-      g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.22,'rgba(255,255,255,.85)'); g.addColorStop(0.45,'rgba(255,255,255,.28)'); g.addColorStop(1,'rgba(255,255,255,0)');
-      cx.fillStyle=g; cx.fillRect(0,0,128,128);
-      const tex=new THREE.CanvasTexture(cv);
-      const corona=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:col,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
-      corona.scale.setScalar(radius*4.2); group.add(corona);
-      const glare=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:col.clone().lerp(new THREE.Color(0xffffff),0.5),transparent:true,opacity:0.35,blending:THREE.AdditiveBlending,depthWrite:false}));
-      glare.scale.setScalar(radius*9); group.add(glare);
-    }catch(e){}
-    return group;
-  }
-  const mat = new THREE.MeshBasicNodeMaterial();
-  const baseCol = uniform(new THREE.Color(starColor));
-  const seedU = uniform(seedVal);
-  mat.colorNode = Fn(()=>{
-    const p = positionWorld.mul(3.0).add(vec3(seedU, seedU.mul(1.7), seedU.mul(0.6)));
-    // Two turbulence layers at different scales/speeds — coarse slow
-    // convection cells plus fine fast granulation, added together, same
-    // layering idea as the water waves elsewhere in this file.
-    const coarse = mx_fractal_noise_float(p.add(vec3(time.mul(0.04),0,0)), 3, 2.0, 0.5);
-    const fine = mx_fractal_noise_float(p.mul(4.0).add(vec3(0,time.mul(0.15),0)), 3, 2.0, 0.5);
-    const turb = coarse.mul(0.6).add(fine.mul(0.4)).mul(0.5).add(0.5);
-    const bright = baseCol.mul(float(0.75).add(turb.mul(0.6)));
-    // Limb brightening fudge — edges (grazing view angle) read slightly
-    // hotter/whiter, a cheap stand-in for real limb darkening's opposite
-    // (works fine visually for a small, distant sprite-scale star).
-    const viewDir = positionWorld.sub(cameraPosition).normalize();
-    const rim = float(1.0).sub(normalWorld.dot(viewDir.negate()).abs()).pow(3.0);
-    return mix(bright, vec3(1,1,1), rim.mul(0.3));
-  })();
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius,24,20), mat);
-  group.add(mesh);
-  // Layered glow sprites for the corona — same makeGlowSprite/makeCircleTex
-  // technique already used everywhere else in this file for cheap additive
-  // glow, not a new dependency.
-  try{
-    // Soft bloom wash: tone corona hard so distant/close stars don't wash white.
-    const hex = '#'+new THREE.Color(starColor).getHexString();
-    const gt = makeCircleTex(64, hex, 1);
-    const spr1 = new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:starColor,transparent:true,opacity:0.08,blending:THREE.AdditiveBlending,depthWrite:false}));
-    spr1.scale.set(radius*2.6, radius*2.6, 1); group.add(spr1);
-    const spr2 = new THREE.Sprite(new THREE.SpriteMaterial({map:gt,color:starColor,transparent:true,opacity:0.03,blending:THREE.AdditiveBlending,depthWrite:false}));
-    spr2.scale.set(radius*4.0, radius*4.0, 1); group.add(spr2);
-  }catch(e){}
-  return group;
-}
 /* Real stellar classification, simplified to what's visually/gameplay
    relevant: color + relative size/brightness by class, weighted so blue
    giants are rare and red/orange dwarfs are common, matching the real
@@ -15574,6 +15264,7 @@ function resizePostFX(){
   _rtA.setSize(W>>1,H>>1);_rtB.setSize(W>>1,H>>1);
   _blurMat.uniforms.res.value.set(W>>1,H>>1);
 }
+let _sbT=0;
 function renderWithPostFX(){
   const useBloom=STATE.settings.bloom, useMotion=STATE.settings.motion;
   // This whole pipeline (bright-pass/blur/composite) is built on raw
@@ -15601,6 +15292,7 @@ function renderWithPostFX(){
     flightRenderer.setRenderTarget(null);
     const _spec=window.DMSpec&&DMSpec.on; if(_spec) try{ DMSpec.pre(flightCamera); }catch(e){}
     try{ if(galSky.ready) updateGalSky(); }catch(e){}
+    try{ if(window.DMStarBubble) { const n=performance.now(), d=_sbT?(n-_sbT)/1000:1/60; _sbT=n; if(window.DMStar) DMStar.frame(flightCamera,d); DMStarBubble.frame(flightCamera,flightScene,d); } }catch(e){ console.warn('[starbubble] '+(e&&e.stack||e)); }
     try{ flightRenderer.render(flightScene,flightCamera); _shotGrab(flightRenderer); }
     finally{ if(_spec) try{ DMSpec.post(flightCamera); }catch(e){} }
     const _rtMs = performance.now()-_rt0;
@@ -15801,7 +15493,9 @@ function _makeWake(board, scene){
   board.userData.wake=w;
   return w;
 }
+let _WAKE_FLAME=null;
 function updateBoardWake(board, scene, dt, intensity, fwdWorld){
+  if(!_WAKE_FLAME) _WAKE_FLAME=['#ff7a1a','#ffb347','#ff4d00','#ffd27a'].map(h=>new THREE.Color(h));
   if(!board||!scene) return;
   let w=board.userData.wake;
   if(w && w.mesh.parent!==scene){ try{ if(w.mesh.parent) w.mesh.parent.remove(w.mesh); w.mesh.geometry.dispose(); w.mesh.material.dispose(); }catch(e){} w=null; }
@@ -15844,6 +15538,7 @@ function updateBoardWake(board, scene, dt, intensity, fwdWorld){
     w.emit=Math.min(w.emit,4);
   }
   const th=L*0.009;
+  const fl=(scene===flightScene&&window.DMStarBubble&&DMStarBubble.flame)||0;
   let any=false;
   for(let i=0;i<WAKE_N;i++){
     let a=0;
@@ -15858,7 +15553,9 @@ function updateBoardWake(board, scene, dt, intensity, fwdWorld){
     w._sc.set(a>0?w.sl[i]*dir:1e-4,th,th);  // streak trails away from the board
     w._m.compose(w._pos,w._q,w._sc);
     w.mesh.setMatrixAt(i,w._m);
-    w.mesh.setColorAt(i,w._c.copy(w.tint[i]).multiplyScalar(a));
+    w._c.copy(w.tint[i]);
+    if(fl>0) w._c.lerp(_WAKE_FLAME[i&3],fl);   // orange flame while the star bubble's flares peak
+    w.mesh.setColorAt(i,w._c.multiplyScalar(a));
   }
   w.mesh.visible=any;
   w.mesh.instanceMatrix.needsUpdate=true;
@@ -22658,8 +22355,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
   window.addEventListener('jots:auth',refreshChip);
   window.addEventListener('jots:vault',refreshChip);
   function patchAccountModal(){
-    const g=$j('acct-google-btn'),a=$j('acct-apple-btn');
-    if(g)g.style.display='none'; if(a)a.style.display='none';
+    const a=$j('acct-apple-btn'); if(a)a.style.display='none';   // the iOS app's dm-ios-bridge.js shows it there
     const so=$j('acct-signed-out');
     if(so&&!$j('acct-gh-btn')){
       const b=document.createElement('button');b.className='acct-provider-btn';b.id='acct-gh-btn';b.textContent='⌥ Sign in with GitHub';
@@ -22902,6 +22598,8 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
   // Until her model has loaded (or if cloning fails) a peer shows as a
   // glowing board, and is upgraded in place once she's ready.
   const ghosts=new Map();
+  // their boards, for the star bubble (ui/dm-starbubble.js)
+  window.jotsGhostBoards=()=>{ const a=[]; for(const g of ghosts.values()) if(g.userData.board) a.push(g.userData.board); return a; };
   let _skelUtils=null,_skelTried=false,_mountLocal=null;
   function wantSkelUtils(){
     if(_skelUtils||_skelTried) return;
@@ -22969,7 +22667,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
     // the placeholder gets a soft glow in their colour; her model needs none
     let glow=null;
     if(!full){ glow=new THREE.Mesh(new THREE.SphereGeometry(L*0.35,12,8),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.12,blending:THREE.AdditiveBlending,depthWrite:false})); board.add(glow); }
-    const label=nameSprite(peer.n||'Pilot',peer.k==='h'?'#bfffe0':'#cfd9ff');
+    const label=nameSprite(window.DMSafety?DMSafety.clean(peer.n||'Pilot'):(peer.n||'Pilot'),peer.k==='h'?'#bfffe0':'#cfd9ff');
     label.scale.set(L*1.2,L*0.225,1);
     g.add(label);
     g.userData={board,seat,rider,mixer,actions,cur:null,full,label,L,glow,mounted:null};
@@ -23005,6 +22703,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
       let animated=0;
       for(const p of mp.peers.values()){
         if(p.gal!==gal||p.sys!==sys||!p.p) continue;
+        if(window.DMSafety&&DMSafety.isBlocked(p.n)) continue;          // blocked: no board, no tag
         live.add(p.id);
         let g=ghosts.get(p.id);
         // upgrade a placeholder once her model can be cloned
@@ -23121,9 +22820,11 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
     const c=$j('jots-chat'); c.style.display=c.style.display==='flex'?'none':'flex'; if(c.style.display==='flex')$j('jots-chat-in').focus(); };
   window.addEventListener('jots:chat',e=>{
     const l=e.detail, d=document.createElement('div'); if(l.me)d.className='me';
-    const b=document.createElement('b');b.textContent=l.n+': ';d.appendChild(b);d.appendChild(document.createTextNode(l.text));
+    d.dataset.n=l.n; d.dataset.raw=l.raw||l.text;          // tap → report / block (ui/dm-safety.js)
+    const nm=window.DMSafety?DMSafety.clean(l.n):l.n;
+    const b=document.createElement('b');b.textContent=nm+': ';d.appendChild(b);d.appendChild(document.createTextNode(l.text));
     const log=$j('jots-chat-log');log.appendChild(d);while(log.childNodes.length>60)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight;
-    if($j('jots-chat').style.display!=='flex'&&!l.me) toast('💬 '+l.n+': '+l.text.slice(0,60),2600);
+    if($j('jots-chat').style.display!=='flex'&&!l.me) toast('💬 '+nm+': '+l.text.slice(0,60),2600);
   });
   $j('jots-chat-in').addEventListener('keydown',e=>{
     e.stopPropagation();                       // typing mustn't fly the board
@@ -23141,8 +22842,9 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 <link rel="stylesheet" href="ui/dm-ui.css?v=110">
 <link rel="stylesheet" href="ui/dm-hud.css?v=114">
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
+<link rel="stylesheet" href="ui/dm-safety.css?v=1">
 <link rel="stylesheet" href="ui/dm-spectator.css?v=1">
-<link rel="stylesheet" href="ui/dm-globe.css?v=1">
+<link rel="stylesheet" href="ui/dm-globe.css?v=2">
 <link rel="stylesheet" href="ui/dm-menu.css?v=80">
 <link rel="stylesheet" href="ui/dm-journal.css?v=97">
 <link rel="stylesheet" href="ui/dm-landmap.css?v=88">

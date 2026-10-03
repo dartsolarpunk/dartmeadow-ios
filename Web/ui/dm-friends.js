@@ -28,6 +28,10 @@
   const keyOf = (n) => String(n || '').trim().toLowerCase();
   const toast = (m, ms) => { try { window.toast && window.toast(m, ms || 2200); } catch (e) {} };
   const cleanName = (n) => String(n || '').replace(/[^\w.\-]/g, '').slice(0, 40);
+  // ui/dm-safety.js: chat filter + block list
+  const Safe = () => window.DMSafety || null;
+  const clean = (t) => { const x = Safe(); return x ? x.clean(t) : String(t); };
+  const blocked = (n) => { const x = Safe(); return !!(x && x.isBlocked(n)); };
 
   // ── store ──────────────────────────────────────────────────────────────
   const blank = () => ({ friends: {}, deleted: {}, sent: {}, inbox: {}, msgs: {}, outbox: {}, seen: [], unread: {} });
@@ -142,7 +146,7 @@
     if (ui.thread && keyOf(ui.thread) === keyOf(name)) { ui.thread = null; render(); }
   }
   function sendText(name, text) {
-    text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 300); if (!text) return;
+    text = clean(String(text || '').replace(/\s+/g, ' ').trim().slice(0, 300)); if (!text) return;
     const how = send(name, { type: 'msg', text });
     const line = { me: true, text, ts: Date.now(), q: how === 'queued' };
     pushMsg(name, line); logToVault(name, text, true);
@@ -151,10 +155,10 @@
   // a Journal entry → one or more friends
   function shareMarker(entry, names, note) {
     if (!entry || !names || !names.length) return;
-    const e = { label: String(entry.label || 'Waypoint').slice(0, 48), kind: entry.kind, place: entry.place };
+    const e = { label: clean(String(entry.label || 'Waypoint').slice(0, 48)), kind: entry.kind, place: entry.place };
     let sent = 0, queued = 0;
     names.forEach((n) => {
-      const how = send(n, { type: 'mark', entry: e, note: String(note || '').slice(0, 140) });
+      const how = send(n, { type: 'mark', entry: e, note: clean(String(note || '').slice(0, 140)) });
       how === 'sent' ? sent++ : queued++;
       pushMsg(n, { me: true, text: 'Shared a marker: ' + e.label, mark: e, ts: Date.now(), q: how === 'queued' });
     });
@@ -168,7 +172,7 @@
   // ── receiving ────────────────────────────────────────────────────────────
   window.addEventListener('jots:dm', (ev) => {
     const d = ev.detail || {}, b = d.body || {}, from = cleanName(d.from), k = keyOf(from);
-    if (!k || k === keyOf(me())) return;
+    if (!k || k === keyOf(me()) || blocked(from)) return;
     if (seenBefore(k + ':' + (b.mid || d.ts))) return;
     switch (b.type) {
       case 'freq':
@@ -184,7 +188,7 @@
       case 'unf': if (isFriend(from)) dropFriend(from); break;
       case 'msg': {
         if (!isFriend(from)) return;                                      // private chat is friends only
-        const text = String(b.text || '').slice(0, 300); if (!text) return;
+        const text = clean(String(b.text || '').slice(0, 300)); if (!text) return;
         pushMsg(from, { me: false, text, ts: d.ts });
         logToVault(from, text, false);
         if (!(ui.open && ui.tab === 'friends' && keyOf(ui.thread) === k)) { S.unread[k] = (S.unread[k] || 0) + 1; toast('💬 ' + from + ' (friend): ' + text.slice(0, 60), 2800); }
@@ -193,7 +197,8 @@
       case 'mark': {
         if (!isFriend(from)) return;
         const e = b.entry; if (!e || !e.kind || !e.place) return;
-        pushMsg(from, { me: false, text: 'Shared a marker: ' + String(e.label || 'Waypoint').slice(0, 48) + (b.note ? ' — ' + String(b.note).slice(0, 140) : ''), mark: e, ts: d.ts });
+        e.label = clean(String(e.label || 'Waypoint').slice(0, 48));
+        pushMsg(from, { me: false, text: 'Shared a marker: ' + e.label + (b.note ? ' — ' + clean(String(b.note).slice(0, 140)) : ''), mark: e, ts: d.ts });
         if (!(ui.open && ui.tab === 'friends' && keyOf(ui.thread) === k)) S.unread[k] = (S.unread[k] || 0) + 1;
         toast('✦ ' + from + ' shared a marker: ' + String(e.label || 'Waypoint').slice(0, 40) + ' — add it from CHAT › FRIENDS', 3400);
         break;
@@ -259,7 +264,7 @@
     const inb = Object.values(S.inbox);
     if (inb.length) {
       h += '<div class="fr-h">REQUESTS</div>';
-      inb.forEach((r) => { h += '<div class="fr-row"><span class="fr-name">' + esc(r.name) + '</span><button class="fr-b fr-ok" data-acc="' + esc(r.name) + '">ACCEPT</button><button class="fr-b" data-dec="' + esc(r.name) + '">✕</button></div>'; });
+      inb.forEach((r) => { h += '<div class="fr-row"><span class="fr-name">' + esc(r.name) + '</span><button class="fr-b fr-ok" data-acc="' + esc(r.name) + '">ACCEPT</button><button class="fr-b" data-dec="' + esc(r.name) + '">✕</button><button class="fr-b fr-un" data-blk="' + esc(r.name) + '" title="Block">🚫</button></div>'; });
     }
     const fr = Object.values(S.friends).sort((a, b) => (onlinePeer(b.name) ? 1 : 0) - (onlinePeer(a.name) ? 1 : 0) || a.name.localeCompare(b.name));
     h += '<div class="fr-h">FRIENDS · ' + fr.length + '</div>';
@@ -272,7 +277,7 @@
     const sentL = Object.values(S.sent);
     if (sentL.length) { h += '<div class="fr-h">ASKED</div>'; sentL.forEach((r) => { h += '<div class="fr-row fr-dim"><span class="fr-name">' + esc(r.name) + '</span><span class="fr-q">waiting…</span><button class="fr-b" data-cancel="' + esc(r.name) + '">✕</button></div>'; }); }
     if (online) {
-      const others = [...j.mp.peers.values()].filter((p) => p.n && !isFriend(p.n) && !S.sent[keyOf(p.n)] && !S.inbox[keyOf(p.n)]);
+      const others = [...j.mp.peers.values()].filter((p) => p.n && !blocked(p.n) && !isFriend(p.n) && !S.sent[keyOf(p.n)] && !S.inbox[keyOf(p.n)]);
       if (others.length) {
         h += '<div class="fr-h">ONLINE NOW</div>';
         others.slice(0, 20).forEach((p) => { h += '<div class="fr-row"><span class="fr-dot on"></span><span class="fr-name">' + esc(p.n) + '</span><button class="fr-b fr-ok" data-add="' + esc(p.n) + '" data-kind="' + (p.k === 'h' ? 'github' : 'guest') + '">＋ ADD</button></div>'; });
@@ -281,6 +286,7 @@
     pane.innerHTML = h;
     pane.querySelectorAll('[data-acc]').forEach((b) => b.onclick = () => acceptRequest(b.dataset.acc));
     pane.querySelectorAll('[data-dec]').forEach((b) => b.onclick = () => declineRequest(b.dataset.dec));
+    pane.querySelectorAll('[data-blk]').forEach((b) => b.onclick = () => { const x = Safe(); if (x) x.block(b.dataset.blk); });
     pane.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => requestFriend(b.dataset.add, b.dataset.kind));
     pane.querySelectorAll('[data-cancel]').forEach((b) => b.onclick = () => { delete S.sent[keyOf(b.dataset.cancel)]; save(); });
     pane.querySelectorAll('[data-open]').forEach((r) => r.onclick = () => openThread(r.dataset.open));
@@ -291,7 +297,7 @@
     const on = !!onlinePeer(name);
     const lines = S.msgs[k] || [];
     let h = '<div class="fr-th-head"><button class="fr-b" id="fr-back">‹ BACK</button><span class="fr-dot' + (on ? ' on' : '') + '"></span><span class="fr-name">' + esc(name) + '</span>' +
-      '<button class="fr-b fr-un" id="fr-unf" title="Remove friend">REMOVE</button></div><div class="fr-log" id="fr-log">';
+      '<button class="fr-b fr-un" id="fr-unf" title="Remove friend">REMOVE</button><button class="fr-b" id="fr-rep" title="Report">⚑</button><button class="fr-b fr-un" id="fr-blk" title="Block">🚫</button></div><div class="fr-log" id="fr-log">';
     if (!lines.length) h += '<div class="fr-note">Private chat with ' + esc(name) + '. Only the two of you see it here.</div>';
     lines.forEach((l, i) => {
       h += '<div class="fr-line' + (l.me ? ' me' : '') + '"><b>' + (l.me ? 'You' : esc(name)) + '</b> ' + esc(l.text) + (l.q ? ' <i class="fr-q">⏳</i>' : '') + '<span class="fr-t">' + fmtT(l.ts) + '</span>' +
@@ -302,6 +308,8 @@
     const log = $('fr-log'); log.scrollTop = log.scrollHeight;
     $('fr-back').onclick = () => { ui.thread = null; render(); };
     const u = $('fr-unf'); u.onclick = () => { if (u.dataset.armed) { unfriend(name); return; } u.dataset.armed = '1'; u.textContent = 'SURE?'; setTimeout(() => { if (u.isConnected) { delete u.dataset.armed; u.textContent = 'REMOVE'; } }, 2500); };
+    $('fr-rep').onclick = () => { const x = Safe(); const last = [...lines].reverse().find((l) => !l.me); if (x) x.report({ name, text: last ? last.text : '', where: 'private chat' }); };
+    $('fr-blk').onclick = () => { const x = Safe(); if (x) x.block(name); };
     pane.querySelectorAll('[data-mk]').forEach((b) => b.onclick = () => { const l = lines[+b.dataset.mk]; if (l && l.mark && addMarkerToJournal(l.mark, name)) { b.disabled = true; b.textContent = '✓ IN JOURNAL'; } });
     const inp = $('fr-in');
     inp.addEventListener('keydown', (e) => {
@@ -327,14 +335,17 @@
       : S.sent[k] ? '<span class="fr-q">Request sent…</span>'
       : S.inbox[k] ? '<button class="fr-b fr-ok" data-a="acc">✓ ACCEPT FRIEND</button>'
       : '<button class="fr-b fr-ok" data-a="add">➕ ADD FRIEND</button>';
-    pop.innerHTML = '<div class="fr-tp-name">' + esc(name) + (peer.k === 'h' ? ' <span class="fr-gh" title="Signed in with GitHub">⌥</span>' : '') + '</div>' + act;
+    pop.innerHTML = '<div class="fr-tp-name">' + esc(clean(name)) + (peer.k === 'h' ? ' <span class="fr-gh" title="Signed in with GitHub">⌥</span>' : '') + '</div>' + act +
+      '<div class="fr-tp-safe"><button class="fr-b" data-a="rep">⚑ REPORT</button><button class="fr-b fr-un" data-a="blk">🚫 BLOCK</button></div>';
     pop.style.display = 'block';
     const W = window.innerWidth, H = window.innerHeight;
     pop.style.left = Math.max(8, Math.min(W - 190, x - 80)) + 'px';
     pop.style.top = Math.max(8, Math.min(H - 90, y - 76)) + 'px';
     pop.querySelectorAll('[data-a]').forEach((b) => b.onclick = () => {
       pop.style.display = 'none';
-      if (b.dataset.a === 'add') requestFriend(name, peer.k === 'h' ? 'github' : 'guest');
+      if (b.dataset.a === 'rep') { const x = Safe(); if (x) x.report({ name, where: 'name tag in space' }); }
+      else if (b.dataset.a === 'blk') { const x = Safe(); if (x) x.block(name); }
+      else if (b.dataset.a === 'add') requestFriend(name, peer.k === 'h' ? 'github' : 'guest');
       else if (b.dataset.a === 'acc') acceptRequest(name);
       else openThread(name);
     });
@@ -384,6 +395,26 @@
   }
   function closePick() { if (pick) pick.classList.remove('open'); }
 
+  // Blocked (ui/dm-safety.js): they leave the friends list, requests, the
+  // outbox and their private chat, without telling them.
+  window.addEventListener('dm:block', (ev) => {
+    const k = keyOf(ev.detail && ev.detail.name); if (!k) return;
+    if (S.friends[k]) dropFriend(k);
+    delete S.inbox[k]; delete S.sent[k]; delete S.outbox[k]; delete S.msgs[k]; delete S.unread[k];
+    if (ui.thread && keyOf(ui.thread) === k) ui.thread = null;
+    save();
+  });
+  // Account deletion: online friends are told to drop us; the rest goes.
+  function wipe() {
+    let told = 0;
+    Object.values(S.friends).forEach((f) => { const p = onlinePeer(f.name); if (p && J().mp.sendDirect(p.n, { type: 'unf', mid: Date.now().toString(36) + told })) told++; });
+    clearTimeout(save._t);
+    S = blank();
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    ui.thread = null; render();
+    return told;
+  }
+
   function init() {
     build();
     if (window.DMJournal && window.DMJournal.init) window.DMJournal.init({ share: openSharePicker });
@@ -391,5 +422,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 0)); else setTimeout(init, 0);
 
-  window.DMFriends = { request: requestFriend, accept: acceptRequest, unfriend, sendText, shareMarker, openSharePicker, openFriends, openThread, isFriend, list: () => Object.values(S.friends), _state: () => S };
+  window.DMFriends = { wipe, request: requestFriend, accept: acceptRequest, unfriend, sendText, shareMarker, openSharePicker, openFriends, openThread, isFriend, list: () => Object.values(S.friends), _state: () => S };
 })();

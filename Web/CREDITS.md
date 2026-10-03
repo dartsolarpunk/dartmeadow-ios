@@ -91,7 +91,6 @@ Use: **code** = code or tables included (licence terms apply) · **technique** =
   <https://www.meshy.ai/>
 - **Blender** — Blender Foundation. *GPL (tool; output unrestricted)* (tool). Modelling and the Fields Galaxy template.
   <https://www.blender.org/>
-- **Firebase Authentication** — Google. *Service terms* (service). Sign-in.
   <https://firebase.google.com/>
 - **Stripe** — Stripe, Inc.. *Service terms* (service). Support payments.
   <https://stripe.com/>

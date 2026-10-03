@@ -95,6 +95,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 replyHandler(out, nil)
             }
 
+        case "deleteAccount":
+            // From the web's DMSafety.deleteAccount() (ui/dm-safety.js). Reply value = done,
+            // error string = shown to the player with the Settings fallback.
+            let user = body["user"] as? String
+            apple.revoke(user: user) { [apple] err in
+                apple.forgetAll(user: user)
+                if let err { replyHandler(nil, err) } else { replyHandler(["revoked": true], nil) }
+            }
+
         case "appleSignOut":
             apple.forget()
             replyHandler(true, nil)

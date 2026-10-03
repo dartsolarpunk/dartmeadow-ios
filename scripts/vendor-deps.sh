@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download the game's CDN dependencies into Web/vendor/ so the app runs with
 # no network: three.js r185 (WebGPU + TSL builds and the addons the game
-# imports), Firebase 12.15.0 (app + auth modules), the Google Fonts the UI
+# imports), the Google Fonts the UI
 # uses, and the Natural Earth coastline the Earth globe draws.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,13 +36,8 @@ PY
   rm -rf "$T"
 fi
 
-# Firebase modules (firebase-auth imports firebase-app by absolute URL → make it relative)
-mkdir -p "$V/firebasejs/$FB"
-for f in firebase-app firebase-auth; do
-  [ -f "$V/firebasejs/$FB/$f.js" ] || curl -fsSL "https://www.gstatic.com/firebasejs/$FB/$f.js" -o "$V/firebasejs/$FB/$f.js"
-done
-sed -i.bak "s#https://www.gstatic.com/firebasejs/$FB/#./#g" "$V/firebasejs/$FB/firebase-auth.js"
-rm -f "$V/firebasejs/$FB/"*.bak
+# (Firebase removed: the web dropped its legacy Google/Apple web sign-in in dartmeadow-space #121)
+rm -rf "$V/firebasejs"
 
 # Google Fonts (Orbitron, Rajdhani, Share Tech Mono) — woff2 files + rewritten CSS
 mkdir -p "$V/fonts"

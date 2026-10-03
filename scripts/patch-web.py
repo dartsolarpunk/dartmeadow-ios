@@ -13,8 +13,6 @@ WEB = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file_
 REWRITES = [
     # three.js r185 import map (WebGPU + TSL builds and the addons folder)
     ('https://cdn.jsdelivr.net/npm/three@0.185.0/', './vendor/three-0.185.0/'),
-    # Firebase modules (legacy Google/Apple web sign-in, kept for parity)
-    ('https://www.gstatic.com/firebasejs/12.15.0/', './vendor/firebasejs/12.15.0/'),
     # UI fonts
     ('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap',
      './vendor/fonts/google-fonts.css'),

@@ -19,7 +19,7 @@ answer `*` no matter which origin is sent.
 | 6 | `dartmeadow.space/static/admin/notes.json` | Admin notes tab | GET | ✅ Fetched live by the native scheme handler. The bundled copy is used when offline |
 | 7 | `dartmeadow.space/<any path not in the bundle>` | e.g. a soundtrack added on the web after this build | GET | ✅ Native fallback fetch (no CORS involved) |
 | 8 | `cdn.jsdelivr.net/npm/three@0.185.0/…` | three.js WebGPU/TSL + GLTFLoader/SkeletonUtils | module import | ✅ **Bundled** (`Web/vendor/three-0.185.0`) |
-| 9 | `www.gstatic.com/firebasejs/12.15.0/…` | Legacy Firebase (Google/Apple web sign-in, hidden by the game) | module import | ✅ **Bundled** |
+| 9 | ~~`www.gstatic.com/firebasejs`~~ | Removed upstream in dartmeadow-space #121 (legacy web sign-in) | — | — no longer used or bundled |
 | 10 | `fonts.googleapis.com` / `fonts.gstatic.com` | Orbitron, Rajdhani, Share Tech Mono | CSS/woff2 | ✅ **Bundled** |
 | 11 | `raw.githubusercontent.com/nvkelso/natural-earth-vector/…coastline.geojson` (+ `api.allorigins.win` fallback) | Earth coastlines | GET | ✅ **Bundled** first. The network fallback is still there |
 | 12 | `cdn.jsdelivr.net/npm/eruda@3` | `?debug` console | script | ✅ **Bundled** |

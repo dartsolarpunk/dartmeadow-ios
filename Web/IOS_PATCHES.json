@@ -9,11 +9,6 @@
    "hits": 4
   },
   {
-   "from": "https://www.gstatic.com/firebasejs/12.15.0/",
-   "to": "./vendor/firebasejs/12.15.0/",
-   "hits": 2
-  },
-  {
    "from": "https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap",
    "to": "./vendor/fonts/google-fonts.css",
    "hits": 1
