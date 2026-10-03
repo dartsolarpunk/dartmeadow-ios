@@ -382,6 +382,9 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "provision":
         sys.exit(provision())
+    if cmd == "attach":
+        import asc_attach
+        sys.exit(asc_attach.main())
     if cmd == "listing":
         import asc_listing
         sys.exit(asc_listing.main())

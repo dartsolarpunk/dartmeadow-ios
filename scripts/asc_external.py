@@ -8,7 +8,7 @@ from asc import req, req_soft, get_all, summary, find_app  # noqa: E402
 
 GROUP_NAME = "DART Meadow Public"
 OLD_NAMES = {"DART Meadow Skyboarders"}
-BUILD = os.environ.get("EXT_BUILD", "1791013911")
+BUILD = os.environ.get("EXT_BUILD", "")   # empty = newest VALID build
 EMAIL = "dartmeadow@gmail.com"
 DESC = ("Journey of the Skyboard — fly Ariel's skyboard across a hand-built galaxy, land on worlds with "
         "marching-cubes terrain, explore Earth relief and water, keep a flight journal, quick-travel, save "
@@ -82,14 +82,22 @@ def main():
         return 0
 
     # 3) build: export compliance, what's new, add to group, submit
-    builds = req("GET", "/builds", params={"filter[app]": aid, "filter[version]": BUILD})["data"]
+    # status of every non-expired build in the public group / review
+    for ob in req("GET", "/builds", params={"filter[app]": aid, "sort": "-uploadedDate", "limit": 5})["data"]:
+        sr = req_soft("GET", f"/builds/{ob['id']}/betaAppReviewSubmission")
+        st = ((sr.json().get("data") or {}).get("attributes") or {}).get("betaReviewState") if sr.status_code == 200 else None
+        bd0 = req("GET", f"/builds/{ob['id']}/buildBetaDetail")["data"]["attributes"]
+        summary(f"  · build {ob['attributes']['version']}: {ob['attributes'].get('processingState')} review={st} external={bd0.get('externalBuildState')}")
+    params = {"filter[app]": aid, "sort": "-uploadedDate", "limit": 1, "filter[processingState]": "VALID"}
+    if BUILD: params = {"filter[app]": aid, "filter[version]": BUILD}
+    builds = req("GET", "/builds", params=params)["data"]
     if not builds:
-        summary(f"- ❌ build {BUILD} not found"); return 1
-    b = builds[0]; bid = b["id"]; ba = b["attributes"]
+        summary(f"- ❌ build {BUILD or '(latest)'} not found"); return 1
+    b = builds[0]; bid = b["id"]; ba = b["attributes"]; BUILDV = ba["version"]
     if ba.get("usesNonExemptEncryption") is not False:
         req_soft("PATCH", f"/builds/{bid}", json={"data": {"type": "builds", "id": bid, "attributes": {"usesNonExemptEncryption": False}}})
     ba = req("GET", f"/builds/{bid}")["data"]["attributes"]
-    summary(f"- build {BUILD}: processing={ba.get('processingState')} expired={ba.get('expired')} usesNonExemptEncryption={ba.get('usesNonExemptEncryption')}")
+    summary(f"- build {BUILDV}: processing={ba.get('processingState')} expired={ba.get('expired')} usesNonExemptEncryption={ba.get('usesNonExemptEncryption')}")
     bl = req("GET", f"/builds/{bid}/betaBuildLocalizations")["data"]
     en = next((l for l in bl if l["attributes"].get("locale") == "en-US"), None)
     if en:
