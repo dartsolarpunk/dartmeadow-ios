@@ -23,10 +23,11 @@ scripts/sync-web.sh <sha>      # a specific release
 git commit -am "Web: sync dartmeadow-space <sha>" && git push   # CI builds + TestFlight
 ```
 
-## CI (`.github/workflows/ios.yml`)
+## CI
 
-* **simulator** — builds the app and boots the game in the iOS Simulator (screenshots + JS console log as artifacts).
-* **testflight** — registers the bundle ID `com.dartmeadow.jots` with Sign in with Apple, makes a fresh App Store profile,
+Docs: [docs/NETWORK.md](docs/NETWORK.md) (every endpoint the game calls, verified from the app origin).
+
+* **`ios.yml` simulator** (every push) — builds the app and boots the game in the iOS Simulator (screenshots + JS console log as artifacts).
+* **`testflight.yml`** — registers the bundle ID `com.dartmeadow.jots` with Sign in with Apple, makes a fresh App Store profile,
   archives, uploads with `altool`, then waits until App Store Connect reports the build installable in TestFlight.
   Signing runs from **DART-Skyboard/ArcLake-iOS** (workflow "Build DART Meadow (dartmeadow-ios) for TestFlight"), which calls `testflight.yml` here and passes in its App Store Connect key + distribution certificate — the same automated setup that builds Arc Lake, Ash Tree IDE and DART.
-  Connect app record for `com.dartmeadow.jots`.
