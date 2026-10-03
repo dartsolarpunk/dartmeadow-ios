@@ -37,8 +37,9 @@ BLOCK_PATCHES = [
      '    </div>'),
     ('support tiers text',
      re.compile(r'<div>☄ <strong style="color:var\(--cyan\);">\$5 / month</strong> — recurring supporter</div>\s*<div>🌟 <strong style="color:var\(--gold\);">\$20</strong> — one-time donation</div>'),
-     '<div>🌟 <strong style="color:var(--gold);">Game Development Support</strong> — one-time donation</div>\n'
-     '        <div>☄ <strong style="color:var(--cyan);">Game Development Supporter</strong> — monthly subscription</div>'),
+     '<div>🌟 <strong style="color:var(--gold);">Support Early Alpha</strong> — one-time</div>\n'
+     '        <div>☄ <strong style="color:var(--cyan);">Monthly Alpha Supporter</strong> — renews monthly</div>\n'
+     '        <div style="opacity:.75;">DART Meadow is in early alpha. Purchases are optional, unlock no content, and go straight into development. Prices are shown in your App Store currency below.</div>'),
     ('no js.stripe.com load',
      re.compile(r"    s\.src='https://js\.stripe\.com/v3/buy-button\.js';"),
      "    return; /* iOS app: Apple in-app purchase replaces Stripe */"),

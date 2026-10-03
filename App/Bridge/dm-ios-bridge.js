@@ -255,7 +255,7 @@ try { (function () {
     const thanks = lsGet(THANKS_LS) || { donations: 0 };
     if (iapState.status.subscribed) {
       box.appendChild(iapEl('div', 'font-family:var(--font-hud);font-size:.62rem;letter-spacing:.1em;color:var(--gold);line-height:1.6;',
-        '✓ THANK YOU — YOU\'RE A GAME DEVELOPMENT SUPPORTER' + (iapState.status.willRenew === false ? ' (ends ' + String(iapState.status.expires || '').slice(0, 10) + ')' : ' · RENEWS MONTHLY')));
+        '✓ THANK YOU — YOU\'RE A MONTHLY ALPHA SUPPORTER' + (iapState.status.willRenew === false ? ' (ends ' + String(iapState.status.expires || '').slice(0, 10) + ')' : ' · RENEWS MONTHLY')));
     }
     if (thanks.donations > 0) {
       box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.6rem;color:var(--cyan);', '❤ Thank you for ' + thanks.donations + ' donation' + (thanks.donations === 1 ? '' : 's') + '!'));
@@ -270,10 +270,10 @@ try { (function () {
       b.onclick = () => buy(id);
       return b;
     };
-    box.appendChild(mk(IAP.donation, '🌟 GAME DEVELOPMENT SUPPORT', 'var(--gold)'));
-    box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);margin-top:-.6rem;', 'One-time donation · give again any time'));
-    box.appendChild(mk(IAP.monthly, '☄ GAME DEVELOPMENT SUPPORTER', 'var(--cyan)'));
-    box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);margin-top:-.6rem;', 'Monthly subscription · renews automatically until you cancel'));
+    box.appendChild(mk(IAP.donation, '🌟 SUPPORT EARLY ALPHA', 'var(--gold)'));
+    box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);margin-top:-.6rem;', 'One-time support for early alpha development · give again any time'));
+    box.appendChild(mk(IAP.monthly, '☄ MONTHLY ALPHA SUPPORTER', 'var(--cyan)'));
+    box.appendChild(iapEl('div', 'font-family:var(--font-mono);font-size:.54rem;color:var(--text-dim);margin-top:-.6rem;', 'Monthly support for early alpha development · renews automatically until you cancel'));
     const row = iapEl('div', 'display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;');
     const restore = iapEl('button', 'background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-hud);font-size:.52rem;letter-spacing:.1em;padding:.45rem .9rem;border-radius:2px;cursor:pointer;', 'RESTORE PURCHASES');
     restore.onclick = doRestore;
@@ -307,7 +307,7 @@ try { (function () {
       if (r.status === 'success') {
         if (id === IAP.donation) { const t = lsGet(THANKS_LS) || { donations: 0 }; t.donations++; t.last = Date.now(); lsSet(THANKS_LS, t); }
         iapState.status = Object.assign(iapState.status, r);
-        say(id === IAP.donation ? '❤ Thank you for supporting DART Meadow!' : '☄ Thank you — you\'re a Game Development Supporter!', 4200);
+        say(id === IAP.donation ? '❤ Thank you for supporting DART Meadow\'s early alpha!' : '☄ Thank you — you\'re a Monthly Alpha Supporter!', 4200);
         try { J().analytics.track('support', id === IAP.donation ? 'donation' : 'monthly'); } catch (e) {}
         iapState.busy = false; renderSupport('');
       } else {

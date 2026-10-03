@@ -19,7 +19,9 @@ final class GameViewController: UIViewController {
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        UIDevice.current.userInterfaceIdiom == .pad ? .all : .allButUpsideDown
+        // -dmLandscape: CI App Store screenshot runs only (never set in normal launches).
+        if ProcessInfo.processInfo.arguments.contains("-dmLandscape") { return .landscapeRight }
+        return UIDevice.current.userInterfaceIdiom == .pad ? .all : .allButUpsideDown
     }
 
     // MARK: Lifecycle

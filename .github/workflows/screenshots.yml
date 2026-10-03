@@ -1,0 +1,60 @@
+name: App Store screenshots (Simulator)
+
+on:
+  workflow_dispatch:
+    inputs:
+      orientation:
+        description: portrait or landscape
+        default: landscape
+
+jobs:
+  shots:
+    name: Screenshots (${{ matrix.device }})
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        device: ["iPhone .* Pro Max", "iPad Pro 13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$X" ] || X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X/Contents/Developer"
+      - name: XcodeGen + build
+        run: |
+          curl -fsSL https://github.com/yonaskolb/XcodeGen/releases/download/2.42.0/xcodegen.zip -o /tmp/x.zip
+          unzip -q /tmp/x.zip -d /tmp/xg && sudo cp /tmp/xg/xcodegen/bin/xcodegen /usr/local/bin/
+          xcodegen generate --spec project.yml
+          set -o pipefail
+          xcodebuild build -project DartMeadow.xcodeproj -scheme DartMeadow -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | tail -3
+      - name: Capture
+        env:
+          DEVICE_RE: ${{ matrix.device }}
+          ORIENT: ${{ inputs.orientation }}
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys,re,os
+          d=json.load(sys.stdin)['devices']
+          c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if re.match(os.environ['DEVICE_RE'], x['name'])]
+          c.sort(key=lambda t:(t[0],t[1]['name'])); print(c[-1][1]['udid']); print(c[-1][1]['name'], file=sys.stderr)")
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --wifiBars 3 || true
+          xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/DartMeadow.app
+          (xcrun simctl spawn "$UDID" log stream --style compact --predicate 'process == "DartMeadow"' > sim.log 2>&1 &)
+          ARGS="-dmSmoke"; [ "$ORIENT" = landscape ] && ARGS="$ARGS -dmLandscape"
+          xcrun simctl launch "$UDID" com.dartmeadow.jots $ARGS; SECONDS=0
+          mkdir -p shots
+          for t in 8 14 20 32 40 48 60 70 78 86 94 102 110 120 135 150; do
+            while [ $SECONDS -lt $t ]; do sleep 1; done
+            xcrun simctl io "$UDID" screenshot "shots/t$(printf %03d $t).png" >/dev/null 2>&1 || true
+          done
+          grep -E "dm-smoke|gpu\]" sim.log | head -40 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ strategy.job-index }}
+          path: shots/
