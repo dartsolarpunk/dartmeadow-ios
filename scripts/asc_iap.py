@@ -19,10 +19,10 @@ from asc import req, req_soft, get_all, summary, find_app  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SHOT = ROOT / "Design" / "iap-review-screenshot.png"
-DONATION = dict(productId="com.dartmeadow.jots.support.donation", name="Game Development Support",
-                desc="A one-time donation that funds new worlds and features.", price="9.99")
-MONTHLY = dict(productId="com.dartmeadow.jots.support.monthly", name="Game Development Supporter",
-               desc="Monthly support for DART Meadow; renews until canceled", price="4.99")
+DONATION = dict(productId="com.dartmeadow.jots.support.donation", name="Support Early Alpha",
+                desc="One-time support for DART Meadow's early alpha.", price="4.99")
+MONTHLY = dict(productId="com.dartmeadow.jots.support.monthly", name="Monthly Alpha Supporter",
+               desc="Monthly support for early alpha; renews until canceled", price="4.99")
 GROUP = "DART Meadow Support"
 REVIEW_NOTE = ("Optional support purchase in the ❤ SUPPORT menu (Main menu → Settings → Support DART Meadow). "
                "It unlocks no content; it only funds development and shows a thank-you.")

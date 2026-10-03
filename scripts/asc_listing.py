@@ -65,10 +65,13 @@ def iap(app_id):
     summary("- donation review screenshot: " + replace_shot(v2 + "/appStoreReviewScreenshot", "/inAppPurchaseAppStoreReviewScreenshots",
                                                              "inAppPurchaseV2", "inAppPurchases", iid))
     # verify price
-    sch = req_soft("GET", v2 + "/iapPriceSchedule/manualPrices", params={"include": "inAppPurchasePricePoint", "filter[territory]": "USA"})
+    import time; time.sleep(10)
+    sch = req_soft("GET", f"/inAppPurchasePriceSchedules/{iid}/manualPrices", params={"include": "inAppPurchasePricePoint,territory"})
     if sch.status_code == 200:
         inc = [x["attributes"].get("customerPrice") for x in sch.json().get("included", []) if x["type"] == "inAppPurchasePricePoints"]
-        summary(f"  · donation USA manual price now: {inc}")
+        summary(f"  · donation manual (base) price now: {inc}")
+    else:
+        summary(f"  · donation price check HTTP {sch.status_code}: {errs(sch)}")
     # subscription
     grp = next(g for g in get_all(f"/apps/{app_id}/subscriptionGroups") if g["attributes"]["referenceName"] == asc_iap.GROUP)
     sub = next(x for x in req("GET", f"/subscriptionGroups/{grp['id']}/subscriptions")["data"]
