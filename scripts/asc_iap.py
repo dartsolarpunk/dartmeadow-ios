@@ -22,7 +22,7 @@ SHOT = ROOT / "Design" / "iap-review-screenshot.png"
 DONATION = dict(productId="com.dartmeadow.jots.support.donation", name="Game Development Support",
                 desc="A one-time donation that funds new worlds and features.", price="9.99")
 MONTHLY = dict(productId="com.dartmeadow.jots.support.monthly", name="Game Development Supporter",
-               desc="Monthly support for DART Meadow. Renews until cancelled.", price="4.99")
+               desc="Monthly support for DART Meadow; renews until canceled", price="4.99")
 GROUP = "DART Meadow Support"
 REVIEW_NOTE = ("Optional support purchase in the ❤ SUPPORT menu (Main menu → Settings → Support DART Meadow). "
                "It unlocks no content; it only funds development and shows a thank-you.")
@@ -163,6 +163,23 @@ def main():
             fn(app["id"], terr)
         except Exception as e:
             summary(f"- {fn.__name__} failed: {e}")
+    import time; time.sleep(45)
+    summary("#### Status after setup")
+    for i in get_all(f"/apps/{app['id']}/inAppPurchasesV2"):
+        iid = i["id"]; v2 = "https://api.appstoreconnect.apple.com/v2/inAppPurchases/" + iid
+        sh = req_soft("GET", v2 + "/appStoreReviewScreenshot")
+        sd = (sh.json().get("data") or {}).get("attributes", {}).get("assetDeliveryState") if sh.status_code == 200 else sh.status_code
+        locs = [(l["attributes"].get("locale"), l["attributes"].get("state")) for l in req("GET", v2 + "/inAppPurchaseLocalizations")["data"]]
+        summary(f"- {i['attributes'].get('productId')}: state {i['attributes'].get('state')}; locs {locs}; screenshot {sd}")
+    for g in get_all(f"/apps/{app['id']}/subscriptionGroups"):
+        gl = [(l["attributes"].get("locale"), l["attributes"].get("state")) for l in req("GET", f"/subscriptionGroups/{g['id']}/subscriptionGroupLocalizations")["data"]]
+        summary(f"- group {g['attributes'].get('referenceName')}: locs {gl}")
+        for x in req("GET", f"/subscriptionGroups/{g['id']}/subscriptions")["data"]:
+            sid = x["id"]
+            sh = req_soft("GET", f"/subscriptions/{sid}/appStoreReviewScreenshot")
+            sd = (sh.json().get("data") or {}).get("attributes", {}).get("assetDeliveryState") if sh.status_code == 200 else sh.status_code
+            locs = [(l["attributes"].get("locale"), l["attributes"].get("state")) for l in req("GET", f"/subscriptions/{sid}/subscriptionLocalizations")["data"]]
+            summary(f"- {x['attributes'].get('productId')}: state {x['attributes'].get('state')}; locs {locs}; screenshot {sd}")
     return 0
 
 
