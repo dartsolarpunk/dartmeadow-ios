@@ -219,12 +219,30 @@ def add_to_internal_groups(app_id, build_id):
                 "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}})["data"]
             groups = [g]
             summary("- created internal TestFlight group \"DART Meadow Crew\" (all builds)")
+        # the internal testers the team's other apps use (e.g. Autumn AI, Ash Tree IDE)
+        wanted = {}
+        for other in get_all("/apps", {"fields[apps]": "name,bundleId"}):
+            if other["id"] == app_id:
+                continue
+            try:
+                for og in get_all(f"/apps/{other['id']}/betaGroups"):
+                    if og["attributes"].get("isInternalGroup"):
+                        for t in get_all(f"/betaGroups/{og['id']}/betaTesters"):
+                            wanted[t["id"]] = t["attributes"].get("email") or t["id"]
+            except Exception as e:
+                print("skip", other["attributes"].get("name"), e)
         for g in groups:
             if not g["attributes"].get("hasAccessToAllBuilds"):
                 req("POST", f"/betaGroups/{g['id']}/relationships/builds", ok=(204, 409),
                     json={"data": [{"type": "builds", "id": build_id}]})
+            have = {t["id"] for t in get_all(f"/betaGroups/{g['id']}/betaTesters")}
+            missing = [i for i in wanted if i not in have]
+            if missing:
+                req("POST", f"/betaGroups/{g['id']}/relationships/betaTesters", ok=(204, 409, 422),
+                    json={"data": [{"type": "betaTesters", "id": i} for i in missing]})
             testers = get_all(f"/betaGroups/{g['id']}/betaTesters")
-            summary(f"- internal group \"{g['attributes'].get('name')}\": {len(testers)} tester(s)")
+            summary(f"- internal group \"{g['attributes'].get('name')}\": {len(testers)} tester(s): "
+                    + ", ".join(sorted(t["attributes"].get("email") or "?" for t in testers)))
     except Exception as e:  # never fail the run over group bookkeeping
         summary(f"- note: couldn't update internal groups ({e})")
 
