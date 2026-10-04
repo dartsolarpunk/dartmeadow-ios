@@ -14,8 +14,12 @@
  *    every lat/lon), so a spot in daylight on the globe is in daylight when you
  *    land there; night is dim, with a soft dusk line between.
  *  • Tap it to plot a neon-green landing marker (tap again to move it).
+ *  • Over the top, in every mode: ⟲ RESET VIEW (back to how it opened —
+ *    centred on you on a world, zoom 1, turning again; in space it also
+ *    clears the marker) and, up and left of it, ❚❚ PAUSE / ▶ PLAY the turntable: paused,
+ *    the globe stays exactly where you left it after a drag or pinch.
  *  • The bubbles round its right side change with where you are:
- *      space  — LAND · SKY · ✦ MARK (save the plotted site) · INFO · ⌖ RESET
+ *      space  — LAND · SKY · ✦ MARK (save the plotted site) · INFO
  *      ground — FLY THERE (boards and auto-flies at M5) · SKY · ✦ MARK · ⌖ ME · ✕ CLEAR
  *      sky    — FLY THERE · LAND here · ◎ PICK (mark the ground near you) · ✦ MARK · Mach
  *               while auto-flying: CANCEL · IDLE · Mach · ✦ MARK · LAND here
@@ -29,7 +33,7 @@
   'use strict';
   const D2R=Math.PI/180, R2D=180/Math.PI;
   const G={ el:null, cv:null, ctx:null, img:null, N:0, mode:null, body:null, spaceNear:null, bodyKey:'',
-    lat0:15, lon0:0, zoom:1, target:null, lastUser:0, drag:null, ptrs:new Map(), pinch0:0, zoom0:1,
+    lat0:15, lon0:0, zoom:1, target:null, lastUser:0, paused:false, drag:null, ptrs:new Map(), pinch0:0, zoom0:1,
     tex:null, texW:0, texH:0, hm:null, raf:0, lastT:0, collapsed:false, pref:null, D:120, B:34, H:0, hdg:null };
   try{ G.pref=JSON.parse(localStorage.getItem('dm_globe_v1')||'null'); }catch(e){}
   G.collapsed=!!(G.pref&&G.pref.collapsed);
@@ -52,7 +56,7 @@
   const TW=512, TH=256;
   function loadBody(b){
     G.tex=null; G.hm=null; G.target=null; G.zoom=1;
-    const m=me(); if(m){ G.lat0=Math.max(-60,Math.min(60,m.lat)); G.lon0=m.lon; } else { G.lat0=18; G.lon0=0; }
+    homeView();
     const take=src=>{ try{
         const c=document.createElement('canvas'); c.width=TW; c.height=TH; const x=c.getContext('2d',{willReadFrequently:true});
         x.drawImage(src,0,0,TW,TH); G.tex=x.getImageData(0,0,TW,TH).data; G.texW=TW; G.texH=TH;
@@ -61,6 +65,20 @@
     // Earth: the continent chart; everyone else starts on it and switches to the true ground map
     try{ const t=makeOrbitGlobeTexture(b); if(t&&t.image) take(t.image); }catch(e){}
     try{ worldMapFor(b,mp=>{ if(G.body!==b) return; G.hm={W:mp.W,H:mp.H,h:mp.heights}; if(!isEarth&&mp.tex&&mp.tex.image) take(mp.tex.image); }); }catch(e){ console.warn('[globe] worldmap',e); }
+  }
+
+  // how the globe opens: centred on you on a world, else a little north of the equator
+  function homeView(){
+    const m=me(); if(m){ G.lat0=Math.max(-60,Math.min(60,m.lat)); G.lon0=m.lon; } else { G.lat0=18; G.lon0=0; }
+    G.zoom=1;
+  }
+  function resetView(){
+    if(G.mode==='space') G.target=null;              // space's old RESET: the marker goes too
+    homeView(); G.paused=false; G.lastUser=0; sync(); kick();
+  }
+  function toggleSpin(){
+    G.paused=!G.paused; if(!G.paused) G.lastUser=0;   // play: turn again straight away
+    tst(G.paused?'⏸ Globe held still — drag, pinch and zoom freely':'▶ Globe turning again',1300); kick();
   }
 
   // ── the star: where it stands over this world right now ────────────────
@@ -235,22 +253,28 @@
     halo(now);
     if(now-G.lastT<33) return;                                // ~30 fps is plenty for a turning globe
     const dt=Math.min(0.1,(now-(G.lastT||now))/1000); G.lastT=now;
-    if(!G.drag&&G.ptrs.size===0&&now-G.lastUser>3500) G.lon0=wrap(G.lon0-7*dt);   // the turntable, eastward under you
+    if(!G.paused&&!G.drag&&G.ptrs.size===0&&now-G.lastUser>3500) G.lon0=wrap(G.lon0-7*dt);   // the turntable, eastward under you
     render(); readout();
   }
   const kick=()=>{ if(!G.raf) G.raf=requestAnimationFrame(frame); };
 
   // ── the bubbles ────────────────────────────────────────────────────────
-  const ICON={land:'⬇',sky:'🛹',mark:'✦',info:'ⓘ',reset:'⟲',fly:'⇢',me:'⌖',clear:'✕',pick:'◎',cancel:'✕',idle:'⏸',mach:'≋'};
+  const ICON={land:'⬇',sky:'🛹',mark:'✦',info:'ⓘ',reset:'⟲',spin:'❚❚',fly:'⇢',me:'⌖',clear:'✕',pick:'◎',cancel:'✕',idle:'⏸',mach:'≋'};
   function machName(){ try{ return MACH_PRESETS[atmoPreset].name; }catch(e){ return 'M1'; } }
+  // over the top in every mode (fixed angles: straight up, then up and left)
+  const A_RESET=-90, A_SPIN=-126;
   function bubbleSet(){
-    const has=!!G.target;
+    const top=[
+      {k:'reset',t:'RESET',a:A_RESET,tip:G.mode==='space'?'Reset view — back to how the globe opened, turning again; clears the marker':'Reset view — back to how the globe opened (centred on you), turning again',on:resetView},
+      {k:'spin',t:G.paused?'PLAY':'PAUSE',ic:G.paused?'▶\uFE0E':'❚❚',a:A_SPIN,lit:()=>G.paused,tip:G.paused?'Play — let the globe turn again':'Pause — stop the globe turning so you can look around it',on:toggleSpin}];
+    return top.concat(modeBubbles());
+  }
+  function modeBubbles(){
     if(G.mode==='space') return [
       {k:'land',t:'LAND',tip:'Land and walk at the marker',need:true,on:()=>goSurface()},
       {k:'sky',t:'SKY',tip:'Fly the skyboard in the sky above the marker',need:true,on:()=>goSky()},
       {k:'mark',t:'MARK',tip:'Save the plotted site to your Journal',need:true,on:()=>markTarget()},
-      {k:'info',t:'INFO',tip:'About this world',on:()=>info()},
-      {k:'reset',t:'RESET',tip:'Clear the marker and reset the view',on:()=>{ G.target=null; G.zoom=1; G.lat0=18; G.lastUser=0; sync(); }}];
+      {k:'info',t:'INFO',tip:'About this world',on:()=>info()}];
     if(G.mode==='surf') return [
       {k:'fly',t:'FLY',tip:'FLY THERE — board, lift off and auto-fly to the marker at '+(()=>{ try{ return MACH_PRESETS[MACH_AUTO_DEFAULT].name; }catch(e){ return 'M5'; } })(),need:true,on:()=>{ const t=G.target; try{ _lmWalkFly(t.lat,t.lon); }catch(e){} }},
       {k:'sky',t:'SKY',tip:'Board the skyboard and lift off from here',on:()=>{ try{ surfRemountSkyboard(); }catch(e){} }},
@@ -278,17 +302,20 @@
   function sync(){
     if(!G.el) return;
     const set=bubbleSet(), box=G.el.querySelector('.dg-bubbles');
-    const sig=G.mode+'|'+set.map(b=>b.k+':'+b.t).join(',');
+    const sig=G.mode+'|'+set.map(b=>b.k+':'+(b.a!=null?'':b.t)).join(',');
     if(sig!==_sig){ _sig=sig; box.innerHTML='';
       set.forEach((b,i)=>{ const e=document.createElement('button'); e.type='button'; e.className='dg-b dg-'+b.k; e.dataset.i=i;
-        e.innerHTML='<i>'+ICON[b.k]+'</i><span>'+b.t+'</span>'; e.title=b.tip; e.setAttribute('aria-label',b.tip);
+        if(b.a!=null) e.dataset.a=b.a;
+        e.innerHTML='<i>'+(b.ic||ICON[b.k])+'</i><span>'+b.t+'</span>'; e.title=b.tip; e.setAttribute('aria-label',b.tip);
         e.addEventListener('click',ev=>{ ev.stopPropagation(); const cur=bubbleSet()[+e.dataset.i]; if(!cur) return;
-          if(cur.off) return; if(cur.need&&!G.target){ tst('Tap the globe to plot a spot first',1600); pulse(); return; } cur.on(); setTimeout(sync,60); });
+          if(cur.off) return; if(cur.need&&!G.target){ tst('Tap the globe to plot a spot first',1600); pulse(); return; } cur.on(); sync(); setTimeout(sync,60); });
         box.appendChild(e); });
       layout(); }
     box.querySelectorAll('.dg-b').forEach((e,i)=>{ const b=set[i]; if(!b) return;
       e.classList.toggle('dim',!!(b.off||(b.need&&!G.target))); e.classList.toggle('lit',!!(b.lit&&b.lit()));
-      const sp=e.querySelector('span'); if(sp.textContent!==b.t) sp.textContent=b.t; });
+      const sp=e.querySelector('span'); if(sp.textContent!==b.t) sp.textContent=b.t;
+      const ic=e.querySelector('i'), it=b.ic||ICON[b.k]; if(ic.textContent!==it) ic.textContent=it;
+      if(e.title!==b.tip){ e.title=b.tip; e.setAttribute('aria-label',b.tip); } });
   }
   const pulse=()=>{ const w=G.el&&G.el.querySelector('.dg-globe'); if(!w) return; w.classList.remove('nudge'); void w.offsetWidth; w.classList.add('nudge'); };
 
@@ -359,14 +386,14 @@
     const W=window.innerWidth, H=window.innerHeight, short=H<520, narrow=W<620;
     let D=narrow?100:short?86:124, B=narrow?30:short?27:34;
     const root=G.mode==='surf'?$('surface-overlay'):G.mode==='atmo'?$('atmo-overlay'):$('screen-flight');
-    // the arc's highest and lowest bubble (sin of their angles)
-    const nB=G.el.querySelectorAll('.dg-b').length||5; let S52=0, S122=0;
-    for(let i=0;i<nB;i++){ const sn=Math.sin((nB<2?0:-52+174*i/(nB-1))*D2R); S52=Math.max(S52,-sn); S122=Math.max(S122,sn); }
+    // every bubble's angle: the fixed pair over the top, the rest on the arc round the right
+    const angs=bubbleAngles(); let S52=0, S122=0, CL=0;
+    angs.forEach(a=>{ const sn=Math.sin(a*D2R), cs=Math.cos(a*D2R); S52=Math.max(S52,-sn); S122=Math.max(S122,sn); CL=Math.max(CL,-cs); });
     // how far the globe + its bubble arc reach from the globe's centre
     // the compass halo (ground and sky): a band round the globe; the bubbles move out past it
     const hal=G.mode==='surf'||G.mode==='atmo', hW=D=>hal?Math.round(Math.max(11,Math.min(15,D*0.115))):0;
     const ringR=(D,B)=>hal?D/2+hW(D)+B/2+3:D/2+B*0.78;
-    const ext=(D,B)=>{ const ring=ringR(D,B); return {up:Math.max(D/2,ring*S52+B/2), dn:Math.max(D/2+16,ring*S122+B/2), w:D/2+ring+B/2+8, l:Math.max(0,ring*0.53+B/2-D/2)}; };
+    const ext=(D,B)=>{ const ring=ringR(D,B); return {up:Math.max(D/2,ring*S52+B/2), dn:Math.max(D/2+16,ring*S122+B/2), w:D/2+ring+B/2+8, l:Math.max(0,ring*CL+B/2-D/2)}; };
     let topLim=8, botLim=H-8;
     const rects=[];
     if(root){ const hdr=G.mode==='space'?null:root.querySelector(':scope>div'); if(hdr){ const q=hdr.getBoundingClientRect(); if(q.height) topLim=Math.max(topLim,q.bottom+6); }
@@ -396,8 +423,14 @@
     const dpr=Math.min(2,window.devicePixelRatio||1), N=Math.round(Math.min(260,D*dpr));
     if(G.cv.width!==N){ G.cv.width=N; G.cv.height=N; G.N=N; G.img=null; }
     // bubbles on an arc round the right side, from upper right to below
-    const bs=[...G.el.querySelectorAll('.dg-b')], n=bs.length, ring=ringR(D,B), a0=-52, a1=122;
-    bs.forEach((e,i)=>{ const a=(n<2?0:a0+(a1-a0)*i/(n-1))*D2R; e.style.left=Math.round(D/2+Math.cos(a)*ring-B/2)+'px'; e.style.top=Math.round(D/2+Math.sin(a)*ring-B/2)+'px'; });
+    const bs=[...G.el.querySelectorAll('.dg-b')], ring=ringR(D,B), angs2=bubbleAngles();
+    bs.forEach((e,i)=>{ const a=angs2[i]*D2R; e.style.left=Math.round(D/2+Math.cos(a)*ring-B/2)+'px'; e.style.top=Math.round(D/2+Math.sin(a)*ring-B/2)+'px'; });
+  }
+  // degrees round from +x (screen y down): fixed ones as given, the others spread -52°…122°
+  function bubbleAngles(){
+    const bs=G.el?[...G.el.querySelectorAll('.dg-b')]:[];
+    const arc=bs.filter(e=>e.dataset.a==null), n=arc.length;
+    return bs.map(e=>{ if(e.dataset.a!=null) return +e.dataset.a; const i=arc.indexOf(e); return n<2?0:-52+174*i/(n-1); });
   }
   // local time and sun at a spot: ' · 14:05 ☀' (☾ at night, ◐ at dusk / dawn)
   function clock(lat,lon){
