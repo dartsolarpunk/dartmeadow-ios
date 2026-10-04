@@ -918,9 +918,9 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 <script src="ui/dm-friends.js?v=2" defer></script>
 <script src="ui/dm-spectator.js?v=1" defer></script>
 <script src="ui/dm-stack.js?v=1" defer></script>
-<script src="ui/dm-globe.js?v=4" defer></script>
-<script src="ui/dm-star.js?v=1" defer></script>
-<script src="ui/dm-starbubble.js?v=2" defer></script>
+<script src="ui/dm-globe.js?v=5" defer></script>
+<script src="ui/dm-star.js?v=2" defer></script>
+<script src="ui/dm-starbubble.js?v=3" defer></script>
 </head>
 <body>
 <!-- LOADING -->
@@ -4337,13 +4337,24 @@ function applyQualityTier(){applyPreset(GFX.preset);}
 function _dynRes(r){
   if(!r||GFX.dynamicRes===false) return;
   const now=performance.now(), d=r._dr||(r._dr={t:now,ema:16.7,k:1,hold:0,cool:0});
+  // Only on AUTO graphics (or an explicit dynamicRes opt-in). A player who
+  // picked Low/Medium/High/Ultra/Custom gets exactly that resolution —
+  // Ultra stays Ultra; if we'd eased it down earlier, put it back.
+  if(GFX.preset!=='auto'&&GFX.dynamicRes!==true){
+    if(d.k!==1){ d.k=1; try{ r.setPixelRatio(effectivePixelRatio()); r.setSize(window.innerWidth,window.innerHeight); }catch(e){} }
+    d.t=now; return;
+  }
   const ms=Math.min(250,now-d.t); d.t=now; if(ms<=0) return;
   d.ema+=(ms-d.ema)*0.06;
   const target=GFX.isMobile?33.4:20.0;            // aim for ~30 fps on phones and tablets, ~50 on desktops
   d.cool=Math.max(0,d.cool-ms);
   if(d.cool>0) return;
   let k=d.k;
-  if(d.ema>target*1.18&&k>0.6){ k=Math.max(0.6,k-0.08); }
+  // diving into a star (volumetric plasma + the bubble's lens fill the screen)
+  // resolution may drop further and faster; back out, it snaps back to 60%
+  const starHot=!!(window.DMStarBubble&&(DMStarBubble.a>0.05||DMStarBubble.inStar)), floor=starHot?0.42:0.6;
+  if(k<floor){ k=floor; }
+  else if(d.ema>target*1.18&&k>floor){ k=Math.max(floor,k-(starHot?0.12:0.08)); }
   else if(d.ema<target*0.72&&k<1){ d.hold+=ms; if(d.hold>2500){ k=Math.min(1,k+0.05); d.hold=0; } }
   else d.hold=0;
   if(k!==d.k){ d.k=k; d.cool=1200; try{ r.setPixelRatio(effectivePixelRatio()*k); r.setSize(window.innerWidth,window.innerHeight); }catch(e){} }
@@ -10093,6 +10104,12 @@ function updateAssist(dt){
     return true;
   }
 
+  // FOCUS / ORBIT hold you at a standoff outside a body, and FOCUS ignores
+  // the throttle. On a star that read as an invisible wall: you push toward
+  // it and never get in. Throttle on a star lets go so you can dive through.
+  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&ASSIST.target.type==='Star'&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
+    disengageAssist('Manual control — fly on through');return false;
+  }
   if(ASSIST.mode==='orbit'){
     const tb=ASSIST.target;if(!tb||!tb.mesh){disengageAssist();return false;}
     if(manualInput){disengageAssist('Manual control — orbit released');return false;}
@@ -10193,7 +10210,7 @@ function updateFlight(dt){
     const sp2=STATE.flight;
     for(let i=0;i<celestialBodies.length;i++){
       const b=celestialBodies[i];
-      if(!b.mesh || b.orbitR===0) continue; // skip the sun itself (orbitR=0) — landing/colliding with a star isn't meaningful here
+      if(!b.mesh || b.orbitR===0 || b.type==='Star') continue; // stars have no collision: the zero-g bubble (ui/dm-starbubble.js) lets riders fly straight through them
       const bodyR = b.collisionRadius || (b.mesh.userData && b.mesh.userData.collisionRadius) || 1.2;
       const dx=sp2.pos.x-b.mesh.position.x, dy=sp2.pos.y-b.mesh.position.y, dz=sp2.pos.z-b.mesh.position.z;
       const distSq=dx*dx+dy*dy+dz*dz;
@@ -10299,8 +10316,13 @@ function updateFlight(dt){
   sp.vel.multiplyScalar(drag);
   // clamp tiny residual so it fully settles to idle rather than micro-drifting
   if(!throttling&&sp.vel.length()<0.002)sp.vel.set(0,0,0);
-  // The BOARD is what moves through the world now.
-  sp.pos.addScaledVector(sp.vel,1);
+  // The BOARD is what moves through the world now. Motion is per frame, so
+  // near a star (where the plasma and the bubble cost the most and a phone's
+  // frame rate drops) step by real time instead — a slow frame rate no longer
+  // makes the pass through the star crawl.
+  let _stepK=1;
+  if(window.DMStarBubble&&(DMStarBubble.a>0.01||DMStarBubble.inStar)) _stepK=Math.min(3,Math.max(1,(dt||1/60)*60));
+  sp.pos.addScaledVector(sp.vel,_stepK);
 
   // Animate DART rings faster in higher modes
   const ringSpd=1+dartSpeedMode*1.5;
@@ -16417,7 +16439,7 @@ function _spaceApTick(sp,manualLook,throttling){
   const want=D.clone(); let worst=Infinity;
   const c=new THREE.Vector3(), q=new THREE.Vector3();
   for(const b of (celestialBodies||[])){
-    if(!b||!b.mesh) continue;
+    if(!b||!b.mesh||b.type==='Star') continue;           // stars: fly through them in the bubble, don't swerve away
     const r=b.collisionRadius||b.mcRadius||b.radius||(b.mesh.geometry&&b.mesh.geometry.boundingSphere?b.mesh.geometry.boundingSphere.radius:4);
     c.copy(b.mesh.position).sub(P);
     const t=c.dot(D); if(t<-r||t>look+r) continue;
@@ -22844,7 +22866,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
 <link rel="stylesheet" href="ui/dm-safety.css?v=1">
 <link rel="stylesheet" href="ui/dm-spectator.css?v=1">
-<link rel="stylesheet" href="ui/dm-globe.css?v=2">
+<link rel="stylesheet" href="ui/dm-globe.css?v=3">
 <link rel="stylesheet" href="ui/dm-menu.css?v=80">
 <link rel="stylesheet" href="ui/dm-journal.css?v=97">
 <link rel="stylesheet" href="ui/dm-landmap.css?v=88">

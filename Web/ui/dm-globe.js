@@ -157,8 +157,8 @@
     const dpr=N/G.D;
     ctx.save(); ctx.beginPath(); ctx.arc(c,c,R0,0,Math.PI*2); ctx.clip();
     // glowing latitude / meridian grid
-    ctx.lineWidth=1.1*dpr; ctx.shadowColor='rgba(70,170,255,.95)'; ctx.shadowBlur=5*dpr;
-    const line=(pts,eq)=>{ ctx.strokeStyle=eq?'rgba(140,215,255,.95)':'rgba(70,160,255,.62)'; ctx.beginPath(); let on=false;
+    ctx.lineWidth=1.1*dpr; ctx.shadowColor=accA(.95); ctx.shadowBlur=5*dpr;
+    const line=(pts,eq)=>{ ctx.strokeStyle=eq?accL(.95):accA(.62); ctx.beginPath(); let on=false;
       for(const p of pts){ if(p.z>0.02){ if(on) ctx.lineTo(p.x,p.y); else { ctx.moveTo(p.x,p.y); on=true; } } else on=false; } ctx.stroke(); };
     for(let la=-60;la<=60;la+=30){ const pts=[]; for(let lo=-180;lo<=180;lo+=4) pts.push(proj(B,la,lo,Rz,c)); line(pts,la===0); }
     for(let lo=-180;lo<180;lo+=30){ const pts=[]; for(let la=-88;la<=88;la+=4) pts.push(proj(B,la,lo,Rz,c)); line(pts,lo===0); }
@@ -167,15 +167,15 @@
     try{ if(window.DMJournal&&G.body){ DMJournal.store.entries.forEach(e=>{ const p=e.place||{}; if(e.hidden||e.kind==='space'||p.body!==G.body.name||!p.site) return;
         let lat=p.site.lat, lon=p.site.lon; if(e.kind==='atmo'&&isFinite(p.x)){ lat=p.site.lat-p.z*ATMO_DEG_PER_UNIT; lon=wrap(p.site.lon+p.x*ATMO_DEG_PER_UNIT); }
         const s=proj(B,lat,lon,Rz,c); if(s.z<=0.05) return; const k=4*dpr;
-        ctx.fillStyle=e.kind==='surface'?'#ffcc33':'#9fd8ff'; ctx.beginPath(); ctx.moveTo(s.x,s.y-k); ctx.lineTo(s.x+k*0.8,s.y); ctx.lineTo(s.x,s.y+k); ctx.lineTo(s.x-k*0.8,s.y); ctx.closePath(); ctx.fill(); }); } }catch(e){}
+        ctx.fillStyle=e.kind==='surface'?'#ffcc33':accL(1); ctx.beginPath(); ctx.moveTo(s.x,s.y-k); ctx.lineTo(s.x+k*0.8,s.y); ctx.lineTo(s.x,s.y+k); ctx.lineTo(s.x-k*0.8,s.y); ctx.closePath(); ctx.fill(); }); } }catch(e){}
     const t=performance.now()/1000;
     // you: a cyan arrow pointing the way you face
     const m=me();
     if(m){ const s=proj(B,m.lat,m.lon,Rz,c); if(s.z>0.05){ let yaw=0; try{ yaw=_lmYaw(); }catch(e){}
         const a=proj(B,m.lat+Math.cos(yaw)*2,m.lon-Math.sin(yaw)*2/Math.max(0.2,Math.cos(m.lat*D2R)),Rz,c), ang=Math.atan2(a.x-s.x,-(a.y-s.y));
         ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(ang); const k=dpr;
-        ctx.fillStyle='rgba(0,229,255,.28)'; ctx.beginPath(); ctx.arc(0,0,(8+Math.sin(t*3)*1.5)*k,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#fff'; ctx.strokeStyle='#00e5ff'; ctx.lineWidth=1.3*k; ctx.beginPath(); ctx.moveTo(0,-6*k); ctx.lineTo(4.2*k,5*k); ctx.lineTo(0,2*k); ctx.lineTo(-4.2*k,5*k); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); } }
+        ctx.fillStyle=accA(.28); ctx.beginPath(); ctx.arc(0,0,(8+Math.sin(t*3)*1.5)*k,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#fff'; ctx.strokeStyle=accA(1); ctx.lineWidth=1.3*k; ctx.beginPath(); ctx.moveTo(0,-6*k); ctx.lineTo(4.2*k,5*k); ctx.lineTo(0,2*k); ctx.lineTo(-4.2*k,5*k); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); } }
     // the landing marker: neon green, pulsing
     let tg=G.target; try{ if(!tg&&G.mode==='atmo'&&atmoState&&atmoState.auto) tg={lat:atmoState.auto.lat,lon:atmoState.auto.lon}; }catch(e){}
     if(tg){ const s=proj(B,tg.lat,tg.lon,Rz,c);
@@ -186,10 +186,21 @@
     ctx.restore();
     // the atmosphere's rim glow and the window's edge
     if(Rz<R0*1.25){ const gr=ctx.createRadialGradient(c,c,Rz*0.9,c,c,Math.min(R0,Rz*1.08));
-      gr.addColorStop(0,'rgba(120,200,255,0)'); gr.addColorStop(0.55,'rgba(150,215,255,.45)'); gr.addColorStop(1,'rgba(120,200,255,0)');
+      gr.addColorStop(0,accL(0)); gr.addColorStop(0.55,accL(.45)); gr.addColorStop(1,accL(0));
       ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(c,c,R0,0,Math.PI*2); ctx.fill(); }
-    ctx.strokeStyle='rgba(140,210,255,.55)'; ctx.lineWidth=1.2*dpr; ctx.beginPath(); ctx.arc(c,c,R0,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle=accL(.55); ctx.lineWidth=1.2*dpr; ctx.beginPath(); ctx.arc(c,c,R0,0,Math.PI*2); ctx.stroke();
   }
+  // ── theme: the canvases take the player's accent (--acc-rgb, ui/dm-theme.js),
+  //    re-read twice a second so a theme change recolours them live ───────
+  const THM={rgb:[0,229,255],lt:[150,240,255],t:0,key:''};
+  function themeRead(now){
+    if(now&&now-THM.t<500) return false; THM.t=now||performance.now();
+    const v=(getComputedStyle(document.documentElement).getPropertyValue('--acc-rgb')||'').trim();
+    if(v===THM.key) return false; THM.key=v;
+    const p=v.split(',').map(x=>parseFloat(x)); if(p.length<3||p.some(x=>!isFinite(x))) return false;
+    THM.rgb=p.slice(0,3); THM.lt=THM.rgb.map(x=>Math.round(x+(255-x)*0.55)); return true;
+  }
+  const accA=a=>'rgba('+THM.rgb.join(',')+','+a+')', accL=a=>'rgba('+THM.lt.join(',')+','+a+')';
   // ── the compass halo ───────────────────────────────────────────────────
   // Bearing the camera looks along, clockwise from this world's north: the
   // ground and sky frames run x → east, −z → north (see _lmMe).
@@ -212,11 +223,11 @@
     const x=cv.getContext('2d'), c=S/2, r0=(D/2+1)*dpr, r1=(D/2+Hh)*dpr, rm=(r0+r1)/2, small=D<110;
     x.clearRect(0,0,S,S);
     x.fillStyle='rgba(4,12,26,.55)'; x.beginPath(); x.arc(c,c,r1,0,Math.PI*2); x.arc(c,c,r0,0,Math.PI*2,true); x.fill();
-    x.strokeStyle='rgba(110,190,255,.55)'; x.lineWidth=dpr; x.beginPath(); x.arc(c,c,r1-0.5*dpr,0,Math.PI*2); x.stroke();
+    x.strokeStyle=accA(.6); x.lineWidth=dpr; x.beginPath(); x.arc(c,c,r1-0.5*dpr,0,Math.PI*2); x.stroke();
     const hd=G.hdg, near=Math.round(hd/45)%8, off=Math.abs(((hd-near*45+540)%360)-180);
     // ticks: every 10° (every 15° on a small globe), longer at the eight points
     x.lineCap='round';
-    x.strokeStyle='rgba(160,215,255,.5)'; x.lineWidth=dpr*0.9; x.beginPath();
+    x.strokeStyle=accL(.55); x.lineWidth=dpr*0.9; x.beginPath();
     const tl=0.28*(r1-r0), ro=r1-1.5*dpr;
     for(let a=0;a<360;a+=small?15:10){ if(a%45===0) continue;
       const t=(a-90)*D2R, cs=Math.cos(t), sn=Math.sin(t); x.moveTo(c+cs*ro,c+sn*ro); x.lineTo(c+cs*(ro-tl),c+sn*(ro-tl)); }
@@ -227,14 +238,14 @@
       const t=(i*45-90)*D2R, lit=i===near, card=i%2===0;
       const fs=(card?0.72:0.56)*(r1-r0)*(lit?1.12:1);
       x.font=(lit||card?'700 ':'600 ')+fs.toFixed(1)+'px '+G.hFont;
-      x.fillStyle=lit?'#39ff6a':i===0?'#ff7a7a':card?'rgba(225,242,255,.92)':'rgba(170,210,240,.75)';
+      x.fillStyle=lit?'#39ff6a':i===0?'#ff7a7a':card?'rgba(236,246,255,.94)':accL(.8);
       x.shadowColor=lit?'rgba(57,255,106,.9)':'rgba(0,0,0,0)'; x.shadowBlur=lit?6*dpr:0;
       x.fillText(PTS[i],c+Math.cos(t)*rm,c+Math.sin(t)*rm+0.5*dpr);
     }
     x.shadowBlur=0;
     // the marker: a bright notch across the band, pointing in at the globe
     const t=(hd-90)*D2R, ux=Math.cos(t), uy=Math.sin(t), px=-uy, py=ux, w=(r1-r0)*0.42;
-    x.fillStyle='#eaffff'; x.shadowColor='rgba(120,230,255,.95)'; x.shadowBlur=7*dpr;
+    x.fillStyle='#ffffff'; x.shadowColor=accA(.95); x.shadowBlur=7*dpr;
     x.beginPath(); x.moveTo(c+ux*(r0+1*dpr),c+uy*(r0+1*dpr)); x.lineTo(c+ux*r1+px*w,c+uy*r1+py*w); x.lineTo(c+ux*r1-px*w,c+uy*r1-py*w); x.closePath(); x.fill();
     x.shadowBlur=0;
     // between points: the bearing in degrees, just inside the rim at the marker
@@ -250,6 +261,7 @@
     G.raf=0;
     if(!G.el||G.el.style.display==='none'||G.collapsed||document.body.classList.contains('hud-off')) return;
     G.raf=requestAnimationFrame(frame);
+    if(themeRead(now)) G.lastT=0;                             // theme changed: redraw the globe now
     halo(now);
     if(now-G.lastT<33) return;                                // ~30 fps is plenty for a turning globe
     const dt=Math.min(0.1,(now-(G.lastT||now))/1000); G.lastT=now;
@@ -352,7 +364,9 @@
     const r=document.createElement('div'); r.id='dm-globe'; r.style.display='none';
     r.innerHTML='<button type="button" class="dg-tab" title="Hide / show the landing globe" aria-label="Hide or show the landing globe"><span>‹</span></button>'+
       '<div class="dg-wrap"><canvas class="dg-halo" aria-hidden="true"></canvas><div class="dg-globe"><canvas class="dg-cv"></canvas><div class="dg-read"></div><div class="dg-deg"></div></div><div class="dg-bubbles"></div></div>';
-    document.body.appendChild(r); G.el=r; G.cv=r.querySelector('.dg-cv'); G.ctx=G.cv.getContext('2d',{willReadFrequently:true}); G.hcv=r.querySelector('.dg-halo');   // CPU canvas: we write every pixel ourselves, and it can't be lost to GPU pressure
+    // inside #app: #app is position:fixed, so it's its own stacking context — on
+    // <body> the globe's z-index beat every modal inside #app (EXIT, account, feedback, support)
+    (document.getElementById('app')||document.body).appendChild(r); G.el=r; G.cv=r.querySelector('.dg-cv'); G.ctx=G.cv.getContext('2d',{willReadFrequently:true}); G.hcv=r.querySelector('.dg-halo');   // CPU canvas: we write every pixel ourselves, and it can't be lost to GPU pressure
     r.querySelector('.dg-tab').addEventListener('click',e=>{ e.stopPropagation(); setCollapsed(!G.collapsed,true); });
     const cv=G.cv;
     cv.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); try{ cv.setPointerCapture(e.pointerId); }catch(er){}
@@ -371,7 +385,22 @@
         if(p){ G.target={lat:+p.lat.toFixed(4),lon:+p.lon.toFixed(4)}; retarget(); tst('◎ Marker '+fmt(p.lat,p.lon),1300); sync(); kick(); } }
       if(G.ptrs.size===0) G.drag=null; };
     cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
-    cv.addEventListener('wheel',e=>{ e.preventDefault(); e.stopPropagation(); G.zoom=Math.max(1,Math.min(8,G.zoom*(e.deltaY<0?1.15:1/1.15))); G.lastUser=performance.now(); kick(); },{passive:false});
+    // Mouse wheel / trackpad scroll zooms (desktop, and iPad with a mouse or
+    // trackpad). Proportional to the scroll distance so a trackpad's stream of
+    // small deltas zooms smoothly instead of jumping 15% per event; a trackpad
+    // pinch arrives as ctrl+wheel (Chrome/Firefox/Edge) or as Safari gesture
+    // events. Only the globe swallows the wheel — the page and game keep theirs.
+    const gl=r.querySelector('.dg-globe');
+    const zoomBy=f=>{ G.zoom=Math.max(1,Math.min(8,G.zoom*f)); G.lastUser=performance.now(); kick(); };
+    gl.addEventListener('wheel',e=>{ e.preventDefault(); e.stopPropagation();
+      let dy=e.deltaY; if(e.deltaMode===1) dy*=16; else if(e.deltaMode===2) dy*=400;
+      if(!dy) return;
+      const k=e.ctrlKey?0.012:0.0022;                       // pinch deltas are small; wheel notches are ~100
+      zoomBy(Math.exp(-Math.max(-250,Math.min(250,dy))*k)); },{passive:false});
+    let gs0=1;
+    gl.addEventListener('gesturestart',e=>{ e.preventDefault(); e.stopPropagation(); gs0=G.zoom; },{passive:false});
+    gl.addEventListener('gesturechange',e=>{ e.preventDefault(); e.stopPropagation(); if(e.scale>0){ G.zoom=Math.max(1,Math.min(8,gs0*e.scale)); G.lastUser=performance.now(); kick(); } },{passive:false});
+    gl.addEventListener('gestureend',e=>{ e.preventDefault(); e.stopPropagation(); },{passive:false});
     ['keydown','keyup'].forEach(t=>r.addEventListener(t,e=>e.stopPropagation()));
   }
   function setCollapsed(v,user){
@@ -419,7 +448,18 @@
     while(e.up+e.dn>best[1]-best[0]&&D>minD){ D-=2; B=Math.round(Math.max(24,B0*Math.max(0.8,D/D0))); e=ext(D,B); }
     const cy=Math.round(Math.max(best[0]+e.up,Math.min(best[1]-e.dn,(best[0]+e.up+best[1]-e.dn)/2)));
     G.D=D; G.B=B; G.H=hW(D);
-    const s=G.el.style; s.setProperty('--dg-d',D+'px'); s.setProperty('--dg-b',B+'px'); s.setProperty('--dg-x',X+'px'); s.setProperty('--dg-tx',(X>X0?X-22-G.H:0)+'px'); s.setProperty('--dg-h',G.H+'px'); s.top=(cy-D/2)+'px';
+    const s=G.el.style; s.setProperty('--dg-d',D+'px'); s.setProperty('--dg-b',B+'px'); s.setProperty('--dg-x',X+'px'); s.setProperty('--dg-h',G.H+'px'); s.top=(cy-D/2)+'px';
+    // the fold-away tab: on phones/tablets (and whenever the globe has had to
+    // dock away from the edge) it stays pinned to the left screen edge just
+    // under the fullscreen button — it never slides out with the open globe
+    let tabY=null;
+    const coarse=(()=>{ try{ return matchMedia('(pointer:coarse)').matches; }catch(e){ return false; } })();
+    if(coarse||W<=1180||X>X0){
+      let y=null; for(const id of ['fs-exit','fs-enter']){ const f=$(id); if(f&&getComputedStyle(f).display!=='none'&&getComputedStyle(f).visibility!=='hidden'){ const q=f.getBoundingClientRect(); if(q.height&&q.left<60) y=Math.max(y||0,q.bottom+6); } }
+      if(y==null) y=Math.max(56,topLim);
+      tabY=Math.round(y-(cy-D/2));
+    }
+    if(tabY==null) s.removeProperty('--dg-ty'); else s.setProperty('--dg-ty',tabY+'px');
     const dpr=Math.min(2,window.devicePixelRatio||1), N=Math.round(Math.min(260,D*dpr));
     if(G.cv.width!==N){ G.cv.width=N; G.cv.height=N; G.N=N; G.img=null; }
     // bubbles on an arc round the right side, from upper right to below

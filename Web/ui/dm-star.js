@@ -20,7 +20,7 @@
 (function(){
   'use strict';
   const live=new Set();
-  const lowTier=()=>{ try{ return !!(GFX&&(GFX.preset==='low'||GFX.isMobile)); }catch(e){ return false; } };
+  const lowTier=()=>{ try{ return !!(GFX&&(GFX.preset==='low'||(GFX.isMobile&&GFX.preset!=='high'&&GFX.preset!=='ultra'))); /* a phone set to High/Ultra gets the full shaders */ }catch(e){ return false; } };
 
   // blackbody colour (sRGB 0..255) for a temperature in kelvin
   function kelvin(K){
@@ -70,10 +70,13 @@
       const g2=sin(c2.x.sub(t.mul(1.6))).add(sin(c2.y.mul(1.13).add(t.mul(1.3)))).add(sin(c2.z.mul(0.87).sub(t.mul(1.4)))).div(3.0);
       const gr=smoothstep(-0.35,0.75,g1.mul(0.6).add(g2.mul(0.4)));
       g=g.mul(0.6).add(gr.mul(0.55)).sub(0.05);
-      // fine boiling, faded in only when skimming the surface
+      // fine boiling, faded in only when skimming the surface (desktop only:
+      // on a phone it's a third full-screen octave right when the star fills the view)
+      if(detail!=='low'){
       const c3=c2.zxy.mul(2.3).add(g2.mul(1.2));
       const g3=sin(c3.x.add(t.mul(2.2))).add(sin(c3.y.mul(1.09).sub(t.mul(1.9)))).add(sin(c3.z.mul(0.95).add(t.mul(2.0)))).div(3.0);
       g=g.add(smoothstep(-0.3,0.8,g3).sub(0.5).mul(U.fine.mul(0.3)));
+      } else g=g.sub(U.fine.mul(0.096));   // the fine octave's average, so a phone's plasma keeps the same tone
     }
     g=g.clamp(0.0,1.0);
     let col=mix(U.deep,U.mid,smoothstep(0.12,0.5,g));
@@ -89,7 +92,7 @@
   // the zero-g bubble (ui/dm-starbubble.js) parts the plasma round it
   let BU=null;
   function bubbleU(T){ return BU||(BU={c:T.uniform(new THREE.Vector3(0,0,0)),r:T.uniform(0)}); }
-  function surfaceMat(T,U,near){
+  function surfaceMat(T,U,near,low){
     const m=new THREE.MeshBasicNodeMaterial();
     const B=bubbleU(T);
     // cut along the line of sight: any surface between the camera and the
@@ -105,7 +108,7 @@
     const ndv=T.normalWorld.dot(V).clamp(0.0,1.0);
     // limb darkening, redder toward the edge
     const limb=ndv.pow(0.45).mul(0.6).add(0.4);
-    const base=near?plasma(T,U,d,true):T.mix(U.mid,U.core,ndv.pow(1.5).mul(0.6));
+    const base=near?plasma(T,U,d,low?'low':true):T.mix(U.mid,U.core,ndv.pow(1.5).mul(0.6));
     m.colorNode=T.mix(U.deep.mul(1.4),base,limb).mul(limb.mul(0.5).add(0.75));
     m.toneMapped=false;
     return m;
@@ -139,7 +142,7 @@
 
   /* prominences: particles on magnetic arcs, now and then a flare */
   function prominences(R,col,low,seed){
-    const A=low?6:10, N=low?30:44, tot=A*N;
+    const A=low?5:10, N=low?22:44, tot=A*N;
     // camera-facing quads (WebGPU draws GL points one pixel wide, so no Points)
     let tex=null; try{ tex=makeCircleTex(32,'rgb(255,230,190)',1); }catch(e){}
     const m=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false});
@@ -202,12 +205,14 @@
       group.add(h.mesh); return h;
     }
     const U=uniforms(T,K,seed); h.U=U; h.T=T;
-    h.matNear=surfaceMat(T,U,true); h.matFar=surfaceMat(T,U,false);
+    h.matNear=surfaceMat(T,U,true,low); h.matFar=surfaceMat(T,U,false,low);
     h.mesh=new THREE.Mesh(new THREE.SphereGeometry(R,96,64),h.matFar);   // a smooth limb up close
     h.mesh.name='JOTS_StarSurface';
     group.add(h.mesh);
     try{
-      h.corona=new THREE.Mesh(new THREE.SphereGeometry(R*2.4,32,20),coronaMat(T,U,R,low?4:6));
+      // phones march 3 steps (was 4; 2 washed the surface out pale) — desktop 6
+      h.corMat=coronaMat(T,U,R,low?3:6); h.corMatNear=h.corMat;
+      h.corona=new THREE.Mesh(new THREE.SphereGeometry(R*2.4,32,20),h.corMat);
       h.corona.renderOrder=1; h.corona.frustumCulled=false; h.corona.name='JOTS_StarCorona';
       group.add(h.corona);
     }catch(e){ console.warn('[star] corona:',e); }
@@ -224,7 +229,7 @@
     if(!h||!h.U) return null;
     if(h.matIn) return h.matIn;
     const T=h.T, m=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide});
-    m.colorNode=plasma(T,h.U,T.normalize(T.positionLocal),true).mul(0.85);
+    m.colorNode=plasma(T,h.U,T.normalize(T.positionLocal),h.low?'low':true).mul(0.85);
     m.toneMapped=false;
     return (h.matIn=m);
   }
@@ -244,7 +249,8 @@
       const near=ang>0.04;
       if(h.U) h.U.fine.value=Math.max(0,Math.min(1,(ang-0.3)/0.5));
       const m=near?h.matNear:h.matFar; if(h.mesh.material!==m) h.mesh.material=m;
-      if(h.corona&&h.corona.material.userData.C) h.corona.material.userData.C.value.copy(V1);
+      if(h.corona){ const cm=ang>0.6?h.corMatNear:h.corMat; if(h.corona.material!==cm) h.corona.material=cm;
+        if(cm.userData.C) cm.userData.C.value.copy(V1); }
       if(h.prom){ h.prom.visible=ang>0.12; if(h.prom.visible) h.prom.userData.tick(Math.min(0.1,dt||1/60),cam); }
     }
   }

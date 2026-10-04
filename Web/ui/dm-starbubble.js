@@ -34,7 +34,7 @@
   const GHOST_MAX=6;
   let V1,V2,V3,low=false;
 
-  function lowTier(){ try{ return !!(GFX&&(GFX.preset==='low'||GFX.isMobile)); }catch(e){ return false; } }
+  function lowTier(){ try{ return !!(GFX&&(GFX.preset==='low'||(GFX.isMobile&&GFX.preset!=='high'&&GFX.preset!=='ultra'))); /* a phone set to High/Ultra gets the full shaders */ }catch(e){ return false; } }
 
   /* ── materials ─────────────────────────────────────────────────── */
   function lensMat(T){
@@ -128,6 +128,7 @@
       // inside the star: its own plasma (ui/dm-star.js), seen from within
       SB.plasma=new THREE.Mesh(new THREE.SphereGeometry(1,low?32:48,low?16:24));
       SB.plasma.visible=false; SB.plasma.name='JOTS_StarInterior';
+      SB.plasma.renderOrder=3;   // after the opaque surface, so depth rejects it everywhere but the bubble's hole (no hidden full-screen plasma pass)
       SB.T=T; SB.built=true;
     }catch(e){ console.warn('[starbubble] build failed:',e); SB.failed=true; }
   }
@@ -238,7 +239,10 @@
       u.c.value.set(V1.x*asp,V1.y); u.aspect.value=asp;
       u.cw.value.copy(pos); u.rw.value=Re;
       u.a.value=SB.a; u.pk.value=SB.pk;
-      SB.lens.position.copy(pos); SB.lens.scale.setScalar(Math.max(Re*4,camD*0.6));
+      // just big enough to hold the lens's 2.6-radius reach: the lens samples
+      // the frame (a screen copy) and every pixel it covers runs the shader, so
+      // keep it off the rest of the screen unless the camera is that close
+      const ls=Re*2.75; SB.lens.position.copy(pos); SB.lens.scale.setScalar(ls<camD*0.9?ls:Math.max(Re*4,camD*1.2));
     }
     // other riders near a star but not in our bubble get their own
     let n=0;
