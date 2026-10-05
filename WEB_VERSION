@@ -1,4 +1,4 @@
-sha=42138182925de24131b296aa301f8c46743f80ae
-date=2026-10-04T18:30:13-04:00
-subject=Replace splash screen background video (H.264 720p, faststart, no audio)
+sha=58e3c482489fda2865dcae4197407430f75d91cf
+date=2026-10-04T20:13:50-04:00
+subject=One live planet world: seamless walk ↔ flight ↔ landing LOD, no blackout or LOD reload (#125)
 source=https://github.com/dartsolarpunk/dartmeadow-space.git
