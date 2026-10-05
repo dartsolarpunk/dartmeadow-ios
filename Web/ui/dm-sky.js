@@ -39,7 +39,7 @@
     };
     // ── the dome ──
     const mat = new THREE.MeshBasicNodeMaterial({ side: THREE.BackSide });
-    mat.fog = false; mat.depthWrite = false;
+    mat.fog = false; mat.depthWrite = false; mat.transparent = true;   // so it can thin out as you climb out of the air (setFade)
     mat.colorNode = W.Fn(() => {
       const d = W.normalize(W.positionLocal), h = d.y;
       const sunUp = U.dir.y;
@@ -141,7 +141,12 @@
     const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), M4 = new THREE.Matrix4(), SUNSET = new THREE.Color(0xff9a5a);
 
     const ctl = {
-      dome, stars, sunDir, day: 1, sunLight: o.sunLight || null,
+      dome, stars, sunDir, day: 1, sunLight: o.sunLight || null, fade: 1,
+      // a: 1 = under the sky, 0 = above it (the air's own glow from outside takes over)
+      setFade(a) {
+        a = Math.max(0, Math.min(1, a)); ctl.fade = a;
+        mat.opacity = a; dome.visible = a > 0.003;
+      },
       update(camera, dt, lat, lon) {
         if (!camera) return;
         dt = Math.min(0.1, dt || 0.016);
@@ -166,11 +171,12 @@
         dome.position.copy(camera.position); stars.position.copy(camera.position); fx.position.copy(camera.position);
         // the sky turns overhead with the day
         stars.rotation.y = -H * 0.9; stars.rotation.x = phi * 0.5;
-        const vis = atmos ? Math.pow(1 - day, 1.5) : 1;
+        const vis = (atmos ? Math.pow(1 - day, 1.5) : 1) * ctl.fade;
         field.visible = galaxy.visible = vis > 0.03;
         field.material.opacity = vis; galaxy.material.opacity = vis;
         field.material.color.setScalar(vis); galaxy.material.color.setScalar(vis);
-        bright.forEach((s) => { s.material.opacity = s.userData.base * Math.max(atmos ? 0.22 : 1, vis); });
+        bright.forEach((s) => { s.material.opacity = s.userData.base * Math.max(atmos ? 0.22 : 1, vis) * ctl.fade; });
+        stars.visible = ctl.fade > 0.003;
         // meteors at night, comets now and then
         const cs = Math.floor(t / COMET_SLOT), ms = Math.floor(t / METEOR_SLOT);
         if (cs !== lastComet) {
@@ -204,7 +210,8 @@
         }
         // the lights follow the sun: bright by day, cool starlight at night
         if (o.sunLight) {
-          o.sunLight.intensity = (o.sunBase || 2) * (atmos ? (0.08 + 0.92 * day) : (sunDir.y > -0.05 ? 1 : 0.06));
+          const under = atmos ? (0.08 + 0.92 * day) : (sunDir.y > -0.05 ? 1 : 0.06);
+          o.sunLight.intensity = (o.sunBase || 2) * (under * ctl.fade + (1 - ctl.fade));   // above the air: full sun
           o.sunLight.color.copy(sunCol).lerp(SUNSET, atmos ? (1 - day) * Math.max(0, 1 - Math.abs(sunDir.y) * 6) * 0.7 : 0);
         }
         (o.fill || []).forEach((l) => { if (l.userData._base == null) l.userData._base = l.intensity; l.intensity = l.userData._base * (0.35 + 0.65 * day); });

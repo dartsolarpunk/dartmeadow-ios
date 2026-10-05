@@ -145,7 +145,7 @@ if(location.search.indexOf('debug')!==-1){
 <script src="ui/dm-fluid.js?v=80"></script>
 <script src="ui/dm-journal.js?v=98"></script>
 <script src="ui/dm-worldstyle.js?v=93"></script>
-<script src="ui/dm-sky.js?v=95"></script>
+<script src="ui/dm-sky.js?v=96"></script>
 <script src="ui/dm-dust.js?v=95"></script>
 <script type="importmap">
 { "imports": {
@@ -666,6 +666,8 @@ html,body{width:100%;height:var(--app-h);overflow:hidden;overscroll-behavior:non
 
 /* FLIGHT */
 #flight-canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;touch-action:none;z-index:1;}
+/* in a world's sky or on its ground the one canvas stays; the space HUD hides under the sky/ground HUD */
+body.pw-hud #screen-flight > :not(#flight-canvas){display:none !important;}
 /* AR corners */
 .ar-corner{position:absolute;width:22px;height:22px;pointer-events:none;z-index:22;}
 .ar-corner::before,.ar-corner::after{content:'';position:absolute;background:var(--cyan);}
@@ -1581,7 +1583,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 </div>
 
 <!-- ✦ SURFACE WALK OVERLAY -->
-<div id="surface-overlay" style="display:none;position:fixed;inset:0;z-index:3500;background:#000;">
+<div id="surface-overlay" style="display:none;position:fixed;inset:0;z-index:3500;background:transparent;">
   <canvas id="surface-canvas" style="position:absolute;inset:0;display:block;touch-action:none;"></canvas>
   <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px calc(10px);background:rgba(var(--panel-rgb),.55);backdrop-filter:blur(10px);border-bottom:1px solid rgba(var(--acc-rgb),.15);pointer-events:none;">
     <div class="world-music" id="wm-surf" title="Soundtrack"><button class="aud-btn" onclick="audioPrev()" title="Previous track">⏮</button><button class="aud-btn wm-pp" onclick="audioToggle()" title="Play / Pause">⏸</button><button class="aud-btn" onclick="audioStop()" title="Stop">■</button><button class="aud-btn" onclick="audioNext()" title="Next track">⏭</button><button class="aud-btn" onclick="audioPickFiles()" title="Load music from your device">📁</button><button class="aud-btn" onclick="openMusicBrowser()" title="Browse the soundtrack">📜</button><span class="wm-vol-wrap" title="Music volume"><span class="wm-vol-ico">♪</span><input class="wm-vol" type="range" min="0" max="100" value="100" oninput="audioSetVolume(this.value/100)" aria-label="Music volume"></span><span class="wm-name"></span></div>
@@ -1616,7 +1618,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 </div>
 
 <!-- ✦ ATMOSPHERIC FLIGHT (skyboard flight within a planet's atmosphere) -->
-<div id="atmo-overlay" style="display:none;position:fixed;inset:0;z-index:3450;background:#000;">
+<div id="atmo-overlay" style="display:none;position:fixed;inset:0;z-index:3450;background:transparent;">
   <canvas id="atmo-canvas" style="position:absolute;inset:0;display:block;touch-action:none;"></canvas>
   <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(var(--panel-rgb),.5);backdrop-filter:blur(10px);border-bottom:1px solid rgba(var(--acc-rgb),.15);pointer-events:none;">
     <div class="world-music" id="wm-atmo" title="Soundtrack"><button class="aud-btn" onclick="audioPrev()" title="Previous track">⏮</button><button class="aud-btn wm-pp" onclick="audioToggle()" title="Play / Pause">⏸</button><button class="aud-btn" onclick="audioStop()" title="Stop">■</button><button class="aud-btn" onclick="audioNext()" title="Next track">⏭</button><button class="aud-btn" onclick="audioPickFiles()" title="Load music from your device">📁</button><button class="aud-btn" onclick="openMusicBrowser()" title="Browse the soundtrack">📜</button><span class="wm-vol-wrap" title="Music volume"><span class="wm-vol-ico">♪</span><input class="wm-vol" type="range" min="0" max="100" value="100" oninput="audioSetVolume(this.value/100)" aria-label="Music volume"></span><span class="wm-name"></span></div>
@@ -2358,7 +2360,7 @@ function _jnSyncNote(){
 // Leave whatever we're in (ground, sky, orbit view, ship) for open space.
 function _jnLeaveScenes(){
   try{ if(typeof _clearLandPrompt==='function') _clearLandPrompt(); }catch(e){}
-  if(PW.active||PW.opening){ try{ _pwClose({instant:true}); _backToSpace(); }catch(e){ console.warn('[journal] leave sky',e); } }
+  if(PW.active||PW.opening){ try{ _pwCloseToSpace(); }catch(e){ console.warn('[journal] leave sky',e); } }
   if(SHIP_WALK.active){ try{ exitShipWalk(); }catch(e){} }
   if(STATE.screen!=='flight'||!flightAnimId) launchFlight();
 }
@@ -5666,8 +5668,7 @@ function _resizeAllViews(){
   const s=(typeof window.__jotsLayoutSize==='function')?window.__jotsLayoutSize():{w:innerWidth,h:innerHeight};
   const W=s.w,H=s.h; if(W<10||H<10) return;
   const fit=(r,cam,w,h,style)=>{ if(!r||!cam) return; try{ r.setPixelRatio(effectivePixelRatio()); r.setSize(w,h,style!==false); r._dr=null; cam.aspect=w/h; cam.updateProjectionMatrix(); }catch(e){} };
-  try{ if(typeof surfRenderer!=='undefined') fit(surfRenderer,surfCamera,W,H); }catch(e){}
-  try{ if(typeof atmoRenderer!=='undefined') fit(atmoRenderer,atmoCamera,W,H); }catch(e){}
+  try{ if(typeof PW!=='undefined'&&PW.active&&PW.camera) fit(flightRenderer,PW.camera,W,H); }catch(e){}   // a world's sky / ground (drawn by the flight renderer)
   try{ if(typeof gmRenderer!=='undefined'&&gmRenderer) fit(gmRenderer,gmCamera,Math.min(W*.92,1100),Math.min(H*.74,640)); }catch(e){}
   try{ if(typeof qtRenderer!=='undefined'&&qtRenderer){ const cv=qtRenderer.domElement; if(cv&&cv.clientWidth>10) fit(qtRenderer,qtCamera,cv.clientWidth,cv.clientHeight,false); } }catch(e){}
 }
@@ -5686,6 +5687,8 @@ function _startFlightLoop(){
     _flightLoopLast=now;flightTime+=dt;
 
     _applyFlightResizeIfPending();
+    // near a world (or in its sky, or on its ground) the planet world runs the frame — same loop, same canvas
+    if(PW.active&&PW.mode){ try{ _pwFrame(dt); }catch(e){ _animLoopWarn('world',e); } return; }
 
     try{updateFlight(dt);}catch(e){_animLoopWarn('updateFlight',e);}
     try{
@@ -5698,6 +5701,7 @@ function _startFlightLoop(){
       }
     }catch(e){_animLoopWarn('charShadow',e);}
     try{updateBodies(dt);}catch(e){_animLoopWarn('updateBodies',e);}
+    try{ _pwSpaceWatch(); }catch(e){_animLoopWarn('worldWatch',e);}   // a landable world close by: build its ground for the way down
     try{upgradePlanetLOD(dt);}catch(e){_animLoopWarn('upgradePlanetLOD',e);}
     try{ if(CHAR.mounted) applySkyboardStance(flightTime); }catch(e){_animLoopWarn('skyboardStance',e);}
     try{ updateCharOrbitCamera(); }catch(e){_animLoopWarn('charOrbit',e);}
@@ -6273,10 +6277,9 @@ function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kin
     mesh=new THREE.Mesh(new THREE.SphereGeometry(radius, seg, seg), mat);
     mesh.name='JOTS_WebGLPlanet';
   }
-  // three's sphere UVs run west-about in the planet's frame (atan2(z,x) =
-  // −map longitude): mirror the map so its features sit at their true lon —
-  // the same frame the spin lights by the world clock
-  try{ const m=mesh.material; if(m&&m.map){ m.map=m.map.clone(); m.map.wrapS=THREE.RepeatWrapping; m.map.repeat.x=-1; m.map.offset.x=1; m.map.needsUpdate=true; } }catch(e){}
+  // three's sphere UVs run east-about in the planet's frame (lon = atan2(−z,x)):
+  // the map sits at its true longitudes as it is — the same frame the spin
+  // lights by the world clock and the ground is laid out in
   group.add(mesh);
   if(hasAtmosphere){
     const tint = isMars ? 0xc07040 : (isEarth ? 0x3366ff : 0x6688cc);
@@ -6387,7 +6390,7 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
   // the real Earth: sample the ETOPO5 land value (DMEarth) when it's loaded
   const _earthTex=(window.DMEarth&&DMEarth.ready)?DMEarth.texture():null;
   const _earthLandMaskTSL=(dir)=>{
-    const lat=dir.y.clamp(-1,1).asin(), lon=atan2(dir.z,dir.x);
+    const lat=dir.y.clamp(-1,1).asin(), lon=atan2(dir.z.negate(),dir.x);
     if(_earthTex){
       const uvE=vec2(lon.div(Math.PI*2).add(0.5),lat.div(Math.PI).add(0.5));
       return window.texture(_earthTex,uvE).level(0).r.mul(2.6).sub(1.0);
@@ -6406,7 +6409,7 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
     return inside.add(coastNoise);
   };
   const _marsFeatureTSL=(dir)=>{
-    const lat=dir.y.clamp(-1,1).asin(), lon=atan2(dir.z,dir.x);
+    const lat=dir.y.clamp(-1,1).asin(), lon=atan2(dir.z.negate(),dir.x);
     const latDeg=lat.mul(180/Math.PI), lonDeg=lon.mul(180/Math.PI);
     const h=float(0).toVar();
     const dichotomy=latDeg.sub(5).mul(Math.PI/180).sin().mul(0.5).add(lonDeg.mul(Math.PI/180*0.3).cos().mul(0.15));
@@ -8525,13 +8528,13 @@ function addSunLight(){
 }
 
 // ── Coastline loader — parented to earthMesh in LOCAL coordinates ──────
-// a planet's own frame: lon = atan2(z, x), like its surface (the GPU Earth
+// a planet's own frame: lon = atan2(−z, x), like its surface (the GPU Earth
 // samples the real map that way) and its spin (updateBodies faces the
 // noon longitude at the star) — so the coastlines sit on the continents and
 // the side in sunlight from orbit is the side in daylight on the ground
 function latLonToFlightVec3(lat,lon,r,cx,cy,cz){
   const la=lat*Math.PI/180,lo=lon*Math.PI/180;
-  return new THREE.Vector3(cx+r*Math.cos(la)*Math.cos(lo),cy+r*Math.sin(la),cz+r*Math.cos(la)*Math.sin(lo));
+  return new THREE.Vector3(cx+r*Math.cos(la)*Math.cos(lo),cy+r*Math.sin(la),cz-r*Math.cos(la)*Math.sin(lo));
 }
 async function loadEarthCoastlines(){
   if(!earthMesh)return;
@@ -10524,12 +10527,12 @@ function updateBodies(dt){
     }
     // Spin on the world clock: turned so the longitude where it is noon
     // faces the star — the side lit from orbit is the side where it is day
-    // on the ground (lon = atan2(z,x) in the body's frame) — and leaned so
+    // on the ground (lon = atan2(−z,x) in the body's frame) — and leaned so
     // the star stands over latitude = the sun's declination (the season the
     // ground sky shows): the lit hemisphere is exactly DMTime.sunDir's day.
     if(b.orbitR>0 && window.DMTime && !b.isAsteroid){
       const alpha=Math.atan2(b.mesh.position.z,b.mesh.position.x);
-      _spinQ.setFromAxisAngle(_spinY,DMTime.subsolarLon(b)*Math.PI/180-alpha-Math.PI);
+      _spinQ.setFromAxisAngle(_spinY,-DMTime.subsolarLon(b)*Math.PI/180-alpha-Math.PI);
       // tilt about the horizontal axis square to the star line (s × up), by −declination
       _spinAx.set(Math.sin(alpha),0,-Math.cos(alpha));
       _tiltQ.setFromAxisAngle(_spinAx,-DMTime.declination(b));
@@ -12291,7 +12294,6 @@ function applySettings(){
       // automatically instead of needing an incidental rotation.
       const _rw=window.innerWidth,_rh=window.innerHeight;
       if(flightRenderer){flightRenderer._dr=null;flightRenderer.setPixelRatio(effectivePixelRatio());flightRenderer.setSize(_rw,_rh);}
-      if(surfRenderer){surfRenderer._dr=null;surfRenderer.setPixelRatio(effectivePixelRatio());surfRenderer.setSize(_rw,_rh);}
       resizePostFX();
     }
   }
@@ -12319,7 +12321,6 @@ function applySettings(){
   try{
     const _rw2=window.innerWidth,_rh2=window.innerHeight;
     if(flightRenderer){flightRenderer.setSize(_rw2,_rh2);}
-    if(surfRenderer){surfRenderer.setSize(_rw2,_rh2);}
     resizePostFX();
   }catch(e){}
   closeSettings();
@@ -12687,7 +12688,7 @@ function submitFeedback(){
 // ══════════════════════════════════════════════════════════════
 //  EXIT SYSTEM
 // ══════════════════════════════════════════════════════════════
-function promptExit(){try{releaseMouseLook();}catch(e){}$('exit-modal').classList.add('open');}
+function promptExit(){try{releaseMouseLook();}catch(e){}try{ if(_dmIsNative()) _dmNativeExitCopy(); }catch(e){}$('exit-modal').classList.add('open');}
 // ══════════════════════════════════════════════════════════════
 //  CREDITS — every outside source this game draws on: code, techniques,
 //  data, libraries, fonts, tools and services, with author, link and
@@ -12800,11 +12801,50 @@ function renderCredits(){
 function openAbout(){renderCredits();document.getElementById('about-modal').style.display='flex';}
 function closeAbout(){document.getElementById('about-modal').style.display='none';}
 function closeExitModal(){$('exit-modal').classList.remove('open');}
+// ── iOS app (native wrapper): EXIT is App Store-safe ─────────────────
+// An iOS app may not close itself (Apple rejects exit()/abort()/suspend), and
+// window.close() does nothing there. Inside the wrapper EXIT confirms (the
+// EXIT prompt), saves, goes back to the main menu and shows how to close the
+// app the iOS way: "Swipe up to close DART Meadow".
+function _dmIsNative(){ try{ return !!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.dmNative); }catch(e){ return false; } }
+function _dmNativeExitCopy(){
+  const m=$('exit-modal'); if(!m||m.__dmNative) return; m.__dmNative=true;
+  const sub=m.querySelector('.exit-sub'); if(sub) sub.innerHTML='Your journey is saved on this device and you\'ll go back to the main menu.<br>To close the app, swipe up from the bottom of the screen.';
+  const sv=m.querySelector('.save-exit'); if(sv) sv.innerHTML='💾 SAVE &amp; EXIT';
+  const ju=m.querySelector('.just-exit'); if(ju) ju.style.display='none';
+}
+function _dmSwipeHint(){
+  let h=$('dm-ios-swipe-hint');
+  if(!h){
+    h=document.createElement('div'); h.id='dm-ios-swipe-hint'; h.setAttribute('role','status');
+    h.style.cssText='position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translate(-50%,12px);z-index:2147483000;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 18px;border-radius:14px;background:rgba(4,8,24,.86);border:1px solid rgba(var(--hi-rgb,91,127,255),.45);box-shadow:0 0 24px rgba(var(--hi-rgb,91,127,255),.25);color:#cfd8ff;font:600 12px/1.3 Orbitron,system-ui,sans-serif;letter-spacing:.08em;text-align:center;opacity:0;transition:opacity .35s ease,transform .35s ease;pointer-events:none;';
+    h.innerHTML='<span style="font-size:18px;line-height:1;animation:dmSwipeUp 1.2s ease-in-out infinite">⌃</span><span>Swipe up to close DART Meadow</span>';
+    const st=document.createElement('style'); st.textContent='@keyframes dmSwipeUp{0%,100%{transform:translateY(4px);opacity:.5}50%{transform:translateY(-4px);opacity:1}}';
+    document.head.appendChild(st); document.body.appendChild(h);
+  }
+  clearTimeout(h.__t);
+  requestAnimationFrame(()=>{ h.style.opacity='1'; h.style.transform='translate(-50%,0)'; });
+  h.__t=setTimeout(()=>{ h.style.opacity='0'; h.style.transform='translate(-50%,12px)'; },4500);
+}
+function _dmNativeExit(){
+  try{ $('exit-modal').classList.remove('open'); }catch(e){}
+  const inGame=typeof STATE!=='undefined'&&STATE.screen==='flight';
+  try{ if(typeof PW!=='undefined'&&PW.active&&typeof _pwCloseToSpace==='function') _pwCloseToSpace(); }catch(e){}   // a clean save point
+  if(inGame){ try{ returnToMenu(); }catch(e){ console.warn('exit save',e); } }   // autosaves, pauses, main menu
+  else {
+    try{ if(typeof buildSaveData==='function'&&typeof _gameInProgress!=='undefined'&&_gameInProgress) localStorage.setItem('dm_autosave',JSON.stringify(buildSaveData('auto'))); }catch(e){}
+    try{ goScreen('menu'); }catch(e){}
+  }
+  setTimeout(_dmSwipeHint,350);
+}
 function exitWithSave(){
+  if(_dmIsNative()){ _dmNativeExit(); return; }
   exportProfile();
   setTimeout(doExit,1200);
 }
+doExit.__dmIOS=true; exitWithSave.__dmIOS=true;   // (the iOS bridge leaves these in place)
 function doExit(){
+  if(_dmIsNative()){ _dmNativeExit(); return; }   // never window.close / exit in the iOS app
   $('exit-modal').classList.remove('open');
   try{ window.close(); }catch(e){}
   setTimeout(()=>{
@@ -15361,12 +15401,12 @@ function renderWithPostFX(){
 // the world, the clock, saves and multiplayer state are never touched.
 function applyGraphicsLive(){
   const w=window.innerWidth,h=window.innerHeight,pr=effectivePixelRatio();
-  [typeof flightRenderer!=='undefined'?flightRenderer:null,typeof surfRenderer!=='undefined'?surfRenderer:null,typeof atmoRenderer!=='undefined'?atmoRenderer:null].forEach(r=>{
+  [typeof flightRenderer!=='undefined'?flightRenderer:null].forEach(r=>{   // (the sky and the ground draw with it too)
     if(!r) return;
     try{ r.setPixelRatio(pr); r.setSize(w,h); r.shadowMap.enabled=!!GFX.shadows; r.shadowMap.type=THREE.PCFSoftShadowMap; }catch(e){}
   });
   try{ resizePostFX(); }catch(e){}
-  [typeof flightScene!=='undefined'?flightScene:null,typeof surfScene!=='undefined'?surfScene:null,typeof atmoScene!=='undefined'?atmoScene:null].forEach(sc=>{ if(sc) _gfxApplyShadows(sc); });
+  [typeof flightScene!=='undefined'?flightScene:null,typeof PW!=='undefined'?PW.scene:null].forEach(sc=>{ if(sc) _gfxApplyShadows(sc); });
   try{ applyRenderSettings(); }catch(e){ console.warn('render apply:',e); }
   // live water picks its particle count from the tier: rebuild it at the new one
   try{ if(typeof _surfFluid!=='undefined'&&_surfFluid&&_surfFluid.tier!==resolvePreset()) _surfFluidStop(); }catch(e){}
@@ -15822,7 +15862,7 @@ function _applyWorldMapToFlightBody(b,m){
   if(!best) return;
   try{
     const {texture,vec2,positionLocal,normalize,atan,asin}=W;
-    const d=normalize(positionLocal), lon=atan(d.z,d.x), lat=asin(d.y.clamp(-1.0,1.0));
+    const d=normalize(positionLocal), lon=atan(d.z.negate(),d.x), lat=asin(d.y.clamp(-1.0,1.0));
     const uvN=vec2(lon.div(Math.PI*2).add(0.5),lat.div(Math.PI).add(0.5));
     let mat=best.userData._wmMat;
     if(!mat){ mat=new THREE.MeshStandardNodeMaterial({roughness:0.92,metalness:0.02}); best.userData._wmMat=mat; best.userData._wmPrev=best.material; }
@@ -15943,40 +15983,7 @@ function isProximityLandEligible(b){
   return true;
 }
 
-function resumeFlightLoop(){
-  if(flightAnimId)return;
-  let last=performance.now();
-  (function loop(){
-    flightAnimId=requestAnimationFrame(loop);
-    const now=performance.now();const dt=Math.min((now-last)/1000,0.05);last=now;flightTime+=dt;
-    _applyFlightResizeIfPending(); // see _queueFlightResize — debounced, event-driven (Android jitter fix)
-    try{updateFlight(dt);}catch(e){_animLoopWarn('updateFlight',e);}
-    try{
-      if(_charShadowLight && boardFlight){
-        const bp=boardFlight.position;
-        const dir=bp.lengthSq()>0.001 ? bp.clone().normalize() : new THREE.Vector3(1,0.3,0.2).normalize();
-        _charShadowLight.position.copy(bp).addScaledVector(dir,-10);
-        _charShadowLight.target.position.copy(bp);
-        _charShadowLight.target.updateMatrixWorld();
-      }
-    }catch(e){_animLoopWarn('charShadow',e);}
-    try{updateBodies(dt);}catch(e){_animLoopWarn('updateBodies',e);}
-    try{upgradePlanetLOD(dt);}catch(e){_animLoopWarn('upgradePlanetLOD',e);}
-    try{ if(CHAR.mounted) applySkyboardStance(flightTime); }catch(e){_animLoopWarn('skyboardStance',e);}
-    try{ updateCharOrbitCamera(); }catch(e){_animLoopWarn('charOrbit',e);}
-    try{ _dynRes(flightRenderer); }catch(e){}
-    try{ CHAR.mixer && CHAR.mixer.update(dt); _updateCharDebugHUD(); }catch(e){_animLoopWarn('charMixer',e);}
-    try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){_animLoopWarn('headOverride',e);}
-    try{updateBirdTemple(dt);}catch(e){_animLoopWarn('birdTemple',e);}
-    try{_anchorPostUpdate();}catch(e){_animLoopWarn('anchor',e);}
-    try{updateDistantSystems(dt);}catch(e){_animLoopWarn('distantSystems',e);}
-    try{updateVolumetricDust(dt);}catch(e){_animLoopWarn('volumetricDust',e);}
-    try{updateHUD();}catch(e){_animLoopWarn('updateHUD',e);}
-    try{updateCrosshairLabel();}catch(e){_animLoopWarn('crosshair',e);}
-    try{drawMinimap();}catch(e){_animLoopWarn('minimap',e);}
-    try{renderWithPostFX();}catch(e){}
-  })();
-}
+function resumeFlightLoop(){ _startFlightLoop(); }   // one loop for space, the sky and the ground
 
 
 // ════════════════════════════════════════════════════════════════════
@@ -15984,8 +15991,10 @@ function resumeFlightLoop(){
 // ────────────────────────────────────────────────────────────────────
 //  Throttle-driven flight with Mach speed presets. The lowest preset gauges
 //  idle → Mach 0.5; higher presets cap at Mach 1..7 (top cruising Mach 7).
-//  Exiting the atmosphere (climbing past the ceiling, or TO SPACE) returns to
-//  the normal space-flight game mode.
+//  One world, no gates: past the top of the air (PWS_UP) the space flight
+//  model takes the same board over the same planet (one renderer, one scene);
+//  coming down below PWS_DOWN the sky controller takes it back. The world
+//  only closes once you are well out in space (PWS_CLOSE radii).
 // ════════════════════════════════════════════════════════════════════
 // M1…M8 bubbles (SUBSONIC retired — IDLE is the dead stop now).
 const MACH_PRESETS=[
@@ -15994,18 +16003,10 @@ const MACH_PRESETS=[
 ];
 const MACH_AUTO_DEFAULT=4;   // the landing globe's FLY THERE cruises at M5 unless you pick another bubble
 const MACH_UNITS=70; // scene units/sec per Mach 1 (tuned for feel)
-const ATMO_CEILING=2600; // climb past this → exit atmosphere to space
 const ATMO_TAKEOFF_S=1.6;   // automatic climb after boarding on the surface
 const ATMO_LAND_AGL=40;     // LAND appears below this height above the ground (~130 ft)
 let _atmoCamRel=null;
 window.__whenThreeReady(function(){ _atmoCamRel=new THREE.Vector3(); });
-// A new renderer gets a brand-new canvas each visit: re-initialising on a
-// canvas whose previous renderer was disposed can hang (seen landing back
-// from atmospheric flight into walk mode on the WebGL fallback).
-function _freshCanvas(id){
-  const old=$(id); if(!old) return old;
-  const c=old.cloneNode(false); old.replaceWith(c); return c;
-}
 let atmoActive=false,atmoRenderer=null,atmoScene=null,atmoCamera=null;
 let atmoBoard=null,_atmoBody=null,_atmoSite=null,_atmoHeight=null,_atmoCamInit=false;
 let _atmoSky=null,_atmoPal=null;
@@ -16016,52 +16017,42 @@ let _atmoArm=1;   // the camera's spring arm (pulled in when a ridge stands betw
 const ATMO_BOARD_SCALE=2.4;   // the board reads larger against the sky; it eases back to walking size as she sets down
 
 // ════════════════════════════════════════════════════════════════════
-//  ✦ PLANET WORLD — one live world for the sky and the ground
+//  ✦ PLANET WORLD — one live world from orbit to her feet
 // ────────────────────────────────────────────────────────────────────
-//  Flying over a world and walking on it are the same scene, the same
-//  renderer and the same ground. Coming into a world builds it once (the
-//  view you came from stays on screen until the world's first frame, then
-//  it fades in over it); after that LIFTOFF, LAND and stepping off the
-//  board only change who is driving — the flight controller or her feet.
-//  Nothing is torn down or rebuilt and the screen never goes black.
-//  The ground is one level-of-detail quadtree (SkyGround) over the world's
-//  height field: tiles split and geomorph as the camera comes closer,
-//  whether it is 20 km up or at her shoulder. Near the ground the
-//  marching-cubes patch, the refined patch round her (DART ENGINE ·
-//  TERRAIN REFINEMENT), the rocks and the trees are built round the board
-//  while it is still coming down, a slice per frame, so she touches down
-//  on finished ground and walks off on the same mesh she flew over.
+//  Open space, the sky over a world and the ground under her are one
+//  flight: the same renderer, the same canvas and the same loop draw
+//  them all. Coming close to a world (a few planet radii out) builds its
+//  ground once, as the real planet — a level-of-detail quadtree over the
+//  whole globe in the planet frame (_pwfMap) — and from then on there is
+//  no loading and no cut: the orbit globe dissolves into the ground's own
+//  globe far out, the air shell glows on the limb, and as you come down
+//  the space controls hand over to the sky controls at the top of the air
+//  (and back on the way up), the tiles sharpening a level at a time down
+//  to the marching-cubes patch and the rocks round her as she lands.
+//  Drawn in layers: open space first (stars, galaxy, sun, the other
+//  worlds, seen from where the camera really is), the world over it; low
+//  down by day the sky dome covers space and the world draws alone.
+//  LIFTOFF, LAND and stepping off the board only change who is driving —
+//  the space flight model, the sky flight controller or her feet.
 // ════════════════════════════════════════════════════════════════════
-const PW={active:false,opening:false,gen:0,mode:null,body:null,site:null,pal:null,renderer:null,scene:null,camera:null,canvas:null,
-  board:null,ground:null,props:new Map(),propsGroup:null,animId:null,blend:null,onFirstFrame:null,seaSpan:0,seaCell:25};
+const PW={active:false,opening:false,gen:0,mode:null,body:null,site:null,pal:null,renderer:null,scene:null,camera:null,
+  board:null,ground:null,props:new Map(),propsGroup:null,blend:null,seaSpan:0,seaCell:25,atmo:null,skyK:1,bg:null,sp:null,_camFlat:null};
 window.PW=PW;
-// Build the world round `focus` (local x/z) — renderer, light, ground, sky,
-// board. The caller picks the controller (_pwBeginFly / _pwBeginWalk) and
-// then _pwReveal() starts the loop and fades the world in.
-async function _pwOpen(body,site,mode,focus){
+const PWS_OPEN=9, PWS_CLOSE=11, PWS_DOWN=2600, PWS_UP=2750;   // planet radii out (open/close the world); heights of the sky-flight hand-over
+// Build the world round `focus` (local x/z): light, ground, sky, air, board — on the flight renderer.
+function _pwBuild(body,site,mode,focus){
   const gen=++PW.gen;
   PW.active=true; PW.mode=null; PW.body=body; PW.site=site||null;
   _surfBody=_atmoBody=body; _surfSite=_atmoSite=site||null;
   const pal=getSurfacePalette(body); PW.pal=pal; _atmoPal=pal;
   if(!GFX.scanned) try{ detectCapabilities(); loadGfxChoice(); applyPreset(GFX.preset); }catch(e){}
-  // both HUDs stay invisible until the first frame is on screen
-  ['surface-overlay','atmo-overlay'].forEach(id=>{ const o=$(id); o.style.transition='none'; o.style.opacity='0'; o.style.pointerEvents='none'; });
-  const cv=_freshCanvas(mode==='walk'?'surface-canvas':'atmo-canvas');
-  const W=window.innerWidth,H=window.innerHeight; cv.width=W; cv.height=H;
-  const r=new THREE.WebGPURenderer({canvas:cv,antialias:!GFX.isMobile,powerPreference:'high-performance'});
-  await r.init();
-  if(gen!==PW.gen){ try{ r.dispose(); }catch(e){} return false; }
-  try{ r.setClearColor(0x0a1520,1); }catch(e){}
-  r.setPixelRatio(effectivePixelRatio()); r.setSize(W,H);
-  r.toneMapping=THREE.ACESFilmicToneMapping; r.toneMappingExposure=1.05;
-  r.outputColorSpace=THREE.SRGBColorSpace;
-  r.shadowMap.enabled=!!GFX.shadows;        // switched live by applyGraphicsLive
-  r.shadowMap.type=THREE.PCFSoftShadowMap;
+  const r=flightRenderer;
+  const W=window.innerWidth,H=window.innerHeight;
   const scene=new THREE.Scene();
-  scene.background=new THREE.Color(pal.sky?pal.sky[1]:0x223344);
+  PW.bg=new THREE.Color(pal.sky?pal.sky[1]:0x223344); scene.background=PW.bg;
   if(pal.atmos) scene.fog=new THREE.Fog(pal.fog||0x334455,40,drawDistanceTier().fogFar);
   const cam=new THREE.PerspectiveCamera(72,W/H,0.1,4000); cam.rotation.order='YXZ';
-  PW.renderer=r; PW.scene=scene; PW.camera=cam; PW.canvas=cv;
+  PW.renderer=r; PW.scene=scene; PW.camera=cam; PW.skyK=1; PW.blend=null; PW._camFlat=null;
   surfRenderer=atmoRenderer=r; surfScene=atmoScene=scene; surfCamera=atmoCamera=cam;
   // ── Light: a shadow-casting sun (its box follows the board or her) + hemisphere fake-GI
   const sun=new THREE.DirectionalLight(0xfff2e0,pal.atmos?2.0:2.6);
@@ -16074,26 +16065,25 @@ async function _pwOpen(body,site,mode,focus){
     scene.add(new THREE.HemisphereLight(pal.sky?pal.sky[0]:0x88bbff,new THREE.Color().setHSL(hsl.h,hsl.s*0.35,Math.min(0.3,hsl.l)),pal.atmos?0.4:0.35));
   }
   scene.add(new THREE.AmbientLight(pal.atmos?0x6688aa:0x222233,pal.atmos?0.5:0.25));
-  if(!pal.atmos&&!window.DMSky){ // star dome for airless worlds (the living sky brings its own)
-    const sn=2000,sp=new Float32Array(sn*3);
-    for(let i=0;i<sn;i++){const ph=Math.acos(2*Math.random()-1),th=Math.random()*6.28,rr=800;sp[i*3]=rr*Math.sin(ph)*Math.cos(th);sp[i*3+1]=Math.abs(rr*Math.cos(ph));sp[i*3+2]=rr*Math.sin(ph)*Math.sin(th);}
-    const sg=new THREE.BufferGeometry(); sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
-    const stars=new THREE.Points(sg,new THREE.PointsMaterial({size:1.5,sizeAttenuation:false,color:0xffffff}));
-    stars.frustumCulled=false; stars.userData.noBend=true; scene.add(stars); TERRAIN.starDome=stars;
-  } else TERRAIN.starDome=null;
-  // ── the ground (one LOD quadtree over the world's height field), water, near-ground detail
+  TERRAIN.starDome=null;   // airless worlds see the real sky (open space draws behind the ground)
+  // ── the planet frame, centred where we start (so the first tiles are the right ones)
+  _pwfSet(focus.x,focus.z,mode==='space'?1e6:0,site);
+  // ── the ground (one LOD quadtree over the whole world's height field), water, near-ground detail
   _pwBuildGround(pal,focus.x,focus.z,mode);
   // ── the living sky (day/night on the world clock)
   { const pre=new Set(scene.children); TERRAIN.sky=_atmoSky=_makeSky(scene,pal,body,1000,sun); scene.children.forEach(o=>{ if(!pre.has(o)) o.userData.noBend=true; }); }
+  // ── the air seen from above (the limb glow from orbit; the dome hands over to it as you climb)
+  PW.atmo=null; try{ PW.atmo=_pwAtmoShell(pal,TERRAIN.sky); if(PW.atmo) scene.add(PW.atmo.mesh); }catch(e){ console.warn('[air shell]',e); PW.atmo=null; }
   // wind-blown dust off the crests, and dust devils in the distance (ui/dm-dust.js)
   try{
     if(TERRAIN.dust){ TERRAIN.dust.dispose(); TERRAIN.dust=null; }
     const ds=window.DMDust&&window.DMWorldStyle?DMDust.forStyle(DMWorldStyle.styleFor(body,pal,site),pal):null;
     if(ds) TERRAIN.dust=DMDust.create(scene,{height:(x,z)=>{ const h=_surfHeight?_surfHeight(x,z):0; return isFinite(h)?h:0; },color:ds.color,amount:ds.amount,quality:(GFX&&GFX.preset)||'medium',seed:_worldSeed(body)});
   }catch(e){ console.warn('[dust]',e); }
-  // ── one skyboard for the whole visit: ridden in the sky, beside her on foot
+  // ── one skyboard for the whole visit: ridden in space and the sky, beside her on foot
   const board=buildBoardMesh();
   board.scale.setScalar(mode==='walk'?1:ATMO_BOARD_SCALE);
+  board.userData.noBend=true;
   if(GFX.shadows) board.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
   board.position.set(focus.x,(_surfHeight(focus.x,focus.z)||0)+1,focus.z); board.rotation.order='YXZ';
   scene.add(board); PW.board=board;
@@ -16111,39 +16101,33 @@ async function _pwOpen(body,site,mode,focus){
     BIRD_TEMPLE.shard.position.copy(board.position).add(new THREE.Vector3(2,1,2));
     BIRD_TEMPLE.shardState='following'; BIRD_TEMPLE._shardExternalScene=scene;
   }
-  return true;
+  try{ for(const o of scene.children) _pwMapTag(o); }catch(e){ console.warn('[pwf]',e); }
+  return gen;
 }
-// Start the world's loop; on its first frame the HUD and the view fade in
-// over the one you came from, which keeps running underneath until then.
-function _pwReveal(){
-  const ov=$(PW.mode==='walk'?'surface-overlay':'atmo-overlay');
-  PW.onFirstFrame=()=>{
-    ov.style.transition='opacity .45s ease'; ov.style.opacity='1';
-    setTimeout(()=>{
-      ov.style.transition=''; ov.style.pointerEvents='';
-      if(PW.active&&flightAnimId){ cancelAnimationFrame(flightAnimId); flightAnimId=null; }
-    },470);
-  };
-  _pwLoop();
+// Build, then compile the world's shaders while the view you came from keeps
+// running (no frozen frame, no black); resolves true when it can take over.
+async function _pwOpen(body,site,mode,focus){
+  const gen=_pwBuild(body,site,mode,focus);
+  try{
+    const c=PW.camera, gh=(_surfHeight&&_surfHeight(focus.x,focus.z))||0;
+    c.position.set(focus.x,gh+(mode==='walk'?3:60),focus.z+8); c.lookAt(focus.x,gh,focus.z);
+    if(PW.atmo){ PW.atmo.mesh.visible=true; }
+    if(flightRenderer.compileAsync) await flightRenderer.compileAsync(PW.scene,PW.camera);
+  }catch(e){ console.warn('[pw] precompile',e); }
+  return gen===PW.gen&&PW.active;
 }
-// The one canvas moves into whichever HUD is showing (the placeholder canvas swaps the other way).
-function _pwPlaceCanvas(ovId){
-  const cv=PW.canvas, ov=$(ovId); if(!cv||!ov||cv.parentNode===ov) return;
-  const ph=ov.querySelector(':scope > canvas'), home=cv.parentNode, next=cv.nextSibling, id=cv.id;
-  if(ph){ ov.replaceChild(cv,ph); cv.id=ph.id; ph.id=id; if(home) home.insertBefore(ph,next); }
-  else ov.insertBefore(cv,ov.firstChild);
-}
-// Who drives: 'fly' (the board in the sky) or 'walk' (her, on foot).
+// Who drives: 'space' (the space flight model, near the world), 'fly' (the board in the sky) or 'walk' (her, on foot).
 function _pwSetMode(mode){
   if(PW.mode===mode) return;
   const prev=PW.mode; PW.mode=mode;
-  const walk=mode==='walk';
-  if(prev&&PW.camera) PW.blend={p:PW.camera.position.clone(),q:PW.camera.quaternion.clone(),t:0};   // the camera eases into the new view
-  _pwPlaceCanvas(walk?'surface-overlay':'atmo-overlay');
+  const walk=mode==='walk', fly=mode==='fly', space=mode==='space';
+  if(prev&&prev!=='space'&&!space&&PW.camera) PW.blend={p:PW.camera.position.clone(),q:PW.camera.quaternion.clone(),t:0};   // the camera eases into the new view
   const so=$('surface-overlay'), ao=$('atmo-overlay');
-  so.style.display=walk?'block':'none'; ao.style.display=walk?'none':'block';
-  if(prev){ [so,ao].forEach(o=>{ o.style.opacity=''; o.style.pointerEvents=''; o.style.transition=''; }); }
-  surfaceActive=walk; atmoActive=!walk;
+  so.style.display=walk?'block':'none'; ao.style.display=fly?'block':'none';
+  [so,ao].forEach(o=>{ o.style.opacity=''; o.style.pointerEvents=''; o.style.transition=''; });
+  document.body.classList.toggle('pw-hud',!space);   // the flight HUD hides under the sky / ground HUD
+  surfaceActive=walk; atmoActive=fly;
+  if(boardFlight) boardFlight.visible=false;   // she rides the world's board now
   const body=PW.body;
   if(walk){
     window.addEventListener('keydown',_surfKeyDown); window.addEventListener('keyup',_surfKeyUp);
@@ -16154,100 +16138,183 @@ function _pwSetMode(mode){
     window.removeEventListener('keydown',_surfKeyDown); window.removeEventListener('keyup',_surfKeyUp);
     for(const k in surfKeys) surfKeys[k]=false;
     try{ _surfFluidStop(); }catch(e){}
-    _miniKiteName($('atmo-title'),body.name); _kiteExplored($('atmo-title'),'ATMOSPHERIC FLIGHT',body);
-    buildMachPresets();
-    const thr=$('atmo-throttle'); thr.value=Math.round(atmoThrottle*100);
-    thr.oninput=()=>{ atmoThrottle=parseInt(thr.value)/100; if(atmoIdle&&atmoThrottle>0){ atmoIdle=false; _atmoIdleUI(); } };
-    setupAtmoJoysticks();
+    if(fly){
+      _miniKiteName($('atmo-title'),body.name); _kiteExplored($('atmo-title'),'ATMOSPHERIC FLIGHT',body);
+      buildMachPresets();
+      const thr=$('atmo-throttle'); thr.value=Math.round(atmoThrottle*100);
+      thr.oninput=()=>{ atmoThrottle=parseInt(thr.value)/100; if(atmoIdle&&atmoThrottle>0){ atmoIdle=false; _atmoIdleUI(); } };
+      setupAtmoJoysticks();
+    }
   }
   try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
 }
-function _pwLoop(){
-  const gen=PW.gen; let last=performance.now(), first=true;
-  (function frame(){
-    if(gen!==PW.gen||!PW.active) return;
-    PW.animId=requestAnimationFrame(frame);
-    const now=performance.now(), dt=Math.min((now-last)/1000,0.05); last=now;
-    const fly=PW.mode==='fly';
-    if(fly){
+// One frame of the world (called from the one flight loop).
+function _pwFrame(dt){
+  const mode=PW.mode, now=performance.now();
+  if(mode==='space'){
+    _pwSpaceStep(dt);
+    if(PW.mode&&PW.mode!=='space'){ _pwFrame(0); return; }   // handed over to the sky this frame: its camera draws it
+  } else {
+    try{ updateBodies(dt); }catch(e){ _animLoopWarn('updateBodies',e); }   // the planets keep turning on the world clock (the sky above is the real one)
+    if(mode==='fly'){
       try{ updateAtmoFlight(dt); }catch(e){ _animLoopWarn('atmoFlight',e); }
+      if(PW.mode!=='fly'){ _pwFrame(0); return; }   // handed over to open space this frame
       try{ if(atmoBoard&&atmoState){ const s=atmoState; updateBoardWake(atmoBoard,PW.scene,dt,Math.min(1.2,atmoMach/0.6),new THREE.Vector3(-Math.sin(s.yaw)*Math.cos(s.pitch),Math.sin(s.pitch),-Math.cos(s.yaw)*Math.cos(s.pitch))); } }catch(e){ _animLoopWarn('boardWake',e); }
-      try{ if(CHAR.mounted) applySkyboardStance(now/1000); }catch(e){}
     } else {
       surfTime+=dt;
       try{ updateSurface(dt); }catch(e){ _animLoopWarn('updateSurface',e); }
     }
     try{ updateCharOrbitCamera(); }catch(e){ _animLoopWarn('charOrbit',e); }
-    _pwCamBlend(dt);
-    try{ _dynRes(PW.renderer); }catch(e){}
-    if(fly){
-      try{ CHAR.mixer&&CHAR.mixer.update(dt); }catch(e){ _animLoopWarn('charMixer',e); }
-      try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){ _animLoopWarn('headOverride',e); }
-    } else {
-      try{ updateCaustics(dt); }catch(e){ _animLoopWarn('caustics',e); }
-      try{ _surfFluidTick(dt); }catch(e){ _animLoopWarn('fluid',e); }
-      try{ _surfFpBody(); }catch(e){}
-    }
-    try{ _updateCharDebugHUD(); }catch(e){}
-    try{ updateBirdTemple(dt); }catch(e){ _animLoopWarn('birdTemple',e); }   // the ship keeps wandering + the shard keeps following, even off-screen
-    try{ _pwWorldTick(dt); }catch(e){ _animLoopWarn('world',e); }
-    const scene=PW.scene, cam=PW.camera;
-    const spec=window.DMSpec&&DMSpec.on; if(spec) try{ DMSpec.pre(cam); }catch(e){}
-    _bendSet(cam,window.DM_FLAT_WORLD?0:_planetR());
-    try{ PW.renderer.render(scene,cam); _shotGrab(PW.renderer); }catch(e){ _animLoopWarn('world-render',e); }
-    finally{ _bendOff(); if(spec) try{ DMSpec.post(cam); }catch(e){} }
-    if(first){ first=false; const f=PW.onFirstFrame; PW.onFirstFrame=null; if(f) requestAnimationFrame(f); }
-  })();
+    _pwCamBlend(dt);   // (in the flat world, near the focus where the frame leaves things be)
+  }
+  if(!PW.active||!PW.mode) return;
+  try{ if(CHAR.mounted) applySkyboardStance(now/1000); }catch(e){}
+  if(PW.mode!=='walk'){
+    try{ CHAR.mixer&&CHAR.mixer.update(dt); }catch(e){ _animLoopWarn('charMixer',e); }
+    try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){ _animLoopWarn('headOverride',e); }
+  } else {
+    try{ updateCaustics(dt); }catch(e){ _animLoopWarn('caustics',e); }
+    try{ _surfFluidTick(dt); }catch(e){ _animLoopWarn('fluid',e); }
+    try{ _surfFpBody(); }catch(e){}
+  }
+  try{ _updateCharDebugHUD(); }catch(e){}
+  try{ updateBirdTemple(dt); }catch(e){ _animLoopWarn('birdTemple',e); }   // the ship keeps wandering + the shard keeps following, even off-screen
+  try{ _pwWorldTick(dt); }catch(e){ _animLoopWarn('world',e); }
+  try{ _dynRes(flightRenderer); }catch(e){}
+  _pwRender();
+  if(PW.mode==='space'){
+    try{updateHUD();}catch(e){_animLoopWarn('updateHUD',e);}
+    try{updateCrosshairLabel();}catch(e){_animLoopWarn('crosshair',e);}
+    try{drawMinimap();}catch(e){_animLoopWarn('minimap',e);}
+  }
+}
+// Draw: open space behind (when the sky lets it through), the world over it.
+let _pwSbT=0;
+function _pwRender(){
+  const r=flightRenderer, scene=PW.scene, cam=PW.camera; if(!r||!scene||!cam) return;
+  const layered=PW.skyK<0.999&&_PWS.ok;
+  const spec=window.DMSpec&&DMSpec.on;
+  r.setRenderTarget(null);
+  try{
+    if(layered){
+      // the real sky — stars, the galaxy band, the sun and the other worlds — from where the camera really is
+      _pwsFromDrawn(cam.position,flightCamera.position); _pwsQFromDrawn(cam.quaternion,flightCamera.quaternion);
+      if(Math.abs(flightCamera.fov-cam.fov)>1e-3||Math.abs(flightCamera.aspect-cam.aspect)>1e-4){ flightCamera.fov=cam.fov; flightCamera.aspect=cam.aspect; flightCamera.updateProjectionMatrix(); }
+      flightCamera.updateMatrixWorld();
+      try{ if(galSky.ready) updateGalSky(); }catch(e){}
+      try{ if(window.DMStarBubble){ const n=performance.now(), d=_pwSbT?(n-_pwSbT)/1000:1/60; _pwSbT=n; if(window.DMStar) DMStar.frame(flightCamera,d); DMStarBubble.frame(flightCamera,flightScene,d); } }catch(e){}
+      r.toneMappingExposure=1.0;
+      r.render(flightScene,flightCamera);
+      scene.background=null; r.autoClearColor=false;   // the world draws over it (depth cleared)
+    } else scene.background=PW.bg;
+    if(spec) try{ DMSpec.pre(cam); }catch(e){}
+    r.toneMappingExposure=1.0+0.05*PW.skyK;
+    r.render(scene,cam);
+    _shotGrab(r);
+  }catch(e){ _animLoopWarn('world-render',e); }
+  finally{
+    r.autoClearColor=true; r.toneMappingExposure=1.0;
+    if(spec) try{ DMSpec.post(cam); }catch(e){}
+    // the controllers keep their camera in the flat world
+    const ld=PW._lastDrawn||(PW._lastDrawn={p:new THREE.Vector3(),q:new THREE.Quaternion(),f:new THREE.Vector3()}); ld.p.copy(cam.position); ld.q.copy(cam.quaternion);
+    { const f=_pwBlendFocus(); if(f) ld.f.copy(f); }   // (the focus is drawn where it is: the frame is centred on it)
+    const cf=PW._camFlat; if(cf){ cam.position.copy(cf.p); cam.quaternion.copy(cf.q); PW._camFlat=null; }
+  }
 }
 // After a controller hand-over the camera eases from where it was (no cut).
+// It eases from where it was *relative to the board (or her)* — the board can
+// be doing Mach 8 at the top of the air, and a camera easing from a fixed
+// point in the world would fall hundreds of metres behind it.
+function _pwBlendFocus(){
+  const m=PW.mode;
+  if(m==='space') return PW.board?PW.board.position:null;
+  if(m==='fly') return atmoState?atmoState.pos:null;
+  if(m==='walk') return surfPlayer?surfPlayer.pos:null;
+  return null;
+}
 function _pwCamBlend(dt){
   const b=PW.blend, cam=PW.camera; if(!b||!cam) return;
+  const f=_pwBlendFocus();
+  if(f){ if(!b.f) b.f=f.clone(); b.p.add(_pwVec(4).copy(f).sub(b.f)); b.f.copy(f); }   // carried along with the focus
   b.t=Math.min(1,b.t+dt/0.8); const e=b.t*b.t*(3-2*b.t);
   cam.position.lerpVectors(b.p,cam.position,e);
   cam.quaternion.slerpQuaternions(b.q,cam.quaternion.clone(),e);
   if(b.t>=1) PW.blend=null;
 }
-// Per frame: the ground follows the camera (its level of detail is the
-// camera's distance — height included), the view opens up with height,
-// and the near-ground detail builds round whoever is driving.
+const _pwV=[0,0,0,0,0].map(()=>null);
+function _pwVec(i){ return _pwV[i]||(_pwV[i]=new THREE.Vector3()); }
+// Per frame: the planet frame re-centres on whoever is driving, the camera
+// goes into it, the ground's level of detail follows the camera (its true
+// distance, height included), the sky thins to space as you climb, and the
+// near-ground detail builds round whoever is driving.
 function _pwWorldTick(dt){
   const cam=PW.camera, scene=PW.scene, H=TERRAIN.H; if(!cam||!scene||!H||!PW.ground) return;
-  const fly=PW.mode==='fly';
-  const f=fly?(atmoState&&atmoState.pos):(surfPlayer&&surfPlayer.pos); if(!f) return;
-  const sf=window.DMSpec&&DMSpec.focusXZ&&DMSpec.focusXZ();
+  const mode=PW.mode, fly=mode==='fly', space=mode==='space';
+  const f=space?(PW.sp&&PW.sp.flat):(fly?(atmoState&&atmoState.pos):(surfPlayer&&surfPlayer.pos)); if(!f) return;
+  const sf=!space&&window.DMSpec&&DMSpec.focusXZ&&DMSpec.focusXZ();
   const px=sf?sf.x:f.x, pz=sf?sf.z:f.z;
-  const agl=f.y-H(f.x,f.z);
-  const c=cam.position, calt=Math.max(1,c.y-Math.max(0,H(c.x,c.z)));
+  const gH=H(f.x,f.z), agl=f.y-gH;
+  // ── the planet frame at the focus; the camera into it
+  if(space){
+    _pwfSet(px,pz,PW.sp.camAlt||f.y,PW.site); _pwsSync(PW.body,PW.site);
+    // the board (and her on it) where the space board is
+    _pwsToDrawn(boardFlight.position,PW.board.position); _pwsQToDrawn(boardFlight.quaternion,PW.board.quaternion);
+    _pwsToDrawn(flightCamera.position,cam.position); _pwsQToDrawn(flightCamera.quaternion,cam.quaternion);
+    _pwCamBlend(dt);
+    if(Math.abs(cam.fov-flightCamera.fov)>1e-3){ cam.fov=flightCamera.fov; cam.updateProjectionMatrix(); }
+  } else {
+    const calt0=Math.max(1,cam.position.y-Math.max(0,H(cam.position.x,cam.position.z)));
+    _pwfSet(px,pz,cam.position.y,PW.site); _pwsSync(PW.body,PW.site);
+    // flat camera → drawn (kept on the focus, which the frame leaves where it is)
+    PW._camFlat={p:cam.position.clone(),q:cam.quaternion.clone()};
+    if(PWF.on){
+      const d0=_pwVec(0).set(px,f.y,pz).sub(cam.position), dp=_pwfMap(cam.position.x,cam.position.y,cam.position.z,_pwVec(1));
+      const d1=_pwVec(2).set(px,f.y,pz).sub(dp);
+      if(d0.lengthSq()>1e-6&&d1.lengthSq()>1e-6){ const qa=new THREE.Quaternion().setFromUnitVectors(d0.normalize(),d1.normalize()); cam.quaternion.premultiply(qa); }
+      cam.position.copy(dp);
+    }
+    // the fov eases back to the sky's own after the hand-over from space
+    const fovT=72; if(Math.abs(cam.fov-fovT)>0.01){ cam.fov+= (fovT-cam.fov)*Math.min(1,dt*1.5); cam.updateProjectionMatrix(); }
+    // where the board is in open space (leaving the world puts you back right there)
+    try{ const bp=fly?atmoState.pos:surfPlayer.pos; _pwsFromDrawn(_pwVec(3).set(px,bp.y,pz),STATE.flight.pos); if(boardFlight) boardFlight.position.copy(STATE.flight.pos); }catch(e){}
+  }
+  const c=cam.position, C=_pwfCentre(_pwVec(4));
+  const calt=Math.max(1,c.distanceTo(C)-PWF.R-(PWF.on?Math.max(0,gH):0)), alt=c.distanceTo(C)-PWF.R;
   // how far you can see: to the horizon of a world this size, and past the haze
   const R=_planetR(), horizon=Math.sqrt(2*R*calt+calt*calt)+Math.sqrt(2*R*280);
-  const skyR=Math.max(3500,Math.min(26000,horizon));
+  const skyR=Math.max(3500,space?1e9:horizon);
   // on foot the haze closes in (the walking distance); up with the board it opens to the sky's — one blend, no switch
-  const k=fly?_smooth01((agl-5)/35):0, dd=drawDistanceTier();
+  const k=space?1:(fly?_smooth01((agl-5)/35):0), dd=drawDistanceTier();
   const walkR=scene.fog?Math.max(1200,dd.fogFar*2.5):skyR;   // nothing past the haze is drawn on foot (airless worlds see to the horizon)
   const viewR=walkR+(skyR-walkR)*k;
   const G=PW.ground; G.viewR=viewR;
+  // the sky dome thins to space as you climb (airless worlds: open space all the way down)
+  const pal=PW.pal, dome=pal.atmos?1-_smooth01((alt-400)/1400):0;
+  PW.skyK=dome;
   // coming down to land: the ground under the board gets a bigger slice so it's finished at touchdown
   const landing=fly&&atmoState&&atmoState.landing;
   G.update(cam,PW._jump?400:(landing?(GFX.isMobile?7:11):undefined)); PW._jump=false;   // (after a DART cruise skip: the new spot at once)
   const skyFar=Math.min(skyR,Math.max(2400,2400+calt*5));
-  const far=dd.fogFar+(skyFar-dd.fogFar)*k, near=40+(Math.min(skyFar*0.2,300+calt*0.6)-40)*k;
+  let far=dd.fogFar+(skyFar-dd.fogFar)*k, near=40+(Math.min(skyFar*0.2,300+calt*0.6)-40)*k;
+  if(dome<1){ const thin=1-dome; far+=thin*thin*2e6; near+=thin*thin*1e6; }   // the haze lifts with the dome
   if(scene.fog){ scene.fog.far=far; scene.fog.near=near; }
-  const farClip=Math.max(1200,viewR*1.15), nearClip=0.1+(Math.max(0.5,Math.min(6,calt*0.01))-0.1)*k;
-  if(Math.abs(cam.far-farClip)>farClip*0.05||Math.abs(cam.near-nearClip)>0.05){ cam.far=farClip; cam.near=nearClip; cam.updateProjectionMatrix(); }
-  _pwSeaFollow(c,viewR);
-  _pwPropsTick(px,pz,fly?agl:0);
+  const farClip=space||dome<1?Math.max(4000,c.distanceTo(C)+R*1.2):Math.max(1200,viewR*1.15);
+  const nearClip=space?Math.max(0.1,Math.min(50,(PW.sp.fc||1)*20)):0.1+(Math.max(0.5,Math.min(6,calt*0.01))-0.1)*k;
+  if(Math.abs(cam.far-farClip)>farClip*0.05||Math.abs(cam.near-nearClip)>nearClip*0.05){ cam.far=farClip; cam.near=nearClip; cam.updateProjectionMatrix(); }
+  _pwSeaFollow(px,pz,Math.min(viewR,16384));
+  _pwPropsTick(px,pz,space?1e9:(fly?agl:0));
   // marching cubes + the refined patch: always on foot; in the sky only low and slow
   // (the approach), so they're built round the touchdown point before she lands
-  const nearGround=!fly||landing||(agl<40&&atmoMach<0.12);
+  const nearGround=!space&&(!fly||landing||(agl<40&&atmoMach<0.12));
   if(nearGround){
     const info=TERRAIN.mcGridInfo;
     if(TERRAIN.mcGpu&&!TERRAIN._mcBusy&&(!info||Math.hypot(px-info.cx,pz-info.cz)>info.half*0.42)) _pwMcRebuildAt(px,pz);
     if(TERRAIN.cpuMc) _cpuMcTick(px,pz);
     try{ _tessTick(); }catch(e){ TERRAIN.tessCfg=null; console.warn('[tess]',e); }
   }
-  // new ground pieces (tiles, rocks, water, beacons…) take the planet's curve
+  // new ground pieces (tiles, rocks, water, beacons…) take the planet frame
   const bn=performance.now();
-  if(bn-(TERRAIN._bendT||0)>500){ TERRAIN._bendT=bn; try{ for(const o of scene.children) _bendTag(o); }catch(e){ console.warn('[bend]',e); } }
+  if(bn-(TERRAIN._bendT||0)>500){ TERRAIN._bendT=bn; try{ for(const o of scene.children) _pwMapTag(o); }catch(e){ console.warn('[pwf]',e); } }
   // water volume and caustics ride along on a coarse grid (no visible swim)
   if(TERRAIN.waterFollow){
     const gx=Math.round(px/100)*100, gz=Math.round(pz/100)*100;
@@ -16258,14 +16325,14 @@ function _pwWorldTick(dt){
       if(v&&v.userData.bounds){ const b=v.userData.bounds, hw=(b.maxX-b.minX)/2, hd=(b.maxZ-b.minZ)/2; b.minX=gx-hw; b.maxX=gx+hw; b.minZ=gz-hd; b.maxZ=gz+hd; }
     }
   }
-  // the living sky: time of day here, stars, comets, meteors (ui/dm-sky.js)
+  // the living sky: time of day here, stars, comets, meteors (ui/dm-sky.js) — fading to open space with height
   const sky=TERRAIN.sky, ll=_skyLatLon(PW.site,px,pz);
-  if(sky){ sky.update(cam,dt,ll.lat,ll.lon); if(!fly) _localClock('surface-grav',null,ll.lon); }
+  if(sky){ if(sky.setFade) sky.setFade(dome); sky.update(cam,dt,ll.lat,ll.lon); if(mode==='walk') _localClock('surface-grav',null,ll.lon); }
   else if(scene.userData.skyDome) scene.userData.skyDome.position.copy(c);
+  if(PW.atmo) PW.atmo.update((1-dome)*(PWF.reveal),sky?sky.sunDir:null);
   if(TERRAIN.dust) TERRAIN.dust.update(dt,cam,px,pz,sky?sky.day:1);
-  if(TERRAIN.starDome) TERRAIN.starDome.position.copy(c);
   // Low tier: the shadow map refreshes every third frame
-  const r=PW.renderer;
+  const r=flightRenderer;
   if(r&&r.shadowMap){
     const lowSh=GFX.shadows&&(GFX.shadowSize||0)<=512;
     r.shadowMap.autoUpdate=!lowSh;
@@ -16280,8 +16347,8 @@ function _pwWorldTick(dt){
   }
 }
 const _smooth01=v=>{ const u=Math.max(0,Math.min(1,v)); return u*u*(3-2*u); };
-// the sea: one sheet at sea level, sized to the view and following the camera (it bends with the planet)
-function _pwSeaFollow(c,span){
+// the sea: one sheet at sea level round the focus, sized to the view (far off, the coarse ground draws the sea itself)
+function _pwSeaFollow(x,z,span){
   const wm=surfWater; if(!wm) return;
   const want=Math.pow(2,Math.ceil(Math.log2(Math.max(4096,span*2.2))));
   if(PW.seaSpan!==want){
@@ -16289,7 +16356,7 @@ function _pwSeaFollow(c,span){
     const g=new THREE.PlaneGeometry(want,want,seg,seg);
     if(wm.geometry) wm.geometry.dispose(); wm.geometry=g; PW.seaSpan=want; PW.seaCell=want/seg;
   }
-  const cell=PW.seaCell; wm.position.x=Math.round(c.x/cell)*cell; wm.position.z=Math.round(c.z/cell)*cell;
+  const cell=PW.seaCell; wm.position.x=Math.round(x/cell)*cell; wm.position.z=Math.round(z/cell)*cell;
 }
 // rocks and trees: the walking ground's own scatter, round her — and round the board when it's low
 function _pwPropsTick(px,pz,agl){
@@ -16304,29 +16371,27 @@ function _pwPropsTick(px,pz,agl){
   }
   for(const [k,g] of M) if(!want.has(k)){ if(g){ PW.propsGroup.remove(g); _disposeProps(g); } M.delete(k); }
 }
-// Leave the world (to open space, a journey load, the menu): the last frame
-// fades out over the view underneath, then its GPU memory is freed.
+// Leave the world (to open space, a journey load, the menu): instant — the
+// one loop draws open space on the very next frame (or the view that
+// replaces it), so nothing fades and nothing goes black.
 function _pwClose(opts){
   if(!PW.active&&!PW.opening) return;
-  const r=PW.renderer, scene=PW.scene, myGen=++PW.gen;
+  const scene=PW.scene, body=PW.body; ++PW.gen;
   PW.active=false; PW.opening=false;
-  if(PW.animId){ cancelAnimationFrame(PW.animId); PW.animId=null; }
-  surfaceActive=false; atmoActive=false; PW.mode=null; PW.blend=null; PW.onFirstFrame=null;
+  surfaceActive=false; atmoActive=false; PW.mode=null; PW.blend=null; PW.sp=null; PW._camFlat=null; PW.atmo=null;
   window.removeEventListener('keydown',_surfKeyDown); window.removeEventListener('keyup',_surfKeyUp);
   try{ _landToolsReset(); }catch(e){}
   _reclaimShardToFlight();
   // she is about to lose her scene: detach first so her GPU buffers survive the disposal
   if(CHAR.loaded&&CHAR.root&&CHAR.root.parent) CHAR.root.parent.remove(CHAR.root);
   _surfFluidStop();
-  const ovs=[$('surface-overlay'),$('atmo-overlay')];
-  const done=()=>{
-    if(PW.gen===myGen) ovs.forEach(o=>{ o.style.display='none'; o.style.opacity=''; o.style.transition=''; o.style.pointerEvents=''; });
-    try{ if(scene) disposeObject3D(scene); }catch(e){}
-    try{ if(r) r.dispose(); }catch(e){}
-  };
-  if(opts&&opts.instant) done();
-  else { ovs.forEach(o=>{ if(o.style.display!=='none'){ o.style.pointerEvents='none'; o.style.transition='opacity .4s ease'; o.style.opacity='0'; } }); setTimeout(done,430); }
-  PW.renderer=PW.scene=PW.camera=PW.canvas=PW.board=PW.ground=null; PW.props=new Map(); PW.propsGroup=null; PW.seaSpan=0;
+  ['surface-overlay','atmo-overlay'].forEach(id=>{ const o=$(id); if(o){ o.style.display='none'; o.style.opacity=''; o.style.transition=''; o.style.pointerEvents=''; } });
+  document.body.classList.remove('pw-hud');
+  if(body&&body.mesh) body.mesh.visible=true;   // the orbit globe is the planet again
+  _pwfOff(); _pwfReveal(1);
+  try{ if(scene) disposeObject3D(scene); }catch(e){}
+  try{ _applyCamOffset(); }catch(e){}
+  PW.renderer=PW.scene=PW.camera=PW.board=PW.ground=null; PW.props=new Map(); PW.propsGroup=null; PW.seaSpan=0;
   surfRenderer=atmoRenderer=null; surfScene=atmoScene=null; surfCamera=atmoCamera=null;
   surfPlayer=null; surfBoard=null; atmoBoard=null; atmoState=null; _atmoSky=null; _atmoHeight=null; _atmoPal=null;
   surfTerrainMesh=null; surfWater=null; surfCausticCtx=null; surfCausticTex=null;
@@ -16339,51 +16404,64 @@ function _pwClose(opts){
   window._surfClimbNormal=function(){ return null; };
   window.JOTS_WATER=null;
 }
+// Leave the world for open space at once (a Journal trip, the menu): she's back on the space board where the world's board was.
+function _pwCloseToSpace(){ if(!PW.active&&!PW.opening) return; _pwClose({instant:true}); _pwRestoreSpace(false); }
 
 // ── Into the sky ────────────────────────────────────────────────────────
-// From space (or the landing globe / a Journal waypoint): the world is built
-// round the spot, then fades in. From the ground of this same world
-// (start = where she boarded): she just takes off — the world stays.
+// Already flying down to this world from space (the landing globe's SKY):
+// the board flies itself there through the air. From the ground of this
+// same world (start = where she boarded): she just takes off. Otherwise
+// (a Journal waypoint, another world) the world is built round the spot
+// while the current view keeps running, and takes over when it's ready.
 async function enterAtmosphericFlight(body,site,start){
-  if(atmoActive||PW.opening) return;
+  if(PW.opening) return;
+  const here=PW.active&&PW.body===body&&site&&typeof site.lat==='number'&&!start;
+  if(atmoActive){ if(here) atmoFlyTo(site.lat,site.lon,{cruise:true}); return; }   // already in this sky: fly there
+  if(here&&surfaceActive){ _lmWalkFly(site.lat,site.lon); return; }                // on this world's ground: board, lift off and fly there
+  if(PW.active&&PW.mode==='space'&&PW.body===body&&site&&typeof site.lat==='number'&&!(start&&start.journal)){ _pwSpaceDescend(site,false); return; }
   if(PW.active&&surfaceActive&&PW.body===body&&start&&!start.journal){ _pwBeginFly(start); return; }   // lifting off where she stands
-  if(PW.active) _pwClose({instant:true});
+  if(PW.active) _pwCloseToSpace();
   CHAR._transitioning=false;
   if(CHAR.mounted) _loadStep('mounted',1); else LOAD_TRACK.steps.mounted=0;   // same stuck-at-95% fix as launchFlight()
-  _showMiniLoader();
   PW.opening=true;
   let ok=false;
   try{ ok=await _pwOpen(body,site,'fly',{x:start?start.x:0,z:start?start.z:0}); }
   finally{ PW.opening=false; }
   if(!ok) return;
   _pwBeginFly(start,{fresh:true});
-  _pwReveal();
 }
 // Hand the world to the flight controller. start (optional): {x, z, y, yaw,
-// camRel, alt} — lift off from that spot/heading with the camera where the
-// walk camera was; otherwise 150 ft (~46 m) above the site.
+// pitch, camRel, alt, fromSpace, mach} — lift off from that spot/heading with
+// the camera where the walk camera was, or carry on from open space at the
+// same place, heading, speed and camera; otherwise 150 ft (~46 m) above the site.
 function _pwBeginFly(start,opts){
   const fresh=!!(opts&&opts.fresh);
   // a leftover ORBIT would hijack the camera on entry (it looked like she was lying flat)
   charOrbitActive=false;
   ATMO_AP.on=false; try{ $('ap-btn-atmo').classList.remove('active'); }catch(e){}
-  // the sky always starts on the trailing view (her and the whole board in frame)
-  if(camMode!==0){ camMode=0; try{ _applyCamOffset(); const cb=$('cam-btn'); if(cb) cb.textContent='CAM 1'; }catch(e){} }
+  const fromSpace=!!(start&&start.fromSpace);
+  // the sky starts on the trailing view (her and the whole board in frame) — coming down from space it keeps yours
+  if(camMode!==0&&!fromSpace){ camMode=0; try{ _applyCamOffset(); const cb=$('cam-btn'); if(cb) cb.textContent='CAM 1'; }catch(e){} }
   atmoPreset=0; atmoThrottle=0; atmoMach=0; atmoIdle=false; try{ _atmoIdleUI(); }catch(e){}
+  if(fromSpace&&start.mach>0){   // the speed you came in at, held by the throttle
+    let pi=MACH_PRESETS.findIndex(p=>p.max>=start.mach); if(pi<0) pi=MACH_PRESETS.length-1;
+    atmoPreset=pi; atmoMach=start.mach; atmoThrottle=Math.min(1,start.mach/MACH_PRESETS[pi].max);
+  }
   const board=PW.board; atmoBoard=board; board.visible=true;
   surfPlayer=null; surfBoard=null;
   if(fresh) board.scale.setScalar(ATMO_BOARD_SCALE);   // from the ground it grows into the sky size as she climbs (updateAtmoFlight)
   const H=_atmoHeight;
   if(start){
     const sx=start.x, sz=start.z, gh=H(sx,sz);
-    atmoState={pos:new THREE.Vector3(sx,isFinite(start.y)?Math.max(gh+1,start.y):gh+4.5,sz),vel:new THREE.Vector3(),yaw:start.yaw||0,pitch:0,roll:0,takeoff:ATMO_TAKEOFF_S};
+    atmoState={pos:new THREE.Vector3(sx,isFinite(start.y)?Math.max(gh+1,start.y):gh+4.5,sz),vel:new THREE.Vector3(),yaw:start.yaw||0,pitch:isFinite(start.pitch)?start.pitch:0,roll:0,takeoff:fromSpace?0:ATMO_TAKEOFF_S};
     if(isFinite(start.alt)){ atmoState.pos.y=Math.max(gh+6,start.alt); atmoState.takeoff=0; }   // a Journal waypoint: straight back to the height it was marked at
   } else atmoState={pos:new THREE.Vector3(0,H(0,0)+46,0),vel:new THREE.Vector3(),yaw:0,pitch:0,roll:0};
   board.position.copy(atmoState.pos);
   board.rotation.order='YXZ'; board.rotation.y=atmoState.yaw-Math.PI/2;
+  if(fromSpace){ board.rotation.x=-atmoState.pitch; board.rotation.z=0; board.scale.setScalar(ATMO_BOARD_SCALE); }
   _atmoCamInit=false;
   if(start&&start.camRel){
-    atmoCamera.position.copy(atmoState.pos).add(start.camRel); atmoCamera.lookAt(atmoState.pos);
+    if(!fromSpace){ atmoCamera.position.copy(atmoState.pos).add(start.camRel); atmoCamera.lookAt(atmoState.pos); }
     _atmoCamRel.copy(start.camRel); _atmoCamInit=true;
   }
   // she rides this board: boarding on foot already mounted her (her own size);
@@ -16393,6 +16471,7 @@ function _pwBeginFly(start,opts){
   }
   _pwSetMode('fly');
   if(_pendingAutoFly) setTimeout(_takePendingAutoFly,0);
+  else if(fromSpace) toast('🛹 Into the '+PW.body.name+' sky — the board is yours',2200);
   else toast(start&&!fresh?'🛹 Lifting off — steer up to climb into the sky':'🛹 Skyboard airborne over '+PW.body.name+' — throttle up!',2600);
 }
 
@@ -16461,6 +16540,11 @@ function updateAtmoFlight(dt){
       KEYS['KeyW']||KEYS['KeyA']||KEYS['KeyS']||KEYS['KeyD']||KEYS['Space']||KEYS['ShiftLeft']||KEYS['ShiftRight']||atmoThrottle>0;
     if(manual){ atmoIdle=false; _atmoIdleUI(); }
   }
+  if(s.toSpace){   // TO SPACE: nose up, full speed, out through the top of the air (any stick takes it back)
+    const man=Math.abs(atmoSteer.x)+Math.abs(atmoSteer.y)+Math.abs(atmoClimb.x)+Math.abs(atmoClimb.y)>0.25||KEYS['KeyA']||KEYS['KeyD']||KEYS['KeyS']||(KEYS['ShiftLeft']||KEYS['ShiftRight']);
+    if(man||landing){ s.toSpace=false; }
+    else { s.pitch+=(0.75-s.pitch)*Math.min(1,dt*1.5); atmoPreset=MACH_PRESETS.length-1; atmoThrottle=1; s.takeoff=Math.min(s.takeoff||0,0.4); }
+  }
   const climb=(landing||atmoIdle)?0:_clamp(-atmoClimb.y+keyClimb,-1,1); const bank=(landing||atmoIdle)?0:atmoClimb.x;
   s.roll=THREE.MathUtils.lerp(s.roll,-bank*0.5,0.1);
   _atmoApTick(s,dt,Math.abs(atmoSteer.y)>0.15||Math.abs(ml.y)>1e-4||climb!==0||!!KEYS['ArrowUp']||!!KEYS['ArrowDown']);
@@ -16498,8 +16582,10 @@ function updateAtmoFlight(dt){
   // the board is bigger against the sky and eases back to walking size as it sets down
   { const want=(landing||s.touchdown)?1:ATMO_BOARD_SCALE, bs=atmoBoard.scale.x;
     if(Math.abs(want-bs)>1e-3) atmoBoard.scale.setScalar(bs+(want-bs)*Math.min(1,dt*1.6)); }
-  // exit to space if climbing past the atmosphere ceiling
-  if(!landing && s.pos.y>ATMO_CEILING){ atmoExitToSpace(); return; }
+  // over the top of the air: the space flight model takes the board (no cut)
+  if(!landing && s.pos.y>PWS_UP){ _pwFlyToSpace(); return; }
+  // the world's edge (the poles): the sky map ends there
+  { const lim=(89.5-Math.abs(_atmoSiteRef().lat))/ATMO_DEG_PER_UNIT, zc=_atmoSiteRef().lat/ATMO_DEG_PER_UNIT; s.pos.z=Math.max(zc-89.5/ATMO_DEG_PER_UNIT,Math.min(zc+89.5/ATMO_DEG_PER_UNIT,s.pos.z)); void lim; }
   // ── Orient & place the board the SAME way as space flight ───────────────
   // The board model's nose points +X, so yaw maps with a -90° base offset
   // (identical to updateBoardTransform). This fixes the sideways look.
@@ -16530,7 +16616,10 @@ function updateAtmoFlight(dt){
     const now=performance.now();
     if(!atmoBoard.userData._frameT||now-atmoBoard.userData._frameT>1000){
       atmoBoard.userData._frameT=now;
-      try{ const sz=new THREE.Box3().setFromObject(atmoBoard).getSize(new THREE.Vector3()); atmoBoard.userData._frameR=sz.length()*0.5; }catch(e){}
+      // the board and her only (solid, visible meshes — not glows, trails or lights), and never more than a few board lengths
+      try{ const bx=new THREE.Box3(), tb=new THREE.Box3(); atmoBoard.updateMatrixWorld(true);
+        atmoBoard.traverseVisible(o=>{ if(o.isMesh&&!o.isSprite&&!o.isPoints&&o.geometry&&!o.userData.noFit){ if(!o.geometry.boundingBox) o.geometry.computeBoundingBox(); tb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); bx.union(tb); } });
+        const sz=bx.isEmpty()?null:bx.getSize(new THREE.Vector3()); atmoBoard.userData._frameR=sz?Math.min(sz.length()*0.5,(atmoBoard.scale.x||2.4)*4):0; }catch(e){}
     }
     const R=atmoBoard.userData._frameR||0;
     if(R>0){
@@ -16698,21 +16787,229 @@ function _atmoTouchdown(){
     },{board,sideOffset:side,yaw,endYaw,endSize:size});
   })();
 }
-// Exit atmosphere → back to open space (the world fades out over the space view).
-function atmoExitToSpace(){
-  const body=PW.body;
-  _pwClose();
-  _backToSpace();
-  toast('🚀 Left '+(body?body.name:'the')+' atmosphere — back in open space',2600);
-}
-// she rides the space board again and the space loop takes over
-function _backToSpace(){
-  try{ rebuildFlightBoardIfBroken('backToSpace'); }catch(e){}
-  if(CHAR.loaded&&CHAR.root&&boardFlight){
-    try{ mountSkyboard(boardFlight); _forceCharVisible(); boardFlight.visible=true; }catch(e){}
+// ── Open space ↔ the sky over a world, in one flight ──────────────────────
+// A landable world within PWS_OPEN radii builds its ground (as the whole
+// planet) and compiles it while space flight carries on; then the space
+// controller keeps flying the board, now in the world's frame: the board
+// is carried round with the planet (co-rotating — the ground stays still
+// under you unless you fly), and below a few radii the speed, the board's
+// size and the camera's distance ease from open-space scale to the sky's
+// with height, so at the top of the air (PWS_DOWN) the sky controller
+// takes the board at the same place, heading, speed and camera. Climbing
+// out past PWS_UP hands it back. Past PWS_CLOSE radii the world closes
+// and space carries on with the same board, same frame.
+function _pwSpaceWatch(){
+  if(PW.active||PW.opening||window.DM_FLAT_WORLD) return;
+  if(typeof flightInited==='undefined'||!flightInited||STATE.screen!=='flight'||SHIP_WALK.active||!boardFlight||!STATE.flight||!STATE.flight.pos) return;
+  if(PW._spaceCool&&performance.now()<PW._spaceCool) return;
+  let best=null,bd=Infinity;
+  for(const b of (celestialBodies||[])){
+    if(!b||!b.mesh||b.isAsteroid||b.type==='Comet'||!isProximityLandEligible(b)) continue;
+    const d=b.mesh.position.distanceTo(STATE.flight.pos)/_bodyR(b); if(d<bd){ bd=d; best=b; }
   }
-  resumeFlightLoop();
+  if(best&&bd<PWS_OPEN) _pwSpaceOpen(best);
 }
+async function _pwSpaceOpen(b){
+  const sp=STATE.flight, la=_pwsLatLonAlt(b,sp.pos);
+  const site={lat:Math.round(la.lat*100)/100,lon:Math.round(la.lon*100)/100};
+  PW.opening=true; let ok=false;
+  try{ ok=await _pwOpen(b,site,'space',{x:0,z:0}); }catch(e){ console.warn('[pw] open from space',e); }
+  finally{ PW.opening=false; }
+  if(!ok) return;
+  // still close? (it could have flown off while the shaders compiled)
+  if(b.mesh.position.distanceTo(sp.pos)/_bodyR(b)>PWS_CLOSE||STATE.screen!=='flight'){ _pwClose({instant:true}); PW._spaceCool=performance.now()+1500; return; }
+  _pwBeginSpace();
+}
+function _pwBeginSpace(){
+  const b=PW.body, cur=PW.sp;
+  PW.sp={P:b.mesh.position.clone(),Q:b.mesh.quaternion.clone(),flat:new THREE.Vector3(),f:1,fc:1,t:1,alt:1e9,camAlt:1e9,speed:0,
+    out:cur?!!cur.out:false,auto:cur?cur.auto:null};
+  const board=PW.board; board.visible=true;
+  if(CHAR.loaded&&CHAR.root&&!(CHAR.mounted&&CHAR.root.parent===board)){ try{ mountSkyboard(board); _forceCharVisible(); }catch(e){} }
+  atmoState=null; atmoBoard=null; surfPlayer=null; surfBoard=null;
+  _pwSetMode('space');
+  _pwSpaceStep(0,true);
+}
+// the sky's follow distance for this camera (what the space camera eases to at the top of the air)
+function _atmoCamBack(){ const o=camMode===0?ATMO_CAM_FOLLOW:(CAM_OFFSETS[camMode]||ATMO_CAM_FOLLOW); return o.back*ATMO_BOARD_SCALE*2.5; }
+// space → the planet's scale, eased by height: 1 far out, the sky's at the top of the air
+function _pwSpaceScale(alt,b){
+  const R=_planetR(), Sx=R/_bodyR(b);
+  const t=_smooth01(Math.log(Math.max(alt,PWS_DOWN)/PWS_DOWN)/Math.log(3*R/PWS_DOWN));
+  const fa=ATMO_BOARD_SCALE/(FLIGHT_BOARD_WORLD_SCALE*Sx), fca=_atmoCamBack()/((CAM_OFFSETS[camMode]||CAM_OFFSETS[0]).back*Sx);
+  const mul=DART_MODES[dartSpeedMode].multiplier;
+  return {t,Sx,f:Math.pow(fa,1-t),fc:Math.pow(fca,1-t),mk:(1+(mul-1)*t)/mul};
+}
+function _pwSpaceStep(dt,first){
+  const sp=STATE.flight, b=PW.body, S=PW.sp; if(!sp||!b||!S) return;
+  // 1. the worlds move on the clock; this one carries the board round with it
+  try{ updateBodies(dt); }catch(e){ _animLoopWarn('updateBodies',e); }
+  const track=typeof ASSIST!=='undefined'&&ASSIST.mode&&(ASSIST.mode==='focus'||ASSIST.mode==='orbit'||ASSIST.mode==='home');
+  const dq=b.mesh.quaternion.clone().multiply(S.Q.clone().invert());
+  if(!track){
+    sp.pos.sub(S.P).applyQuaternion(dq).add(b.mesh.position);
+    spQuat(sp).premultiply(dq).normalize(); try{ spSyncLegacy(sp); }catch(e){}
+    _camRel.applyQuaternion(dq); _camUp.applyQuaternion(dq);
+  }
+  S.P.copy(b.mesh.position); S.Q.copy(b.mesh.quaternion);
+  // 2. fly — the space flight model, scaled by height
+  let la=_pwsLatLonAlt(b,sp.pos);
+  const sc=_pwSpaceScale(la.alt,b);
+  const p0=sp.pos.clone();
+  const manual=!!(JOY.Lx||JOY.Ly||JOY.Rx||JOY.Ry||KEYS['KeyW']||KEYS['KeyS']||KEYS['KeyA']||KEYS['KeyD']||KEYS['ArrowUp']||KEYS['ArrowDown']||KEYS['ArrowLeft']||KEYS['ArrowRight']);
+  if(manual&&(S.out||S.auto)){ S.out=false; if(S.auto){ S.auto=null; toast('Autopilot off — you have the board',1400); } }
+  if(!first) try{ updateFlight(dt); }catch(e){ _animLoopWarn('updateFlight',e); }
+  const step=sp.pos.clone().sub(p0);
+  sp.pos.copy(p0).addScaledVector(step,sc.f*sc.mk);
+  // the autopilots: out to space (TO SPACE / LIFTOFF), or down to a spot picked on the landing globe
+  if(S.out) _pwSpaceOutTick(sp,b,sc,dt);
+  else if(S.auto) _pwSpaceAutoTick(sp,b,sc,dt,la);
+  S.speed=(sp.pos.distanceTo(p0))*sc.Sx/Math.max(1e-3,dt||1/60);
+  try{ updateBoardTransform(0,0); }catch(e){}
+  // the follow camera: the same offsets, scaled
+  const o=CAM_OFFSETS[camMode]||CAM_OFFSETS[0], q=spQuat(sp), fwd=_pwVec(0).set(0,0,-1).applyQuaternion(q);
+  if(!_followInit){ try{ updateFollowCam(1/60); }catch(e){} }
+  flightCamera.position.copy(sp.pos).addScaledVector(_camRel,sc.fc);
+  flightCamera.up.copy(_camUp);
+  flightCamera.lookAt(_pwVec(1).copy(sp.pos).addScaledVector(fwd,o.look*sc.fc).addScaledVector(_camUp,0.4*sc.fc));
+  const fovT=o.fov||62; if(Math.abs(flightCamera.fov-fovT)>0.01){ flightCamera.fov+=(fovT-flightCamera.fov)*Math.min(1,(dt||0)*1.5); flightCamera.updateProjectionMatrix(); }
+  // 3. into the world's frame: the focus is the point under the board
+  la=_pwsLatLonAlt(b,sp.pos);
+  const xz=_atmoXZ(la.lat,la.lon); S.flat.set(xz.x,la.alt,xz.z);
+  S.alt=la.alt; S.t=sc.t; S.f=sc.f; S.fc=sc.fc;
+  S.camAlt=_pwsLatLonAlt(b,flightCamera.position).alt;
+  PW.board.scale.setScalar(FLIGHT_BOARD_WORLD_SCALE*sc.f*sc.Sx);
+  // the orbit globe dissolves into the ground's own globe far out (and back on the way out)
+  const dr=la.dist/_bodyR(b);
+  _pwfReveal(_smooth01((PWS_OPEN-0.4-dr)/1.6));
+  b.mesh.visible=PWF.reveal<0.999;
+  // 4. hand-overs: into the sky, or away from the world
+  if(dr>PWS_CLOSE){ _pwSpaceClose(); return; }
+  if(la.alt<PWS_DOWN&&!S.out) _pwSpaceToFly();
+}
+// TO SPACE / LIFTOFF: keep climbing out (away from the ground and on along the heading) until the world closes
+function _pwSpaceOutTick(sp,b,sc,dt){
+  const up=_pwVec(2).copy(sp.pos).sub(b.mesh.position).normalize(), fwd=spForward(sp).clone();
+  const dir=up.multiplyScalar(0.8).addScaledVector(fwd,0.2).normalize();
+  const spd=0.25*Math.max(0.05,sc.f);
+  sp.vel.lerp(_pwVec(3).copy(dir).multiplyScalar(0.25),0.08);
+  sp.pos.addScaledVector(dir,spd*Math.max(1,(dt||1/60)*60)*0.6);
+  _pwAimLevel(sp,b,dir,dt,2.4);
+}
+// The landing globe picked a spot while you're still in space: fly down to it
+// (over the curve of the world, never through it), then the sky autopilot
+// carries on to it — and sets her down there for SURFACE.
+function _pwSpaceDescend(site,land){
+  if(!PW.sp) return;
+  PW.sp.out=false; PW.sp.auto={lat:site.lat,lon:site.lon,land:!!land};
+  try{ ASSIST&&ASSIST.mode&&typeof cancelAssist==='function'&&cancelAssist(); }catch(e){}
+  SPACE_AP.on=false; try{ $('ap-btn-space').classList.remove('active'); }catch(e){}
+  try{ _clearLandPrompt(); }catch(e){}
+  try{ window.DMGlobe&&DMGlobe.collapse&&DMGlobe.collapse(); }catch(e){}
+  toast((land?'⬇ Descending to ':'🛹 Descending into the sky over ')+_lmFmt(site.lat,site.lon),2200);
+}
+function _pwSpaceAutoTick(sp,b,sc,dt,la){
+  const a=PW.sp.auto, R=_planetR(), r=_bodyR(b), Sx=R/r;
+  const d2r=Math.PI/180, latLonDir=(lat,lon)=>new THREE.Vector3(Math.cos(lat*d2r)*Math.cos(lon*d2r),Math.sin(lat*d2r),-Math.cos(lat*d2r)*Math.sin(lon*d2r));
+  const ub=latLonDir(la.lat,la.lon), ut=latLonDir(a.lat,a.lon), th=Math.acos(Math.max(-1,Math.min(1,ub.dot(ut))));
+  const Q=b.mesh.getWorldQuaternion(new THREE.Quaternion());
+  // along the great circle at height; then a glide (~30°) down toward the spot, so the
+  // board meets the top of the air at an angle the sky controller flies (no flip at hand-over)
+  let tang=ut.clone().addScaledVector(ub,-ub.dot(ut));
+  if(tang.lengthSq()<1e-8){ tang=_pwVec(3).set(0,0,-1).applyQuaternion(spQuat(sp)).applyQuaternion(Q.clone().invert()); tang.addScaledVector(ub,-ub.dot(tang)); }
+  if(tang.lengthSq()<1e-8){ tang.set(0,1,0).addScaledVector(ub,-ub.y); if(tang.lengthSq()<1e-8) tang.set(1,0,0); }
+  tang.normalize();
+  const ax=new THREE.Vector3().crossVectors(ub,tang).normalize();
+  let aimDir, aimAlt;
+  if(th>0.12&&la.alt>R*0.35){ aimDir=ub.clone().applyAxisAngle(ax,0.12); aimAlt=Math.max(3200,Math.min(la.alt,R*0.6)); }
+  else { aimAlt=1800; const glide=Math.min(0.6,Math.max(0,la.alt-aimAlt)/(R*0.577)); aimDir=ub.clone().applyAxisAngle(ax,Math.max(glide,Math.min(th,0.12))); }
+  const target=aimDir.applyQuaternion(Q).multiplyScalar((R+aimAlt)/Sx).add(b.mesh.position);
+  const to=target.clone().sub(sp.pos), dist=to.length();
+  const v=Math.min(dist*0.9,Math.max(0.0008,dist*0.9))*Math.max(0.016,dt||1/60);   // space units this frame (eases in)
+  const dir=to.normalize();
+  sp.pos.addScaledVector(dir,Math.min(v,dist));
+  sp.vel.set(0,0,0);
+  _pwAimLevel(sp,b,dir,dt,3.6);
+}
+// face along `dir` with the world's up overhead (no roll: the horizon stays level into the sky's hand-over)
+const _pwAimM=[null];
+function _pwAimLevel(sp,b,dir,dt,rate){
+  const M=_pwAimM[0]||(_pwAimM[0]=new THREE.Matrix4());
+  const up=_pwVec(4).copy(sp.pos).sub(b.mesh.position).normalize();
+  if(Math.abs(up.dot(dir))>0.999) return;
+  M.lookAt(sp.pos,_pwVec(1).copy(sp.pos).add(dir),up);
+  const aim=new THREE.Quaternion().setFromRotationMatrix(M);
+  spQuat(sp).slerp(aim,1-Math.exp(-(dt||1/60)*rate)).normalize(); try{ spSyncLegacy(sp); }catch(e){}
+}
+// below the top of the air: the sky controller takes the board (same place, heading, speed and camera)
+function _pwSpaceToFly(){
+  const sp=STATE.flight, S=PW.sp, b=PW.body;
+  _pwfSet(S.flat.x,S.flat.z,S.camAlt,PW.site); _pwsSync(b,PW.site);
+  const R=_planetR(), rh=(R+S.alt)/R, jx=rh*PWF.cl*PWF.g, jz=rh;
+  const q=_pwsQToDrawn(spQuat(sp)), f=new THREE.Vector3(0,0,-1).applyQuaternion(q);
+  const fd=new THREE.Vector3(f.x/jx,f.y,f.z/jz).normalize();
+  const yaw=Math.atan2(-fd.x,-fd.z), pitch=Math.max(-0.8,Math.min(0.8,Math.asin(Math.max(-1,Math.min(1,fd.y)))));
+  const mach=Math.min(MACH_PRESETS[MACH_PRESETS.length-1].max,(S.speed/rh)/MACH_UNITS);
+  const camD=_pwsToDrawn(flightCamera.position), boardD=_pwsToDrawn(boardFlight.position);
+  const camRel=camD.sub(boardD); camRel.x/=jx; camRel.z/=jz;
+  const auto=S.auto;
+  // the sky's camera starts where the space camera was (in the flat world: the board + the same offset)
+  PW.blend={p:new THREE.Vector3(S.flat.x,S.alt,S.flat.z).add(camRel),q:PW.camera.quaternion.clone(),f:new THREE.Vector3(S.flat.x,S.alt,S.flat.z),t:0};
+  _pwBeginFly({x:S.flat.x,z:S.flat.z,y:S.alt,yaw,pitch,camRel,fromSpace:true,mach});
+  if(auto){ setAtmoPreset(Math.max(MACH_AUTO_DEFAULT,atmoPreset),true); atmoFlyTo(auto.lat,auto.lon,{land:auto.land,cruise:true}); }
+}
+// over the top of the air: the space flight model takes the board back
+function _pwFlyToSpace(){
+  const s=atmoState, b=PW.body, sp=STATE.flight; if(!s||!b||!sp) return;
+  const cam=PW.camera;
+  _pwfSet(s.pos.x,s.pos.z,cam.position.y,PW.site); _pwsSync(b,PW.site);
+  const R=_planetR(), rh=(R+s.pos.y)/R, jx=rh*PWF.cl*PWF.g, jz=rh;
+  const boardD=_pwVec(0).set(s.pos.x,s.pos.y,s.pos.z);
+  _pwsFromDrawn(boardD,sp.pos); if(boardFlight) boardFlight.position.copy(sp.pos);
+  // heading and pitch → the space board's orientation (drawn frame → space)
+  const qd=new THREE.Quaternion().setFromEuler(new THREE.Euler(s.pitch,s.yaw,0,'YXZ'));
+  sp.quat=_pwsQFromDrawn(qd,new THREE.Quaternion()); try{ spSyncLegacy(sp); }catch(e){}
+  if(boardFlight) boardFlight.quaternion.copy(sp.quat).multiply(_BOARD_ALIGN);
+  const fl=new THREE.Vector3(-Math.sin(s.yaw)*Math.cos(s.pitch),Math.sin(s.pitch),-Math.cos(s.yaw)*Math.cos(s.pitch));
+  const dD=new THREE.Vector3(fl.x*jx,fl.y,fl.z*jz), spd=dD.length()*atmoMach*MACH_UNITS;   // drawn units / s
+  const dS=dD.normalize().applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q);
+  const sc=_pwSpaceScale(s.pos.y,b);
+  sp.vel.copy(dS).multiplyScalar(spd/(sc.Sx*60*Math.max(1e-6,sc.f*sc.mk)));
+  // the camera stays where it is: its offset from the board, in space units (unscaled by the height ease)
+  const camF=PW._camFlat?PW._camFlat.p:cam.position;
+  const rel=new THREE.Vector3(camF.x-s.pos.x,camF.y-s.pos.y,camF.z-s.pos.z); rel.x*=jx; rel.z*=jz;
+  _camRel.copy(rel.applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q).multiplyScalar(1/(sc.Sx*Math.max(1e-6,sc.fc))));
+  _camUp.set(0,1,0).applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q); _followInit=true;
+  flightCamera.fov=cam.fov; flightCamera.updateProjectionMatrix();
+  const out=!!s.toSpace;
+  const ld=PW._lastDrawn; PW.sp=null; _pwBeginSpace(); PW.sp.out=out;
+  if(ld) PW.blend={p:ld.p.clone(),q:ld.q.clone(),f:ld.f.clone(),t:0};   // the camera eases from where the sky left it (relative to the board)
+  if(out) toast('🚀 Climbing out of the '+(b.name||'')+' sky…',2000);
+}
+// far enough out: the world closes, open space carries on with the same board
+function _pwSpaceClose(){
+  _pwClose({instant:true});
+  _pwRestoreSpace(true);
+  PW._spaceCool=performance.now()+1500;
+}
+// she rides the space board again (the one loop carries on)
+function _pwRestoreSpace(keepCam){
+  try{ rebuildFlightBoardIfBroken('backToSpace'); }catch(e){}
+  if(boardFlight){ boardFlight.visible=true; boardFlight.position.copy(STATE.flight.pos); }
+  if(CHAR.loaded&&CHAR.root&&boardFlight){ try{ mountSkyboard(boardFlight); _forceCharVisible(); }catch(e){} }
+  if(!keepCam) _followInit=false;
+  try{ _applyCamOffset(); }catch(e){}
+  if(!flightAnimId) _startFlightLoop();
+}
+// TO SPACE (sky HUD) and LIFTOFF (on foot): climb out through the air to open space — one flight, no cut
+function atmoExitToSpace(){
+  if(!atmoActive||!atmoState) return;
+  const s=atmoState; s.landing=false; s.auto=null; s.toSpace=true;
+  if(atmoIdle){ atmoIdle=false; _atmoIdleUI(); }
+  ATMO_AP.on=false; try{ $('ap-btn-atmo').classList.remove('active'); }catch(e){}
+  toast('🚀 Climbing out to open space',1800);
+}
+function _pwfReveal(v){ PWF.reveal=v; if(PWF.u) PWF.u.reveal.value=v; }
 
 /* ══════════════════════════════════════════════════════════════
    LANDING — the landing globe (ui/dm-globe.js) plots a destination
@@ -16779,9 +17076,9 @@ function atmoFlyTo(lat,lon,opts){
 // Walk mode: pick a place on the map → she boards, lifts off, and the
 // autopilot flies the whole way there at M5 (throttle full), then lands.
 let _pendingAutoFly=null;
-function _lmWalkFly(lat,lon){
+function _lmWalkFly(lat,lon,o){
   if(!surfaceActive||CHAR._transitioning) return;
-  _pendingAutoFly={lat,lon,t:Date.now()};
+  _pendingAutoFly={lat,lon,t:Date.now(),land:!!(o&&o.land)};
   toast('🛹 Boarding — auto-flight to '+_lmFmt(lat,lon),2200);
   surfRemountSkyboard();
 }
@@ -16791,7 +17088,7 @@ function _takePendingAutoFly(){
   if(!p||Date.now()-p.t>60000||!atmoState) return;
   setAtmoPreset(MACH_AUTO_DEFAULT,true);
   ATMO_AP.on=false; try{ $('ap-btn-atmo').classList.remove('active'); }catch(e){}
-  atmoFlyTo(p.lat,p.lon,{cruise:true});
+  atmoFlyTo(p.lat,p.lon,{cruise:true,land:!!p.land});
 }
 window._lmWalkFly=_lmWalkFly;
 // Runs inside updateAtmoFlight; returns true while it's flying the board.
@@ -18357,8 +18654,8 @@ let charOrbitActive=false, charOrbitYaw=0, charOrbitPitch=0.25, charOrbitDist=9.
 let _charOrbitDrag=null, _charOrbitPinch=null, _charOrbitListenersBound=false;
 
 function _charOrbitCanvas(){
-  if(surfaceActive && surfRenderer) return surfRenderer.domElement;
-  if(atmoActive && atmoRenderer) return atmoRenderer.domElement;
+  if(surfaceActive) return $('surface-canvas');
+  if(atmoActive) return $('atmo-canvas');
   return flightRenderer ? flightRenderer.domElement : null;
 }
 
@@ -18489,7 +18786,10 @@ async function enterSurface(body,site,opts){
   opts=opts||{};
   try{ _clearLandPrompt(); }catch(e){}
   if(opts.inPlace&&PW.active&&atmoActive&&PW.body===body){ _pwBeginWalk(opts); return; }
-  if(PW.active) _pwClose({instant:true});
+  if(PW.active&&PW.mode==='space'&&PW.body===body&&site&&typeof site.lat==='number'&&!opts.spawn){ _pwSpaceDescend(site,true); return; }
+  if(PW.active&&atmoActive&&PW.body===body&&site&&typeof site.lat==='number'&&!opts.spawn){ atmoFlyTo(site.lat,site.lon,{land:true,cruise:true}); return; }
+  if(PW.active&&surfaceActive&&PW.body===body&&site&&typeof site.lat==='number'&&!opts.spawn){ _lmWalkFly(site.lat,site.lon,{land:true}); return; }   // elsewhere on this world: fly over and set down there
+  if(PW.active) _pwCloseToSpace();
   const sp=opts.spawn, ok=sp&&isFinite(sp.x)&&isFinite(sp.z);
   const focus={x:ok?sp.x:0,z:ok?sp.z:8};
   CHAR._transitioning=false;   // an interrupted mount/dismount must not freeze her
@@ -18499,7 +18799,6 @@ async function enterSurface(body,site,opts){
   finally{ PW.opening=false; }
   if(!built) return;
   _pwBeginWalk(Object.assign({},opts,{fresh:true,spawn:focus}));
-  _pwReveal();
 }
 // Hand the world to her feet.
 function _pwBeginWalk(opts){
@@ -18675,50 +18974,140 @@ function _surfFluidTick(dt){
 //   • Geometry Clipmaps — Losasso & Hoppe, Microsoft Research (2004)
 //   • three-nanite (AIFanatic, github.com/AIFanatic/three-nanite) — meshlet LOD reference
 // ════════════════════════════════════════════════════════════════════
-// ── Planet curvature (DART Engine) ───────────────────────────────────
-// The ground is the planet's own surface, so it curves away at the planet's
-// true radius — the same sphere the orbit globe and the world map use
-// (360° of ground coordinates = one trip round the world). Walking, contact
-// and raycasts stay on the exact height field; only the picture bends, by
-// d²/2R below the camera's horizontal plane at a distance d — the sphere's
-// own drop (within 0.2% out to 800 units). Everything on the ground (tiles,
-// rocks, water, the sea, beacons, her, the board) bends together, so what
-// touches stays touching; the sky does not bend. The bend is a small offset
-// added in each material's vertex stage; where it is off (k = 0) positions
-// pass through untouched.
+// ── Planet frame (DART Engine) ───────────────────────────────────────
+// The world is laid out flat in lat/lon (x = east, z = south, y = height,
+// ATMO_DEG_PER_UNIT degrees per unit): walking, physics, the height field
+// and the flight controllers all work there. What is drawn is the planet
+// itself: each vertex is carried from its flat lat/lon/height to its true
+// place on the sphere of radius R, written in a local frame at the focus F
+// (the board, or her) — x east, y up, z south — with F itself left exactly
+// where it is. At her feet nothing moves, a few km out the ground curves
+// away at the planet's real radius, and from orbit the same tiles close
+// into the whole globe. The frame re-centres on F every frame (a floating
+// origin: the numbers the GPU sees stay small round the camera at any
+// height). Near the ground the east-west scale keeps the flat world's (so
+// walking and low flight look as they always did); with height it eases
+// to the sphere's own (1/cos φ → 1), so the globe seen from space is the
+// true shape. The same transform on the CPU (_pwfMap) places the camera,
+// the level-of-detail tests and the hand-over to and from open space.
 function _planetR(){ return 360/ATMO_DEG_PER_UNIT/(2*Math.PI); }
-const BEND={c:null,k:null,cache:new Map()};
-function _bendReady(){
-  if(BEND.c) return true;
+const PWF={u:null,cache:new Map(),fx:0,fz:0,lat:0,sl:0,cl:1,g:1,on:0,R:0,reveal:1};
+const _PWF_D=()=>ATMO_DEG_PER_UNIT*Math.PI/180;
+function _pwfReady(){
+  if(PWF.u) return true;
   const W=window; if(typeof W.uniform!=='function'||!W.modelWorldMatrixInverse||!W.positionLocal) return false;
-  BEND.c=W.uniform(new THREE.Vector3()); BEND.k=W.uniform(0); return true;
+  PWF.u={f:W.uniform(new THREE.Vector2()),phi:W.uniform(new THREE.Vector3(0,0,1)),g:W.uniform(1),on:W.uniform(0),R:W.uniform(_planetR()),reveal:W.uniform(1)};
+  PWF.R=_planetR(); return true;
 }
-function _bendNodeFor(base){
-  const key=base||'local'; if(BEND.cache.has(key)) return BEND.cache.get(key);
-  const W=window, p=base||W.positionLocal;
-  const wp=W.modelWorldMatrix.mul(W.vec4(p,1.0));
-  const d=wp.xz.sub(BEND.c.xz), drop=W.dot(d,d).mul(BEND.k);
-  const n=p.add(W.modelWorldMatrixInverse.mul(W.vec4(0.0,drop.negate(),0.0,0.0)).xyz);
-  BEND.cache.set(key,n); return n;
+// centre the frame on the focus (flat x,z) for this frame; alt = camera height (east-west scale)
+function _pwfSet(fx,fz,alt,site){
+  if(!_pwfReady()) return;
+  const s=(site&&typeof site.lat==='number')?site:{lat:0,lon:0};
+  const lat=Math.max(-89.9,Math.min(89.9,s.lat-fz*ATMO_DEG_PER_UNIT))*Math.PI/180;
+  const on=window.DM_FLAT_WORLD?0:1;
+  const w=1-_smooth01((alt-1500)/4500), gMax=Math.min(1/Math.max(1e-3,Math.cos(lat)),5.8);
+  PWF.fx=fx; PWF.fz=fz; PWF.lat=lat; PWF.sl=Math.sin(lat); PWF.cl=Math.cos(lat); PWF.g=1+(gMax-1)*w; PWF.on=on; PWF.R=_planetR();
+  const U=PWF.u; U.f.value.set(fx,fz); U.phi.value.set(lat,PWF.sl,PWF.cl); U.g.value=PWF.g; U.on.value=on; U.R.value=PWF.R;
 }
-// give every material under `root` the bend (skips the sky and anything marked noBend)
-function _bendTag(root){
-  if(!root||!_bendReady()||root.userData.noBend||root.isLight||root.isCamera) return;
+function _pwfOff(){ PWF.on=0; if(PWF.u) PWF.u.on.value=0; }
+// flat (x,y,z) → drawn position (out: Vector3). Same formula as the vertex stage.
+function _pwfMap(x,y,z,out){
+  out=out||new THREE.Vector3();
+  if(!PWF.on) return out.set(x,y,z);
+  const D=_PWF_D(), dp=-(z-PWF.fz)*D, dl=(x-PWF.fx)*D, phi=PWF.lat+dp, cp=Math.cos(phi), rh=PWF.R+y;
+  const s2=Math.sin(dl*0.5), hl=2*s2*s2, s3=Math.sin(dp*0.5), hp=2*s3*s3;
+  const e=rh*cp*Math.sin(dl)*PWF.g, n=rh*(Math.sin(dp)+cp*PWF.sl*hl), u=y-rh*(hp+cp*PWF.cl*hl);
+  return out.set(PWF.fx+e,u,PWF.fz-n);
+}
+// the planet's centre in the drawn frame
+function _pwfCentre(out){ return (out||new THREE.Vector3()).set(PWF.fx,-PWF.R,PWF.fz); }
+// the vertex stage: flat world position → drawn position (back in the object's own space)
+function _pwfNodeFor(base){
+  const key=base||'local'; if(PWF.cache.has(key)) return PWF.cache.get(key);
+  const W=window, U=PWF.u, p=base||W.positionLocal;
+  const wp=W.modelWorldMatrix.mul(W.vec4(p,1.0)).xyz;
+  const D=_PWF_D();
+  const dp=wp.z.sub(U.f.y).mul(-D), dl=wp.x.sub(U.f.x).mul(D);
+  const phi=U.phi.x.add(dp), cp=W.cos(phi), rh=U.R.add(wp.y);
+  const s2=W.sin(dl.mul(0.5)), hl=s2.mul(s2).mul(2.0), s3=W.sin(dp.mul(0.5)), hp=s3.mul(s3).mul(2.0);
+  const e=rh.mul(cp).mul(W.sin(dl)).mul(U.g);
+  const n=rh.mul(W.sin(dp).add(cp.mul(U.phi.y).mul(hl)));
+  const u=wp.y.sub(rh.mul(hp.add(cp.mul(U.phi.z).mul(hl))));
+  const mapped=W.vec3(U.f.x.add(e),u,U.f.y.sub(n));
+  const out=W.modelWorldMatrixInverse.mul(W.vec4(W.mix(wp,mapped,U.on),1.0)).xyz;
+  PWF.cache.set(key,out); return out;
+}
+// a flat-frame direction at flat point wp → the drawn frame (the ground's
+// normals: lit by the one sun as the globe it is, night side and all)
+function _pwfRotN(wp,nf){
+  const W=window, U=PWF.u, D=_PWF_D();
+  const dp=wp.z.sub(U.f.y).mul(-D), dl=wp.x.sub(U.f.x).mul(D);
+  const phi=U.phi.x.add(dp), sp=W.sin(phi), cp=W.cos(phi), sd=W.sin(dl), cd=W.cos(dl), sf=U.phi.y, cf=U.phi.z;
+  const eR=W.vec3(cd,cf.mul(sd).negate(),sf.mul(sd).negate());
+  const nR=W.vec3(sp.mul(sd).negate(),cp.mul(sf).sub(sp.mul(cf).mul(cd)),cp.mul(cf).add(sp.mul(sf).mul(cd)).negate());
+  const rR=W.vec3(cp.mul(sd),sp.mul(sf).add(cp.mul(cf).mul(cd)),sp.mul(cf).sub(cp.mul(sf).mul(cd)).negate());
+  const r=eR.mul(nf.x).add(rR.mul(nf.y)).sub(nR.mul(nf.z));
+  return W.normalize(W.mix(nf,r,U.on));
+}
+// planet-scale fade-in of the ground (screen-door dissolve while the orbit
+// globe hands over to it, far out in space; 1 = solid)
+function _pwfMask(){ const W=window; return W.interleavedGradientNoise(W.screenCoordinate.xy).lessThan(PWF.u.reveal); }
+// give every material under `root` the planet frame (skips the sky, the board, her and anything marked noBend)
+function _pwMapTag(root){
+  if(!root||!_pwfReady()||root.userData.noBend||root.isLight||root.isCamera||(typeof CHAR!=='undefined'&&root===CHAR.root)) return;
   if(root.material&&!root.isSprite&&!root.isLine){
     const mats=Array.isArray(root.material)?root.material:[root.material];
     for(const m of mats){
-      if(!m||m.userData._bent||m.isShaderMaterial||m.isRawShaderMaterial) continue;
-      m.userData._bent=true; m.positionNode=_bendNodeFor(m.positionNode||null); m.needsUpdate=true;
+      if(!m||m.userData._pwf||m.isShaderMaterial||m.isRawShaderMaterial) continue;
+      m.userData._pwf=true; m.positionNode=_pwfNodeFor(m.positionNode||null);
+      if(!m.maskNode) m.maskNode=_pwfMask();
+      m.needsUpdate=true;
     }
+    if(root.isMesh||root.isInstancedMesh) root.frustumCulled=false;   // three culls by the flat bounds; what's drawn is elsewhere
   }
-  for(const c of root.children) _bendTag(c);
+  for(const c of root.children) _pwMapTag(c);
 }
-// centre the bend on the camera for this frame (k = 1/2R); _bendOff after drawing
-function _bendSet(cam,R){ if(!_bendReady()) return; BEND.c.value.copy(cam.position); BEND.k.value=R>0?1/(2*R):0; }
-function _bendOff(){ if(BEND.k) BEND.k.value=0; }
-// how far below the flat world a point is drawn (for anything placed by hand on screen)
-function _bendDrop(x,z){ if(!BEND.k||!BEND.k.value) return 0; const dx=x-BEND.c.value.x, dz=z-BEND.c.value.z; return (dx*dx+dz*dz)*BEND.k.value; }
-window._bendDrop=_bendDrop;
+// ── open space ↔ the planet frame ──
+// body frame (the planet's own, as its mesh turns): lon = atan2(-z, x), lat = asin(y)
+const _PWS={E:null,N:null,U:null,M:null,Mi:null,Q:null,Qi:null,P:null,S:1,tmp:null,ok:false};
+function _pwsReady(){ if(_PWS.E) return; _PWS.E=new THREE.Vector3(); _PWS.N=new THREE.Vector3(); _PWS.U=new THREE.Vector3(); _PWS.M=new THREE.Quaternion(); _PWS.Mi=new THREE.Quaternion(); _PWS.Q=new THREE.Quaternion(); _PWS.Qi=new THREE.Quaternion(); _PWS.P=new THREE.Vector3(); _PWS.tmp=new THREE.Vector3(); }
+function _bodyR(b){ return (b&&(b.collisionRadius||b.mcRadius))||PLANET_VIS_SCALE; }
+// update the space→drawn transform for this frame (after _pwfSet): planet pose, focus frame, scale
+function _pwsSync(b,site){
+  _pwsReady(); if(!b||!b.mesh) { _PWS.ok=false; return; }
+  b.mesh.updateMatrixWorld();
+  b.mesh.getWorldPosition(_PWS.P); b.mesh.getWorldQuaternion(_PWS.Q); _PWS.Qi.copy(_PWS.Q).invert();
+  _PWS.S=_planetR()/_bodyR(b);
+  const s=(site&&typeof site.lat==='number')?site:{lat:0,lon:0};
+  const lat=PWF.lat, lon=(s.lon+PWF.fx*ATMO_DEG_PER_UNIT)*Math.PI/180, cl=Math.cos(lat), sl=Math.sin(lat), co=Math.cos(lon), so=Math.sin(lon);
+  _PWS.U.set(cl*co,sl,-cl*so); _PWS.E.set(-so,0,-co); _PWS.N.set(-sl*co,cl,sl*so);
+  // drawn axes (x, y, z) = body (E, U, −N)
+  const m=new THREE.Matrix4().makeBasis(_PWS.E,_PWS.U,_PWS.N.clone().negate());
+  _PWS.M.setFromRotationMatrix(m); _PWS.Mi.copy(_PWS.M).invert(); _PWS.ok=true;
+}
+// space point → drawn point
+function _pwsToDrawn(p,out){
+  out=out||new THREE.Vector3(); const R=PWF.R;
+  const B=_PWS.tmp.copy(p).sub(_PWS.P).applyQuaternion(_PWS.Qi).multiplyScalar(_PWS.S);
+  B.addScaledVector(_PWS.U,-R);
+  return out.set(PWF.fx+B.dot(_PWS.E),B.dot(_PWS.U),PWF.fz-B.dot(_PWS.N));
+}
+// drawn point → space point
+function _pwsFromDrawn(r,out){
+  out=out||new THREE.Vector3(); const R=PWF.R;
+  out.copy(_PWS.U).multiplyScalar(R+r.y).addScaledVector(_PWS.E,r.x-PWF.fx).addScaledVector(_PWS.N,-(r.z-PWF.fz));
+  return out.multiplyScalar(1/_PWS.S).applyQuaternion(_PWS.Q).add(_PWS.P);
+}
+// orientations
+function _pwsQToDrawn(q,out){ return (out||new THREE.Quaternion()).copy(_PWS.Mi).multiply(_PWS.Qi).multiply(q); }
+function _pwsQFromDrawn(q,out){ return (out||new THREE.Quaternion()).copy(_PWS.Q).multiply(_PWS.M).multiply(q); }
+// where a space point is over the planet: lat/lon (deg) and height above the ground (drawn units)
+function _pwsLatLonAlt(b,p){
+  _pwsReady(); b.mesh.updateMatrixWorld();
+  const P=b.mesh.getWorldPosition(new THREE.Vector3()), Qi=b.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const d=p.clone().sub(P).applyQuaternion(Qi), L=d.length()||1;
+  return {lat:Math.asin(Math.max(-1,Math.min(1,d.y/L)))*180/Math.PI, lon:Math.atan2(-d.z,d.x)*180/Math.PI, alt:L*_planetR()/_bodyR(b)-_planetR(), dist:L};
+}
 
 const TERRAIN={
   rootSize:2400,      // the walking reach (swim volume, caustics) — from the Draw Distance setting
@@ -19770,9 +20159,6 @@ const EARTH_CONTINENTS=[
   // Antarctica — wide polar band
   {lat:-82,lon:0,rlat:12,rlon:180,rot:0},
 ];
-function _latLonOf(x,y,z,R){
-  return {lat:Math.asin(THREE.MathUtils.clamp(y/R,-1,1))*180/Math.PI, lon:Math.atan2(z,x)*180/Math.PI};
-}
 /** Signed land field: >0 land (higher = more interior), <0 ocean. Shared by
  *  orbital MC density (TSL port), land-pick/orbit texture, flight canvas, and
  *  surface/atmo site height so continents match across LODs. */
@@ -19957,11 +20343,13 @@ if(_ws!=='lush') h=DMWorldStyle.shape(_ws,x,z,h,seed,_fbm);
 // Node shader: WebGPU, and the WebGL2 fallback through the same renderer.
 function _shoreWaterMaterial(liqColor,opacity,rough){
   const W=window;
-  if(!THREE.MeshStandardNodeMaterial||typeof W.viewportDepthTexture!=='function'||typeof W.perspectiveDepthToViewZ!=='function') return null;
-  const {float,vec3,color,mix,smoothstep,clamp,positionView,positionWorld,cameraNear,cameraFar,viewportDepthTexture,perspectiveDepthToViewZ,mx_noise_float,time}=W;
+  if(!THREE.MeshStandardNodeMaterial||typeof W.viewportDepthTexture!=='function'||typeof W.logarithmicDepthToViewZ!=='function') return null;
+  const {float,vec3,color,mix,smoothstep,clamp,positionView,cameraNear,cameraFar,viewportDepthTexture,mx_noise_float,time}=W;
   const m=new THREE.MeshStandardNodeMaterial({transparent:true,depthWrite:false});
+  const positionWorld=W.varying(W.modelWorldMatrix.mul(W.vec4(W.positionGeometry,1.0)).xyz);   // the flat world (the swell keeps its place as the frame moves)
+  const depthToViewZ=(d,n,f)=>(flightRenderer&&flightRenderer.logarithmicDepthBuffer)?W.logarithmicDepthToViewZ(d,n,f):W.perspectiveDepthToViewZ(d,n,f);
   const deep=color(new THREE.Color(liqColor).multiplyScalar(0.55)), shallow=color(new THREE.Color(liqColor).lerp(new THREE.Color(0x5fd0c8),0.55));
-  const sceneZ=perspectiveDepthToViewZ(viewportDepthTexture().r,cameraNear,cameraFar);
+  const sceneZ=depthToViewZ(viewportDepthTexture().r,cameraNear,cameraFar);
   const thick=clamp(positionView.z.sub(sceneZ),0.0,500.0);          // water between the surface and the ground behind it
   const swell=mx_noise_float(vec3(positionWorld.x.mul(0.35),positionWorld.z.mul(0.35),time.mul(0.35))).mul(0.5).add(0.5);
   const lace=mx_noise_float(vec3(positionWorld.x.mul(1.6),positionWorld.z.mul(1.6),time.mul(0.9))).mul(0.5).add(0.5);
@@ -19972,6 +20360,7 @@ function _shoreWaterMaterial(liqColor,opacity,rough){
   m.opacityNode=clamp(mix(float(0.28),float(Math.max(0.85,opacity||0.82)),smoothstep(0.0,9.0,thick)).add(foam.mul(0.6)),0.0,1.0);
   m.roughnessNode=mix(float(rough!=null?rough:0.15),float(0.85),clamp(foam,0.0,1.0));
   m.metalnessNode=float(0.25);
+  if(_pwfReady()){ m.positionNode=_pwfNodeFor(null); m.userData._pwf=true; m.maskNode=_pwfMask(); m.normalNode=W.normalize(W.cameraViewMatrix.mul(W.vec4(_pwfRotN(positionWorld,W.normalize(W.modelNormalMatrix.mul(W.normalLocal))),0.0)).xyz); }
   if(GFX&&GFX.envReflections&&typeof _envMap!=='undefined'&&_envMap) m.envMap=_envMap;
   return m;
 }
@@ -19983,54 +20372,85 @@ function _groundField(body,site,pal){
   const geo=!!(body&&body.name==='Earth'&&site&&typeof site.lat==='number');
   const siteBias=(geo&&typeof site.lon==='number'&&typeof earthSiteHeightBias==='function')?earthSiteHeightBias(site.lat,site.lon,seed,0,0):0;
   const ws=(window.DMWorldStyle&&body)?DMWorldStyle.styleFor(body,pal,site):'lush';
-  const sw=_siteWorldXZ(site);
+  const sw=_siteWorldXZ(site), D=ATMO_DEG_PER_UNIT, WX=360/D, x0=-180/D-sw.x, zN=(-89.9/D)-sw.z, zS=(89.9/D)-sw.z;
   function H(lx,lz){
+    // one world: east-west wraps round at ±180°, north-south stops at the poles
+    lx=lx-Math.floor((lx-x0)/WX)*WX; lz=lz<zN?zN:(lz>zS?zS:lz);
     const h=_terrainCore(lx+sw.x,lz+sw.z,seed,ws);
-    if(geo&&typeof earthSiteHeightBias==='function') return _earthBlend(h,earthSiteHeightBias(site.lat,site.lon,seed,lx,lz,0.008));
+    if(geo&&typeof earthSiteHeightBias==='function') return _earthBlend(h,earthSiteHeightBias(site.lat,site.lon,seed,lx,lz,D));
     return h+siteBias;
   }
   return {H,seed,ws,sw,siteBias,siteLat:(site&&typeof site.lat==='number')?site.lat:0};
 }
 
-// ── Sky ground: the walking ground seen from the air, level of detail ──
-// A quadtree of height tiles over the same field you walk on. Far tiles are
-// coarse (every mountain, mesa, crater and canyon still there in outline);
-// they split as you come closer, down to 2-unit cells within a few hundred
-// feet, where the walking detail (cracks, pebbles, sand ripples) fades in
-// — the way a flight game sharpens the ground as you dive. Coarse tiles
-// stay up until their finer children are built, so there are never holes;
-// skirts hide the seams between levels. Built nearest-first under a small
+// ── The planet's ground, level of detail, pole to pole ─────────────────
+// One quadtree over the whole world's height field: 8 × 4 root tiles that
+// cover longitude −180…180 and latitude 90…−90 exactly (laid out in the
+// flat lat/lon frame, drawn on the sphere by the planet frame). Tiles split
+// by their true 3-D distance from the camera, so from orbit the whole globe
+// is a few dozen coarse tiles, and diving in it sharpens a level at a time
+// down to 2-unit cells under her feet — the way a flight game sharpens the
+// ground as you dive. Tiles past the horizon or out of view are skipped;
+// coarse tiles stay up until their finer children are built (no holes),
+// skirts hide the seams between levels, and each new tile starts out as its
+// parent's shape and colour and eases into its own (geomorph), so nothing
+// pops. Far tiles show the sea as the sea (flat, the ocean's own colour);
+// close in the real sea sheet takes over. Built nearest-first under a small
 // per-frame time budget.
 function SkyGround(scene,F,pal,o){
   o=o||{};
-  this.F=F; this.pal=pal; this.TOP=8192; this.SEG=32; this.MIN=64; this.K=o.k||1.8;
+  this.F=F; this.pal=pal; this.SEG=32; this.MIN=44; this.K=o.k||1.8;
+  this.TOP=180/4/ATMO_DEG_PER_UNIT;      // 45° tiles
   this.budget=o.budget||(GFX.isMobile?4:7);
   this.group=new THREE.Group(); this.group.name='JOTS_SkyGround'; scene.add(this.group);
   this.roots=new Map(); this.queue=[]; this.viewR=4000;
-  const prevStyle=TERRAIN.style; TERRAIN.style=F.ws; this.mat=_terrainDetailMat({dry:!pal.water}); TERRAIN.style=prevStyle;
+  const prevStyle=TERRAIN.style; TERRAIN.style=F.ws; this.mat=_terrainDetailMat({dry:!pal.water,planet:true}); TERRAIN.style=prevStyle;
   this.copt={siteBias:F.siteBias,siteLat:F.siteLat,style:F.ws};
+  this.COARSE=80;                        // tiles this coarse draw the sea as the sea
+  const lc=pal.liquidColor!==undefined?pal.liquidColor:0x1a5a8a;
+  this.wDeep=new THREE.Color(lc).multiplyScalar(0.6); this.wShal=new THREE.Color(lc).lerp(new THREE.Color(0x3f8fb0),0.4);
+  this._fr=new THREE.Frustum(); this._m4=new THREE.Matrix4(); this._v=new THREE.Vector3(); this._c=new THREE.Vector3(); this._cc=new THREE.Vector3(); this._sph=new THREE.Sphere();
 }
 SkyGround.prototype._node=function(x0,z0,size,parent){ return {x0,z0,size,parent,kids:null,mesh:null,minH:parent?parent.minH:-60,maxH:parent?parent.maxH:260}; };
-SkyGround.prototype._dist=function(n,c){
-  const cx=n.x0+n.size/2, cz=n.z0+n.size/2;
-  const dx=Math.max(0,Math.abs(c.x-cx)-n.size/2), dz=Math.max(0,Math.abs(c.z-cz)-n.size/2);
-  const dy=c.y>n.maxH?c.y-n.maxH:(c.y<n.minH?n.minH-c.y:0);
-  return Math.sqrt(dx*dx+dy*dy+dz*dz);
+// the lat/lon domain in this site's flat frame
+SkyGround.prototype._domain=function(){
+  const s=PW.site&&typeof PW.site.lat==='number'?PW.site:{lat:0,lon:0}, D=ATMO_DEG_PER_UNIT;
+  return {x0:(-180-s.lon)/D, z0:(s.lat-90)/D, W:360/D};
+};
+// distance (3-D, drawn frame) from the camera to the tile, and whether it can be seen
+SkyGround.prototype._measure=function(n,c){
+  const cx=n.x0+n.size/2, cz=n.z0+n.size/2, hy=(n.minH+n.maxH)/2;
+  const p=_pwfMap(cx,Math.max(0,hy),cz,this._v);
+  const rad=n.size*0.72*Math.max(1,PWF.on?PWF.g:1)+(n.maxH-n.minH)*0.5;
+  n._d=Math.max(0,p.distanceTo(c)-rad);
+  n._vis=true; n._inView=true;
+  if(PWF.on){
+    // behind the planet: past the camera's horizon plus the tile's own horizon
+    const C=_pwfCentre(this._cc), R=PWF.R, cv=this._c.copy(c).sub(C), dc=cv.length();
+    const pv=p.sub(C), th=Math.acos(Math.max(-1,Math.min(1,cv.dot(pv)/(dc*(pv.length()||1)))));
+    const a=n.size*0.75*_PWF_D()*Math.max(1,PWF.g);
+    const hz=Math.acos(Math.min(1,R/Math.max(R,dc)))+Math.acos(Math.min(1,R/(R+Math.max(0,n.maxH))));
+    if(th-a>hz+0.03) n._vis=false;
+    this._v.copy(pv).add(C);
+  }
+  if(n._vis&&this._frOn){ this._sph.center.copy(this._v); this._sph.radius=rad+n.size*0.05; n._inView=this._fr.intersectsSphere(this._sph); }
 };
 SkyGround.prototype.update=function(cam,budgetMs){
-  const T=this.TOP, R=this.viewR, c=cam.position;
-  // top-level tiles round the camera (fixed grid: tiles never shift under you)
-  const i0=Math.floor((c.x-R)/T), i1=Math.floor((c.x+R)/T), j0=Math.floor((c.z-R)/T), j1=Math.floor((c.z+R)/T);
-  const keep=new Set();
-  for(let j=j0;j<=j1;j++) for(let i=i0;i<=i1;i++){
+  const T=this.TOP, c=cam.position, dm=this._domain();
+  // the camera's view (drawn frame) for culling and build order
+  this._frOn=!!(cam.projectionMatrix&&cam.matrixWorldInverse);
+  if(this._frOn){ cam.updateMatrixWorld(); this._m4.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse); this._fr.setFromProjectionMatrix(this._m4); }
+  // root columns follow the focus round the world (wrapping copies), rows run pole to pole
+  const cf=Math.floor((PWF.fx-dm.x0)/T), keep=new Set();
+  for(let j=0;j<4;j++) for(let i=cf-4;i<=cf+3;i++){
     const k=i+'_'+j; keep.add(k);
-    if(!this.roots.has(k)) this.roots.set(k,this._node(i*T,j*T,T,null));
+    if(!this.roots.has(k)) this.roots.set(k,this._node(dm.x0+i*T,dm.z0+j*T,T,null));
   }
   for(const [k,n] of this.roots) if(!keep.has(k)){ this._drop([n]); this.roots.delete(k); }
   this.queue.length=0;
-  for(const n of this.roots.values()) this._visit(n,c);
-  // nearest (for its size) first, coarse before fine: the ground under you sharpens first, a level at a time, the distance after
-  this.queue.sort((a,b)=>(Math.floor(a._d/a.size*4)-Math.floor(b._d/b.size*4))||(b.size-a.size)||(a._d-b._d));
+  for(const n of this.roots.values()) this._visit(n,c,0);
+  // in view before out of view, nearest (for its size) first, coarse before fine
+  this.queue.sort((a,b)=>((b._inView?1:0)-(a._inView?1:0))||(Math.floor(a._d/a.size*4)-Math.floor(b._d/b.size*4))||(b.size-a.size)||(a._d-b._d));
   const t0=performance.now(), B=budgetMs!=null?budgetMs:this.budget;
   for(let q=0;q<this.queue.length;q++){ const tb=performance.now(); this._build(this.queue[q]); this.buildMs=(this.buildMs||0)*0.9+(performance.now()-tb)*0.1; if(performance.now()-t0>B) break; }
   for(const n of this.roots.values()) this._show(n);
@@ -20038,15 +20458,15 @@ SkyGround.prototype.update=function(cam,budgetMs){
   this._morphTick(dt);
   return this.queue.length;
 };
-SkyGround.prototype._visit=function(n,c){
-  const d=this._dist(n,c); n._d=d;
-  const far=d>this.viewR&&n.parent;   // beyond what can be seen: let it go
+SkyGround.prototype._visit=function(n,c,depth){
+  this._measure(n,c);
+  const far=(n._d>this.viewR||!n._vis)&&n.parent;   // beyond what can be seen: let it go
   n._hidden=!!far;
-  const split=!far&&n.size>this.MIN&&d<n.size*this.K;
+  const split=!far&&n._vis&&n.size>this.MIN&&n._d<n.size*this.K;
   if(split){
     if(!n.kids){ const h=n.size/2; n.kids=[this._node(n.x0,n.z0,h,n),this._node(n.x0+h,n.z0,h,n),this._node(n.x0,n.z0+h,h,n),this._node(n.x0+h,n.z0+h,h,n)]; }
     if(!n.mesh) this.queue.push(n);   // every level gets its own tiles, so detail sharpens a level at a time (coarse first)
-    for(const k of n.kids) this._visit(k,c);
+    for(const k of n.kids) this._visit(k,c,depth+1);
   } else {
     if(n.kids){ this._drop(n.kids); n.kids=null; }
     if(!n.mesh&&!n._hidden) this.queue.push(n);
@@ -20056,42 +20476,58 @@ SkyGround.prototype._visit=function(n,c){
 SkyGround.prototype._ready=function(n){ return n._hidden||!!n.mesh||(!!n.kids&&n.kids.every(k=>this._ready(k))); };
 SkyGround.prototype._show=function(n){
   const useKids=n.kids&&n.kids.every(k=>this._ready(k));
-  if(n.mesh){ n.mesh.visible=!useKids&&!n._hidden; if(n.mesh.visible&&n.morph&&n.morph.t<0){ n.morph.t=0; (this.morphing||(this.morphing=new Set())).add(n); } }
+  if(n.mesh){ n.mesh.visible=!useKids&&!n._hidden&&n._vis!==false&&n._inView!==false; if(n.mesh.visible&&n.morph&&n.morph.t<0){ n.morph.t=0; (this.morphing||(this.morphing=new Set())).add(n); } }
   if(n.kids) for(const k of n.kids){ if(useKids) this._show(k); else this._hide(k); }
 };
 SkyGround.prototype._hide=function(n){ if(n.mesh) n.mesh.visible=false; if(n.kids) for(const k of n.kids) this._hide(k); };
 SkyGround.prototype._drop=function(list){
-  for(const n of list){ if(n.kids) this._drop(n.kids); if(n.mesh){ this.group.remove(n.mesh); n.mesh.geometry.dispose(); n.mesh=null; } n.kids=null; }
+  for(const n of list){ if(n.kids) this._drop(n.kids); if(n.mesh){ this.group.remove(n.mesh); n.mesh.geometry.dispose(); n.mesh=null; } n.kids=null; if(this.morphing) this.morphing.delete(n); }
 };
+// height and colour at a ground point for a tile of this step: coarse tiles draw the sea flat, in its own colour
+SkyGround.prototype._sea=function(h,step){ return this.pal.water&&step>=this.COARSE&&h<0; };
 SkyGround.prototype._build=function(n){
   const F=this.F, H=F.H, seg=this.SEG, step=n.size/seg, S1=seg+1, G=seg+3, pal=this.pal;
-  const hb=new Float32Array(G*G); let mn=1e9, mx=-1e9;
-  for(let r=0;r<G;r++) for(let q=0;q<G;q++){ const h=H(n.x0+(q-1)*step,n.z0+(r-1)*step); hb[r*G+q]=isFinite(h)?h:0; }
+  const D=ATMO_DEG_PER_UNIT, site=PW.site&&typeof PW.site.lat==='number'?PW.site:{lat:0,lon:0};
+  const hb=new Float32Array(G*G), raw=new Float32Array(G*G); let mn=1e9, mx=-1e9;
+  for(let r=0;r<G;r++) for(let q=0;q<G;q++){ let h=H(n.x0+(q-1)*step,n.z0+(r-1)*step); if(!isFinite(h)) h=0; raw[r*G+q]=h; hb[r*G+q]=this._sea(h,step)?-2:h; }
   const ring=[]; for(let q=0;q<seg;q++) ring.push(q); for(let r=0;r<seg;r++) ring.push(r*S1+seg); for(let q=seg;q>0;q--) ring.push(seg*S1+q); for(let r=seg;r>0;r--) ring.push(r*S1);
   const vc=S1*S1+ring.length, pos=new Float32Array(vc*3), nor=new Float32Array(vc*3), col=new Float32Array(vc*3);
+  const copt=Object.assign({},this.copt,{siteLat:site.lat-(n.z0+n.size/2)*D});
+  const tc=new THREE.Color();
+  const colourAt=(x,z,h,ny,sea)=>{
+    if(sea){ tc.copy(this.wShal).lerp(this.wDeep,Math.min(1,Math.max(0,-h/40))); return tc; }
+    return surfaceBiomeColor(x+F.sw.x,z+F.sw.z,h,Math.min(1,Math.max(0,1-ny)*1.6),pal,F.seed,copt);
+  };
   for(let r=0;r<S1;r++) for(let q=0;q<S1;q++){
-    const k=r*S1+q, b=(r+1)*G+q+1, h=hb[b];
+    const k=r*S1+q, b=(r+1)*G+q+1, h=hb[b], sea=this._sea(raw[b],step);
     if(h<mn) mn=h; if(h>mx) mx=h;
-    let nx=hb[b-1]-hb[b+1], ny=2*step, nz=hb[b-G]-hb[b+G]; const L=Math.hypot(nx,ny,nz)||1; nx/=L; ny/=L; nz/=L;
+    let nx=hb[b-1]-hb[b+1], ny=2*step, nz=hb[b-G]-hb[b+G]; if(sea){ nx=0; nz=0; } const L=Math.hypot(nx,ny,nz)||1; nx/=L; ny/=L; nz/=L;
     pos[k*3]=q*step; pos[k*3+1]=h; pos[k*3+2]=r*step;
     nor[k*3]=nx; nor[k*3+1]=ny; nor[k*3+2]=nz;
-    const cc=surfaceBiomeColor(n.x0+q*step+F.sw.x,n.z0+r*step+F.sw.z,h,Math.min(1,Math.max(0,1-ny)*1.6),pal,F.seed,this.copt);
+    const cc=colourAt(n.x0+q*step,n.z0+r*step,sea?raw[b]:h,ny,sea);
     col[k*3]=cc.r; col[k*3+1]=cc.g; col[k*3+2]=cc.b;
   }
   const drop=Math.max(4,step*2);
   // Geomorph: what this tile looks like at its parent's resolution — the
   // even vertices are the parent's own points, the odd ones lie on the
-  // straight line (or flat quad) between them. The tile starts out exactly
-  // that shape and colour and eases into its full detail, so nothing pops.
+  // straight line (or flat quad) between them (and where the parent drew
+  // the sea flat, so does the start). The tile starts out exactly that
+  // shape and colour and eases into its full detail, so nothing pops.
   let morph=null;
   if(n.parent){
+    const pstep=step*2, pSea=this.pal.water&&pstep>=this.COARSE&&step<this.COARSE;
+    const pY=new Float32Array(S1*S1), pN=nor.slice(0,S1*S1*3), pC=col.slice(0,S1*S1*3);
+    for(let r=0;r<S1;r++) for(let q=0;q<S1;q++){
+      const k=r*S1+q, b=(r+1)*G+q+1; pY[k]=pos[k*3+1];
+      if(pSea&&raw[b]<0){ pY[k]=-2; pN[k*3]=0; pN[k*3+1]=1; pN[k*3+2]=0; const c2=colourAt(0,0,raw[b],1,true); pC[k*3]=c2.r; pC[k*3+1]=c2.g; pC[k*3+2]=c2.b; }
+    }
     const cY=new Float32Array(S1*S1), cN=new Float32Array(S1*S1*3), cC=new Float32Array(S1*S1*3);
     const lerpV=(dst,src,w,k,a,b,c,d)=>{ for(let e=0;e<w;e++) dst[k*w+e]=(src[a*w+e]+src[b*w+e]+src[c*w+e]+src[d*w+e])*0.25; };
     for(let r=0;r<S1;r++) for(let q=0;q<S1;q++){
       const k=r*S1+q, q0=q&~1, r0=r&~1, q1=Math.min(seg,q0+((q&1)?2:0)), r1=Math.min(seg,r0+((r&1)?2:0));
       const a=r0*S1+q0, b=r0*S1+q1, c=r1*S1+q0, d=r1*S1+q1;
-      cY[k]=(pos[a*3+1]+pos[b*3+1]+pos[c*3+1]+pos[d*3+1])*0.25;
-      lerpV(cN,nor,3,k,a,b,c,d); lerpV(cC,col,3,k,a,b,c,d);
+      cY[k]=(pY[a]+pY[b]+pY[c]+pY[d])*0.25;
+      lerpV(cN,pN,3,k,a,b,c,d); lerpV(cC,pC,3,k,a,b,c,d);
     }
     morph={cY,cN,cC,fY:new Float32Array(S1*S1),fN:nor.slice(0,S1*S1*3),fC:col.slice(0,S1*S1*3),S1,ring,drop,t:-1};
     for(let k=0;k<S1*S1;k++) morph.fY[k]=pos[k*3+1];
@@ -20106,7 +20542,7 @@ SkyGround.prototype._build=function(n){
   geo.setAttribute('color',new THREE.BufferAttribute(col,3));
   geo.setIndex(new THREE.Uint16BufferAttribute(idx,1));
   geo.computeBoundingSphere();
-  const m=new THREE.Mesh(geo,this.mat); m.position.set(n.x0,0,n.z0); m.visible=false; m.userData.skyTile=n.size;
+  const m=new THREE.Mesh(geo,this.mat); m.position.set(n.x0,0,n.z0); m.visible=false; m.userData.skyTile=n.size; m.frustumCulled=false;   // culled here, on the sphere
   if(GFX.shadows) m.receiveShadow=true;
   this.group.add(m); n.mesh=m; n.minH=mn; n.maxH=mx; n.morph=morph;
   if(morph) this._applyMorph(n,0);
@@ -20134,6 +20570,60 @@ SkyGround.prototype._morphTick=function(dt){
 };
 SkyGround.prototype.dispose=function(){ this._drop([...this.roots.values()]); this.roots.clear(); if(this.group.parent) this.group.parent.remove(this.group); };
 
+// ── The air seen from outside (DART Engine) ─────────────────────────────
+// A shell round the whole planet that scatters the sun through the
+// atmosphere: each pixel integrates the air along its line of sight (ten
+// steps through the shell, stopping at the ground or whatever stands in
+// front) — thin straight down, thick along the limb — lit where the sun is
+// up, so from orbit the planet wears a bright rim on its day side, the
+// terminator goes amber and the night side has none. It takes over from
+// the sky dome as you climb (the dome thins out between ~400 and ~1800
+// units up) and gives the view back to it on the way down: one continuous
+// sky from the ground to space and back. Additive, over everything drawn.
+function _pwAtmoShell(pal,sky){
+  const W=window; if(!pal.atmos||!THREE.MeshBasicNodeMaterial||typeof W.Loop!=='function') return null;
+  const R=_planetR(), TOP=2000, HS=350, SIG=4.5e-4, N=10, Ra=R+TOP;
+  const sk=window.DMWorldStyle?DMWorldStyle.skyFor((window.DMWorldStyle&&PW.body)?DMWorldStyle.styleFor(PW.body,pal,PW.site):'lush',pal):{top:0x3a6ea5,bottom:0x88bbff};
+  const U={C:W.uniform(new THREE.Vector3()),sun:W.uniform(new THREE.Vector3(0,1,0)),k:W.uniform(0),
+    col:W.uniform(new THREE.Color(sk.bottom!=null?sk.bottom:0x88bbff).lerp(new THREE.Color(sk.top!=null?sk.top:0x3a6ea5),0.35)),
+    warm:W.uniform(new THREE.Color(0xff9a5a))};
+  const {Fn,float,vec3,vec4,normalize,dot,sqrt,max,min,exp,smoothstep,mix,pow,Loop,cameraPosition,positionWorld,cameraViewMatrix,cameraNear,cameraFar,viewportDepthTexture,screenUV}=W;
+  const mat=new THREE.MeshBasicNodeMaterial({side:THREE.BackSide,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending});
+  mat.fog=false;
+  const sphere=(ro,rd,C,r)=>{ const oc=ro.sub(C), b=dot(oc,rd), c=dot(oc,oc).sub(r*r), h=b.mul(b).sub(c); return {b,h}; };
+  mat.colorNode=Fn(()=>{
+    const ro=cameraPosition, rd=normalize(positionWorld.sub(ro)), C=U.C;
+    const S=sphere(ro,rd,C,Ra), sh=sqrt(max(S.h,0.0));
+    const t0=max(S.b.negate().sub(sh),0.0), t1=S.b.negate().add(sh);
+    // the ground (the sea-level sphere) and whatever the scene drew in front
+    const G=sphere(ro,rd,C,R), tg=W.select(G.h.greaterThan(0.0).and(G.b.lessThan(0.0)),G.b.negate().sub(sqrt(max(G.h,0.0))),float(1e9));
+    const vz=W.logarithmicDepthToViewZ(viewportDepthTexture(screenUV).r,cameraNear,cameraFar);
+    const vd=cameraViewMatrix.mul(vec4(rd,0.0)).xyz;
+    const ts=W.select(vz.negate().lessThan(cameraFar.mul(0.98)),vz.div(min(vd.z,-1e-4)),float(1e9));
+    const t2=min(min(t1,tg),ts), len=max(t2.sub(t0),0.0), dt=len.div(N);
+    const tau=float(0).toVar(), acc=vec3(0).toVar();
+    Loop(N,({i})=>{
+      const p=ro.add(rd.mul(t0.add(dt.mul(float(i).add(0.5))))), up=p.sub(C), r=up.length();
+      const rho=exp(r.sub(R).max(0.0).div(-HS));
+      tau.addAssign(rho.mul(dt));
+      const mu=dot(up.div(r),U.sun);
+      const lit=smoothstep(-0.12,0.18,mu), dusk=smoothstep(0.35,0.0,mu).mul(lit);
+      acc.addAssign(mix(U.col,U.warm,dusk.mul(0.7)).mul(rho.mul(lit).mul(dt).mul(exp(tau.mul(-SIG)))));
+    });
+    const fwd=pow(max(dot(rd,U.sun),0.0),8.0).mul(0.6).add(1.0);
+    return acc.mul(SIG*2.2).mul(fwd).mul(U.k);
+  })();
+  const m=new THREE.Mesh(new THREE.SphereGeometry(Ra,96,48),mat);
+  m.name='JOTS_AtmoShell'; m.frustumCulled=false; m.renderOrder=50; m.userData.noBend=true; m.raycast=()=>{}; m.visible=false;
+  return {mesh:m,U,
+    update(k,sunDir){
+      U.k.value=k; m.visible=k>0.002;
+      if(!m.visible) return;
+      _pwfCentre(m.position); U.C.value.copy(m.position);
+      if(sunDir) U.sun.value.copy(sunDir).normalize();
+    }};
+}
+
 // ── The world's ground (built once per visit, shared by the sky and on foot) ──
 // One level-of-detail quadtree (SkyGround) over the world's height field is
 // the whole ground, from 20 km up to her feet. Near whoever is driving it is
@@ -20155,12 +20645,12 @@ function _pwBuildGround(pal,fx,fz,mode){
   PW.props=new Map(); PW.propsGroup=null; PW.seaSpan=0;
   const G=new SkyGround(TERRAIN.group,F,pal); PW.ground=G;
   // first look: the coarse cover all round, finer toward the spot (the rest refines as the camera moves)
-  G.viewR=6000; G.update({position:new THREE.Vector3(fx,(H(fx,fz)||0)+(mode==='walk'?3:60),fz)},900);
+  G.viewR=mode==='space'?1e9:6000; G.update({position:_pwfMap(fx,(H(fx,fz)||0)+(mode==='space'?2e5:(mode==='walk'?3:60)),fz)},mode==='space'?60:500);
   _surfHeight=window._surfHeight=_pwGroundAt;
   window._surfNormal=_pwGroundNormal;
   TERRAIN.mcOpts={seed,pal,siteLandBias:F.siteBias,siteLat:F.siteLat,earthGeo:!!(body&&body.name==='Earth'&&site&&typeof site.lat==='number')};
   // ── Marching cubes (WebGPU-first: density compute → MC+biome → collision readback)
-  if(_isRealWebGPU(PW.renderer)){
+  if(_isRealWebGPU(flightRenderer)){
     TERRAIN.mcGpu=true;   // built round whoever is driving, once they are near the ground (_pwWorldTick)
     const inMc=(x,z)=>{ const i=TERRAIN.mcGridInfo; return !!(i&&Math.abs(x-i.cx)<i.half&&Math.abs(z-i.cz)<i.half); };
     const ray=(x,z)=>{
@@ -20511,10 +21001,16 @@ function _terrainDetailMat(opts){
   try{
     m=new THREE.MeshStandardNodeMaterial({vertexColors:true,roughness:0.94,metalness:0.0,side:opts.side||THREE.FrontSide});
     const W=window;
-    const p=W.positionWorld;
+    const mapped=_pwfReady();
+    const p=mapped?W.varying(W.modelWorldMatrix.mul(W.vec4(W.positionGeometry,1.0)).xyz):W.positionWorld;   // the flat world point
+    // (two-sided ground — the marching-cubes patch — faces its normal toward the camera, as three does for its own normals)
+    const nGeo=W.normalize(W.modelNormalMatrix.mul(W.normalLocal));
+    const nFlat=mapped?((opts.side===THREE.DoubleSide&&W.faceDirection)?nGeo.mul(W.faceDirection):nGeo):W.normalWorld;
+    const toView=(n)=>W.normalize(W.cameraViewMatrix.mul(W.vec4(mapped?_pwfRotN(p,W.normalize(n)):W.normalize(n),0)).xyz);
+    if(mapped){ m.positionNode=_pwfNodeFor(null); m.userData._pwf=true; m.maskNode=_pwfMask(); m.normalNode=toView(nFlat); }
     const dist=W.length(W.positionView);
     // fades with distance, and stays on walkable ground (cliff faces keep their strata)
-    const flat=W.smoothstep(W.float(0.6),W.float(0.88),W.normalWorld.y);
+    const flat=W.smoothstep(W.float(0.6),W.float(0.88),nFlat.y);
     const fade=W.float(1).sub(W.smoothstep(W.float(reach*0.45),W.float(reach),dist)).mul(flat);
     // the detail height at a ground point (x,z); returns {h, crack, peb}
     const sandy=TERRAIN.style==='dunes';
@@ -20548,7 +21044,7 @@ function _terrainDetailMat(opts){
     // Bedding runs along the height of the face, gently warped so it isn't ruler-straight;
     // every layer is a step (a ledge at its foot), takes its own tint of the planet's rock,
     // and the rock splits along it. Seen from far off (bands) to close up (bump).
-    const N=W.normalWorld, steep=W.float(1).sub(W.smoothstep(W.float(0.42),W.float(0.82),N.y));
+    const N=nFlat, steep=W.float(1).sub(W.smoothstep(W.float(0.42),W.float(0.82),N.y));
     const fadeC=W.float(1).sub(W.smoothstep(W.float(reach*2.5),W.float(reach*9),dist));
     const fadeBand=W.float(1).sub(W.smoothstep(W.float(reach*8),W.float(reach*40),dist));
     const warpOf=(q)=>W.mx_fractal_noise_float(W.vec3(q.x.mul(0.035),W.float(0),q.z.mul(0.035)),2,2.0,0.5).mul(3.0);
@@ -20578,14 +21074,14 @@ function _terrainDetailMat(opts){
       const e=0.05, k=W.float(opts.strength||0.55).mul(fade);
       const gx=field(xz.add(W.vec3(e,0,0))).h.sub(F0.h).div(e);
       const gz=field(xz.add(W.vec3(0,0,e))).h.sub(F0.h).div(e);
-      let nW=W.normalWorld.add(W.vec3(gx.negate(),W.float(0),gz.negate()).mul(k));
+      let nW=nFlat.add(W.vec3(gx.negate(),W.float(0),gz.negate()).mul(k));
       // the cliff relief, in 3-D, pressed into the face (only the part across the face)
       const ec=0.06, kc=W.float(0.9).mul(steep).mul(fadeC);
       // High/Ultra: the full 3-D relief; Medium: up the face only (the strata ridges), one extra sample
       const dy=cliff(p.add(W.vec3(0,ec,0))).h.sub(C0.h);
       const cg=lvl>=3?W.vec3(cliff(p.add(W.vec3(ec,0,0))).h.sub(C0.h),dy,cliff(p.add(W.vec3(0,0,ec))).h.sub(C0.h)).div(ec):W.vec3(W.float(0),dy,W.float(0)).div(ec);
       nW=nW.sub(cg.sub(N.mul(W.dot(cg,N))).mul(kc));
-      m.normalNode=W.normalize(W.cameraViewMatrix.mul(W.vec4(W.normalize(nW),0)).xyz);
+      m.normalNode=toView(nW);
     }
     // cracks shade darker, pebbles a touch lighter and glossier (Low: the colour only);
     // cliff layers each take their own tint, split lines darker, ledges catch a little light
@@ -21444,10 +21940,10 @@ function exitSurface(){
   _exitSurfaceFinish();
 }
 function _exitSurfaceFinish(){
-  if(!surfaceActive) return;
-  _pwClose();
-  _backToSpace();
-  toast('🚀 Back aboard the skyboard');
+  if(!surfaceActive||!PW.active) return;
+  const b=surfBoard||PW.board, p=surfPlayer;
+  _pwBeginFly({x:b.position.x,z:b.position.z,y:b.position.y,yaw:p?p.yaw||0:0,camRel:PW.camera.position.clone().sub(b.position)});
+  atmoExitToSpace();
 }
 
 
