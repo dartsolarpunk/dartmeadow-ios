@@ -10108,8 +10108,11 @@ function updateAssist(dt){
   // FOCUS / ORBIT hold you at a standoff outside a body, and FOCUS ignores
   // the throttle. On a star that read as an invisible wall: you push toward
   // it and never get in. Throttle on a star lets go so you can dive through.
-  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&ASSIST.target.type==='Star'&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
-    disengageAssist('Manual control — fly on through');return false;
+  // Same for a world whose ground is open (PW, space mode): throttle lets go
+  // so you can fly down into its air and the sky takes over.
+  const _intoWorld=ASSIST.target&&typeof PW!=='undefined'&&PW.active&&PW.mode==='space'&&PW.body===ASSIST.target;
+  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&(ASSIST.target.type==='Star'||_intoWorld)&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
+    disengageAssist(_intoWorld?'Manual control — descending':'Manual control — fly on through');return false;
   }
   if(ASSIST.mode==='orbit'){
     const tb=ASSIST.target;if(!tb||!tb.mesh){disengageAssist();return false;}
@@ -10820,6 +10823,14 @@ async function upgradePlanetLOD(dt){
 }
 
 let _hudT=0;
+// ALT: height above the nearest world's surface when near one (same 400 km/unit as
+// its distance readout), otherwise how far out from the Sun, in AU
+function _hudAltTxt(pos){
+  let nb=null,nd=Infinity;
+  for(const b of celestialBodies){ if(!b||!b.mesh||b.type==='Star') continue; const d=b.mesh.position.distanceTo(pos)-_bodyR(b); if(d<nd){ nd=d; nb=b; } }
+  if(nb&&nd<_bodyR(nb)*40) return Math.max(0,Math.round(nd*400)).toLocaleString()+'km';
+  return (pos.length()/AU_UNITS).toFixed(2)+'AU';
+}
 function updateHUD(){
   if(!boardFlight)return;
   // Throttle to 5 Hz. Readable numbers don't need 60fps, and this function
@@ -10842,7 +10853,7 @@ function updateHUD(){
   }catch(e){}
   const _altTxt=(galSky&&galSky.ready&&galSky.offsetLy>=0.05)
     ?(galSky.offsetLy<10?galSky.offsetLy.toFixed(2)+' ly':galSky.offsetLy<1e6?Math.round(galSky.offsetLy).toLocaleString()+' ly':(galSky.offsetLy/1e6).toFixed(2)+'M ly')
-    :Math.round(pos.length()*400)+'km';
+    :_hudAltTxt(pos);
   $('hud-alt').textContent=_altTxt;
   $('hud-lat').textContent=(Math.atan2(pos.y,Math.sqrt(pos.x*pos.x+pos.z*pos.z))*180/Math.PI).toFixed(2)+'°';
   $('hud-lon').textContent=(Math.atan2(pos.z,pos.x)*180/Math.PI).toFixed(2)+'°';
@@ -16128,6 +16139,7 @@ function _pwSetMode(mode){
   document.body.classList.toggle('pw-hud',!space);   // the flight HUD hides under the sky / ground HUD
   surfaceActive=walk; atmoActive=fly;
   if(boardFlight) boardFlight.visible=false;   // she rides the world's board now
+  _pwNoCull();
   const body=PW.body;
   if(walk){
     window.addEventListener('keydown',_surfKeyDown); window.addEventListener('keyup',_surfKeyUp);
@@ -16148,6 +16160,9 @@ function _pwSetMode(mode){
   }
   try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
 }
+// the rider and her board are never frustum-culled (a skinned body's bind-pose
+// bounds, or a frame switch, could drop them for a frame or for good)
+function _pwNoCull(){ for(const o of [PW.board,CHAR.root,boardFlight]) if(o) o.traverse(m=>{ m.frustumCulled=false; }); }
 // One frame of the world (called from the one flight loop).
 function _pwFrame(dt){
   const mode=PW.mode, now=performance.now();
@@ -16210,8 +16225,9 @@ function _pwRender(){
     if(spec) try{ DMSpec.pre(cam); }catch(e){}
     r.toneMappingExposure=1.0+0.05*PW.skyK;
     r.render(scene,cam);
+    PW._drawOK=Math.min(1e6,(PW._drawOK|0)+1);
     _shotGrab(r);
-  }catch(e){ _animLoopWarn('world-render',e); }
+  }catch(e){ PW._drawOK=0; _animLoopWarn('world-render',e); }
   finally{
     r.autoClearColor=true; r.toneMappingExposure=1.0;
     if(spec) try{ DMSpec.post(cam); }catch(e){}
@@ -16377,7 +16393,7 @@ function _pwPropsTick(px,pz,agl){
 function _pwClose(opts){
   if(!PW.active&&!PW.opening) return;
   const scene=PW.scene, body=PW.body; ++PW.gen;
-  PW.active=false; PW.opening=false;
+  PW.active=false; PW.opening=false; PW._drawOK=0;
   surfaceActive=false; atmoActive=false; PW.mode=null; PW.blend=null; PW.sp=null; PW._camFlat=null; PW.atmo=null;
   window.removeEventListener('keydown',_surfKeyDown); window.removeEventListener('keyup',_surfKeyUp);
   try{ _landToolsReset(); }catch(e){}
@@ -16881,8 +16897,14 @@ function _pwSpaceStep(dt,first){
   PW.board.scale.setScalar(FLIGHT_BOARD_WORLD_SCALE*sc.f*sc.Sx);
   // the orbit globe dissolves into the ground's own globe far out (and back on the way out)
   const dr=la.dist/_bodyR(b);
-  _pwfReveal(_smooth01((PWS_OPEN-0.4-dr)/1.6));
-  b.mesh.visible=PWF.reveal<0.999;
+  const rev=_smooth01((PWS_OPEN-0.4-dr)/1.6);
+  _pwfReveal(rev);
+  // Keep the orbit globe until the world has painted a few frames AND the
+  // dissolve is nearly done. Do NOT wait on tile coverage (#127 did — that
+  // blocked the Safari hand-over on iPhone). A slow WebGL tablet can miss
+  // early world frames; leaving the orbit globe up closes that hole.
+  const painted=(PW._drawOK|0)>=2;
+  b.mesh.visible=!(painted&&rev>0.92);
   // 4. hand-overs: into the sky, or away from the world
   if(dr>PWS_CLOSE){ _pwSpaceClose(); return; }
   if(la.alt<PWS_DOWN&&!S.out) _pwSpaceToFly();
@@ -16944,6 +16966,7 @@ function _pwAimLevel(sp,b,dir,dt,rate){
 // below the top of the air: the sky controller takes the board (same place, heading, speed and camera)
 function _pwSpaceToFly(){
   const sp=STATE.flight, S=PW.sp, b=PW.body;
+  if(b&&b.mesh) b.mesh.visible=false;
   _pwfSet(S.flat.x,S.flat.z,S.camAlt,PW.site); _pwsSync(b,PW.site);
   const R=_planetR(), rh=(R+S.alt)/R, jx=rh*PWF.cl*PWF.g, jz=rh;
   const q=_pwsQToDrawn(spQuat(sp)), f=new THREE.Vector3(0,0,-1).applyQuaternion(q);
