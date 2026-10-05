@@ -10,6 +10,8 @@
  *   • Sign in with Apple: buttons on the welcome card and the account modal,
  *     a pilot identity in the game's JOTS identity, credential checks on
  *     launch and when Apple revokes it
+ *   • EXIT: confirm → save → main menu → "Swipe up to close DART Meadow"
+ *     (iOS apps never close themselves: no exit()/abort()/suspend)
  */
 try { (function () {
   'use strict';
@@ -332,6 +334,61 @@ try { (function () {
     window.openSupport = wrapped;
   }
   hookSupport(); setTimeout(hookSupport, 1500);
+
+  // ── EXIT (App Store-safe) ─────────────────────────────────────────
+  // An iOS app may not close itself (no exit(), abort() or suspend calls —
+  // App Review rejects them), and the web's window.close() does nothing in the
+  // app. So EXIT here confirms (the game's own EXIT prompt), saves the journey,
+  // returns to the main menu and shows how to close the app the iOS way.
+  function exitCopy() {
+    const m = $('exit-modal'); if (!m || m.__dmIOS) return;
+    m.__dmIOS = true;
+    const sub = m.querySelector('.exit-sub');
+    if (sub) sub.innerHTML = 'Your journey is saved on this device' + ' and you\'ll go back to the main menu.<br>To close the app, swipe up from the bottom of the screen.';
+    const save = m.querySelector('.save-exit'); if (save) save.innerHTML = '💾 SAVE &amp; EXIT';
+    const just = m.querySelector('.just-exit'); if (just) just.style.display = 'none';
+  }
+  function swipeHint() {
+    let h = $('dm-ios-swipe-hint');
+    if (!h) {
+      h = document.createElement('div'); h.id = 'dm-ios-swipe-hint'; h.setAttribute('role', 'status');
+      h.style.cssText = 'position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translate(-50%,12px);z-index:2147483000;'
+        + 'display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 18px;border-radius:14px;'
+        + 'background:rgba(4,8,24,.86);border:1px solid rgba(91,127,255,.45);box-shadow:0 0 24px rgba(91,127,255,.25);'
+        + 'color:#cfd8ff;font:600 12px/1.3 Orbitron,system-ui,sans-serif;letter-spacing:.08em;text-align:center;'
+        + 'opacity:0;transition:opacity .35s ease,transform .35s ease;pointer-events:none;';
+      h.innerHTML = '<span style="font-size:18px;line-height:1;animation:dmSwipeUp 1.2s ease-in-out infinite">⌃</span><span>Swipe up to close DART Meadow</span>';
+      const st = document.createElement('style');
+      st.textContent = '@keyframes dmSwipeUp{0%,100%{transform:translateY(4px);opacity:.5}50%{transform:translateY(-4px);opacity:1}}';
+      document.head.appendChild(st);
+      document.body.appendChild(h);
+    }
+    clearTimeout(h.__t);
+    requestAnimationFrame(() => { h.style.opacity = '1'; h.style.transform = 'translate(-50%,0)'; });
+    h.__t = setTimeout(() => { h.style.opacity = '0'; h.style.transform = 'translate(-50%,12px)'; }, 4500);
+  }
+  function iosExit() {
+    try { const m = $('exit-modal'); if (m) m.classList.remove('open'); } catch (e) {}
+    const inGame = typeof STATE !== 'undefined' && STATE.screen === 'flight';
+    // on a world's ground or in its sky: back out to space first (a clean save point)
+    try { if (typeof PW !== 'undefined' && PW.active && typeof window._pwCloseToSpace === 'function') window._pwCloseToSpace(); } catch (e) {}
+    if (inGame && typeof window.returnToMenu === 'function') {
+      try { window.returnToMenu(); } catch (e) { console.warn('[dm-ios] exit save', e); }   // autosaves (and backs up to the account), pauses, main menu
+    } else {
+      try { if (typeof buildSaveData === 'function' && typeof _gameInProgress !== 'undefined' && _gameInProgress) localStorage.setItem('dm_autosave', JSON.stringify(buildSaveData('auto'))); } catch (e) {}
+      try { if (typeof goScreen === 'function') goScreen('menu'); } catch (e) {}
+    }
+    setTimeout(swipeHint, 350);
+  }
+  function hookExit() {
+    exitCopy();
+    if (window.doExit && window.doExit.__dmIOS) return;
+    iosExit.__dmIOS = true;
+    window.doExit = iosExit;          // (no window.close / SESSION ENDED page in the app)
+    window.exitWithSave = iosExit;    // saving is part of EXIT here (no profile file download)
+  }
+  hookExit(); setTimeout(hookExit, 1500);
+  window.dmIOSExit = iosExit;
 
   window.dmAppleSignIn = appleSignIn;
   window.dmAppleSignOut = appleSignOut;
