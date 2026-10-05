@@ -421,3 +421,15 @@ body.ship-walk #screen-flight .hud-c .kite-board{display:flex;}
 /* shorter screens: the same bubbles, two to a row, so they clear the stick */
 @media (max-height:640px){ #atmo-overlay #atmo-presets{display:grid !important;grid-template-columns:repeat(2,auto);} }
 @media (orientation:landscape) and (max-height:520px){ #atmo-presets .mach-pad{width:26px;height:26px;font-size:.44rem;} }
+
+/* ── Sky, landscape: STEER / CLIMB sticks sit on the bottom edge, exactly where
+   the ground's LOOK / MOVE sticks sit (30px + safe area), and the AUTO / IDLE
+   bubbles drop with them. Portrait keeps the lift so the sticks clear the
+   centred throttle on narrow screens. ── */
+@media (orientation:landscape){
+  #atmo-steer-zone,#atmo-climb-zone{bottom:calc(30px + var(--safe-bot)) !important;}
+  #ap-btn-atmo,#atmo-idle-btn{bottom:calc(160px + var(--safe-bot)) !important;}
+}
+@media (orientation:landscape) and (max-height:500px){
+  #ap-btn-atmo,#atmo-idle-btn{bottom:calc(152px + var(--safe-bot)) !important;}
+}

@@ -10108,11 +10108,8 @@ function updateAssist(dt){
   // FOCUS / ORBIT hold you at a standoff outside a body, and FOCUS ignores
   // the throttle. On a star that read as an invisible wall: you push toward
   // it and never get in. Throttle on a star lets go so you can dive through.
-  // The same on a world whose ground is open (PW, space mode): throttle lets go
-  // so you can fly down into its air and the sky takes over.
-  const _intoWorld=ASSIST.target&&typeof PW!=='undefined'&&PW.active&&PW.mode==='space'&&PW.body===ASSIST.target;
-  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&(ASSIST.target.type==='Star'||_intoWorld)&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
-    disengageAssist(_intoWorld?'Manual control — descending':'Manual control — fly on through');return false;
+  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&ASSIST.target.type==='Star'&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
+    disengageAssist('Manual control — fly on through');return false;
   }
   if(ASSIST.mode==='orbit'){
     const tb=ASSIST.target;if(!tb||!tb.mesh){disengageAssist();return false;}
@@ -10823,14 +10820,6 @@ async function upgradePlanetLOD(dt){
 }
 
 let _hudT=0;
-// ALT: height above the nearest world's surface when near one (same 400 km/unit as
-// its distance readout), otherwise how far out from the Sun, in AU
-function _hudAltTxt(pos){
-  let nb=null,nd=Infinity;
-  for(const b of celestialBodies){ if(!b||!b.mesh||b.type==='Star') continue; const d=b.mesh.position.distanceTo(pos)-_bodyR(b); if(d<nd){ nd=d; nb=b; } }
-  if(nb&&nd<_bodyR(nb)*40) return Math.max(0,Math.round(nd*400)).toLocaleString()+'km';
-  return (pos.length()/AU_UNITS).toFixed(2)+'AU';
-}
 function updateHUD(){
   if(!boardFlight)return;
   // Throttle to 5 Hz. Readable numbers don't need 60fps, and this function
@@ -10853,7 +10842,7 @@ function updateHUD(){
   }catch(e){}
   const _altTxt=(galSky&&galSky.ready&&galSky.offsetLy>=0.05)
     ?(galSky.offsetLy<10?galSky.offsetLy.toFixed(2)+' ly':galSky.offsetLy<1e6?Math.round(galSky.offsetLy).toLocaleString()+' ly':(galSky.offsetLy/1e6).toFixed(2)+'M ly')
-    :_hudAltTxt(pos);
+    :Math.round(pos.length()*400)+'km';
   $('hud-alt').textContent=_altTxt;
   $('hud-lat').textContent=(Math.atan2(pos.y,Math.sqrt(pos.x*pos.x+pos.z*pos.z))*180/Math.PI).toFixed(2)+'°';
   $('hud-lon').textContent=(Math.atan2(pos.z,pos.x)*180/Math.PI).toFixed(2)+'°';
@@ -12834,7 +12823,7 @@ function _dmSwipeHint(){
     document.head.appendChild(st); document.body.appendChild(h);
   }
   clearTimeout(h.__t);
-  void h.offsetWidth; h.style.opacity='1'; h.style.transform='translate(-50%,0)';   // (no rAF: on the menu frames can be paused, so a second EXIT never showed it)
+  requestAnimationFrame(()=>{ h.style.opacity='1'; h.style.transform='translate(-50%,0)'; });
   h.__t=setTimeout(()=>{ h.style.opacity='0'; h.style.transform='translate(-50%,12px)'; },4500);
 }
 function _dmNativeExit(){
@@ -16139,7 +16128,6 @@ function _pwSetMode(mode){
   document.body.classList.toggle('pw-hud',!space);   // the flight HUD hides under the sky / ground HUD
   surfaceActive=walk; atmoActive=fly;
   if(boardFlight) boardFlight.visible=false;   // she rides the world's board now
-  _pwNoCull();
   const body=PW.body;
   if(walk){
     window.addEventListener('keydown',_surfKeyDown); window.addEventListener('keyup',_surfKeyUp);
@@ -16160,9 +16148,6 @@ function _pwSetMode(mode){
   }
   try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
 }
-// the rider and her board are never frustum-culled (a skinned body's bind-pose
-// bounds, or a frame switch, could drop them for a frame or for good)
-function _pwNoCull(){ for(const o of [PW.board,CHAR.root,boardFlight]) if(o) o.traverse(m=>{ m.frustumCulled=false; }); }
 // One frame of the world (called from the one flight loop).
 function _pwFrame(dt){
   const mode=PW.mode, now=performance.now();
@@ -16225,9 +16210,8 @@ function _pwRender(){
     if(spec) try{ DMSpec.pre(cam); }catch(e){}
     r.toneMappingExposure=1.0+0.05*PW.skyK;
     r.render(scene,cam);
-    PW._drawOK=Math.min(1e6,(PW._drawOK|0)+1);
     _shotGrab(r);
-  }catch(e){ PW._drawOK=0; _animLoopWarn('world-render',e); }
+  }catch(e){ _animLoopWarn('world-render',e); }
   finally{
     r.autoClearColor=true; r.toneMappingExposure=1.0;
     if(spec) try{ DMSpec.post(cam); }catch(e){}
@@ -16393,7 +16377,7 @@ function _pwPropsTick(px,pz,agl){
 function _pwClose(opts){
   if(!PW.active&&!PW.opening) return;
   const scene=PW.scene, body=PW.body; ++PW.gen;
-  PW.active=false; PW.opening=false; PW._drawOK=0;
+  PW.active=false; PW.opening=false;
   surfaceActive=false; atmoActive=false; PW.mode=null; PW.blend=null; PW.sp=null; PW._camFlat=null; PW.atmo=null;
   window.removeEventListener('keydown',_surfKeyDown); window.removeEventListener('keyup',_surfKeyUp);
   try{ _landToolsReset(); }catch(e){}
@@ -16897,19 +16881,12 @@ function _pwSpaceStep(dt,first){
   PW.board.scale.setScalar(FLIGHT_BOARD_WORLD_SCALE*sc.f*sc.Sx);
   // the orbit globe dissolves into the ground's own globe far out (and back on the way out)
   const dr=la.dist/_bodyR(b);
-  // the space planet (and the space board) stay until the world's own globe has
-  // really been drawn — a slow tile build or a GPU that can't draw the world
-  // (low-end Android on WebGL) must never leave a gap where the planet was
-  const drawn=_pwDrawnOK();
-  _pwfReveal(drawn?_smooth01((PWS_OPEN-0.4-dr)/1.6):0);
+  _pwfReveal(_smooth01((PWS_OPEN-0.4-dr)/1.6));
   b.mesh.visible=PWF.reveal<0.999;
-  if(boardFlight) boardFlight.visible=!drawn;
   // 4. hand-overs: into the sky, or away from the world
   if(dr>PWS_CLOSE){ _pwSpaceClose(); return; }
   if(la.alt<PWS_DOWN&&!S.out) _pwSpaceToFly();
 }
-// the world's globe is on screen: frames drawn without error, with ground tiles in them
-function _pwDrawnOK(){ return (PW._drawOK|0)>=3&&!!PW.ground&&PW.ground.covered(); }
 // TO SPACE / LIFTOFF: keep climbing out (away from the ground and on along the heading) until the world closes
 function _pwSpaceOutTick(sp,b,sc,dt){
   const up=_pwVec(2).copy(sp.pos).sub(b.mesh.position).normalize(), fwd=spForward(sp).clone();
@@ -20497,8 +20474,6 @@ SkyGround.prototype._visit=function(n,c,depth){
 };
 // a tile can stand in for its area once it (or every one of its children) can draw
 SkyGround.prototype._ready=function(n){ return n._hidden||!!n.mesh||(!!n.kids&&n.kids.every(k=>this._ready(k))); };
-// the globe can draw with no holes: every root tile that's on screen is ready
-SkyGround.prototype.covered=function(){ if(!this.roots.size) return false; for(const n of this.roots.values()) if(n._vis!==false&&n._inView!==false&&!this._ready(n)) return false; return true; };
 SkyGround.prototype._show=function(n){
   const useKids=n.kids&&n.kids.every(k=>this._ready(k));
   if(n.mesh){ n.mesh.visible=!useKids&&!n._hidden&&n._vis!==false&&n._inView!==false; if(n.mesh.visible&&n.morph&&n.morph.t<0){ n.morph.t=0; (this.morphing||(this.morphing=new Set())).add(n); } }
@@ -22780,7 +22755,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 
 <!-- ?v= stamps: bump on every UI change so browsers never mix a new page with cached old styles -->
 <link rel="stylesheet" href="ui/dm-ui.css?v=110">
-<link rel="stylesheet" href="ui/dm-hud.css?v=114">
+<link rel="stylesheet" href="ui/dm-hud.css?v=115">
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
 <link rel="stylesheet" href="ui/dm-safety.css?v=1">
 <link rel="stylesheet" href="ui/dm-spectator.css?v=1">
