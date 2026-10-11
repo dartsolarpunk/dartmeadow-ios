@@ -54,7 +54,12 @@
   function plasma(T,U,d,detail){
     const {sin,mix,smoothstep,time}=T;
     const t=time.mul(U.speed);
-    const p=d.mul(3.0).add(U.seed);
+    // The same plasma look, just a much finer pattern spread over the whole
+    // surface: sample the field SCALE times denser, then bend the sampling
+    // point with a few big, slow, non-commensurate warps so the cells stretch
+    // and vary from place to place instead of repeating like a tiling.
+    const p0=d.mul(U.scale).add(U.seed);
+    const p=p0.add(sin(p0.yzx.mul(0.23).add(1.3)).mul(2.4)).add(sin(p0.zxy.mul(0.41).add(0.7)).mul(1.3)).add(sin(p0.xyz.mul(0.57).add(t.mul(0.02)).add(2.1)).mul(0.8));
     // flow: the field advected through two rotated sine warps — reads as
     // slow fluid convection rather than a scrolling texture
     const q=p.add(sin(p.yzx.mul(1.7).add(t.mul(0.25))).mul(0.55));
@@ -64,7 +69,7 @@
     if(detail){
       // granulation: bright convection cells with darker lanes between,
       // two scales, the small one boiling faster and riding the big one
-      const c=q2.mul(5.0);
+      const c=q2.mul(2.2);
       const g1=sin(c.x.add(t.mul(0.9))).add(sin(c.y.mul(1.1).sub(t.mul(0.8)))).add(sin(c.z.mul(0.9).add(t.mul(0.7)))).div(3.0);
       const c2=c.yzx.mul(2.05).add(g1.mul(1.5));
       const g2=sin(c2.x.sub(t.mul(1.6))).add(sin(c2.y.mul(1.13).add(t.mul(1.3)))).add(sin(c2.z.mul(0.87).sub(t.mul(1.4)))).div(3.0);
@@ -87,7 +92,7 @@
   function uniforms(T,K,seed){
     const P=palette(K);
     return {deep:T.uniform(P.deep),mid:T.uniform(P.mid),hot:T.uniform(P.hot),core:T.uniform(P.core),
-      seed:T.uniform(new THREE.Vector3(seed*1.7%9,seed*2.3%9,seed*3.1%9)),speed:T.uniform(1),fine:T.uniform(0)};
+      seed:T.uniform(new THREE.Vector3(seed*1.7%9,seed*2.3%9,seed*3.1%9)),speed:T.uniform(1),fine:T.uniform(0),scale:T.uniform(12.0)};
   }
   // the zero-g bubble (ui/dm-starbubble.js) parts the plasma round it
   let BU=null;

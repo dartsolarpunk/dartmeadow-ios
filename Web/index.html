@@ -25,17 +25,20 @@
 <meta property="og:url" content="https://dartmeadow.space/">
 <meta property="og:title" content="DART Meadow — Journey of the Skyboard">
 <meta property="og:description" content="Journey of the Skyboard. Build your skyboard, chart the galaxy, ride at c³.">
-<meta property="og:image" content="https://dartmeadow.space/static/og-share-v3.jpg">
+<meta property="og:image" content="https://dartmeadow.space/assets/social-share.jpg?v=20261011">
+<meta property="og:image:secure_url" content="https://dartmeadow.space/assets/social-share.jpg?v=20261011">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:type" content="image/jpeg">
-<meta property="og:image:alt" content="DART Meadow — Journey of the Skyboard: the pilot rides her skyboard over a red desert world beneath a spiral galaxy, with the game menu panels glowing beside her.">
+<meta property="og:image:alt" content="DART Meadow — Journey of the Skyboard: Ariel sits on a rock in a red Mars desert beneath a spiral galaxy, with the glowing red game menu panels beside her.">
 <meta property="og:site_name" content="DART Meadow">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="DART Meadow — Journey of the Skyboard">
 <meta name="twitter:description" content="Zero-G interstellar flight. Build your skyboard, chart the galaxy, ride at c³.">
-<meta name="twitter:image" content="https://dartmeadow.space/static/og-share-v3.jpg">
-<meta name="twitter:image:alt" content="DART Meadow — the pilot on her skyboard over a red desert world beneath a spiral galaxy.">
+<meta name="twitter:image" content="https://dartmeadow.space/assets/social-share.jpg?v=20261011">
+<link rel="image_src" href="https://dartmeadow.space/assets/social-share.jpg?v=20261011">
+<meta itemprop="image" content="https://dartmeadow.space/assets/social-share.jpg?v=20261011">
+<meta name="twitter:image:alt" content="DART Meadow — Ariel on a rock in a red Mars desert beneath a spiral galaxy, the red game menu glowing beside her.">
 
 <title>DART Meadow - Journey of the Skyboard</title>
 <!-- On-device debug console — visit the site with ?debug added to the URL
@@ -920,8 +923,8 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 <script src="ui/dm-friends.js?v=2" defer></script>
 <script src="ui/dm-spectator.js?v=1" defer></script>
 <script src="ui/dm-stack.js?v=1" defer></script>
-<script src="ui/dm-globe.js?v=5" defer></script>
-<script src="ui/dm-star.js?v=2" defer></script>
+<script src="ui/dm-globe.js?v=6" defer></script>
+<script src="ui/dm-star.js?v=3" defer></script>
 <script src="ui/dm-starbubble.js?v=3" defer></script>
 </head>
 <body>
@@ -1644,17 +1647,17 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
   </div>
   <!-- autopilot: holds the height you're at, climbs over (or banks round) whatever is ahead -->
   <button id="ap-btn-atmo" class="side-pad ap-pad" onclick="toggleAtmoAutopilot()" title="Autopilot — holds this altitude, avoids terrain ahead"><span class="sp-ico"><svg class="ap-ico" viewBox="0 0 24 24" width="1.5em" height="1.5em" aria-hidden="true"><defs><linearGradient id="apGA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9d2ff" stop-opacity=".95"/><stop offset=".5" stop-color="#7b93ff" stop-opacity=".75"/><stop offset="1" stop-color="#ff4fa3" stop-opacity=".8"/></linearGradient></defs><path d="M9.2 3.3C12.7 2.1 17.7 3.6 18.5 8.2c.5 3.3.2 7.8.8 12.8h-5.9c-1-1.4-2-2.6-2.5-4.2l-.3-1.5c-1 .3-2.1-.1-2.7-1-.3-.7-.2-1.2-.5-1.5-.3-.3-.4-.6-.1-.9-.4-.3-.7-.5-.5-.8-.6-.2-.8-.6-.4-1.1l1-1.4c.1-2 .5-4 1.8-5.2z" fill="url(#apGA)" stroke="#fff" stroke-opacity=".7" stroke-width=".55" stroke-linejoin="round"/><path d="M14.2 4.6c2.4 1.2 3.4 3.6 3.6 6.6.2 3.4 0 6.6.6 9.8" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width=".6" stroke-linecap="round"/><path d="M10.9 16.8c-2.6 1.1-4.6 2.4-5.6 4.2h8.6c-1.2-1.3-2.2-2.6-3-4.2z" fill="url(#apGA)" fill-opacity=".7" stroke="#fff" stroke-opacity=".55" stroke-width=".5" stroke-linejoin="round"/><path d="M6.9 8.9h4.6" stroke="#fff" stroke-width=".9" stroke-linecap="round"/><circle cx="8.6" cy="8.95" r=".6" fill="#ff3b6b"/><circle cx="12.3" cy="10.7" r=".7" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width=".45"/></svg></span>AUTO</button>
-  <!-- left joystick: steer (pitch/yaw) -->
+  <!-- left joystick: look / aim — the same stick as open space (free 6-DOF) -->
   <div style="position:absolute;bottom:calc(96px + var(--safe-bot));left:24px;width:100px;height:100px;pointer-events:auto;" id="atmo-steer-zone">
-    <div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-family:var(--font-hud);font-size:.44rem;color:rgba(var(--acc-rgb),.4);letter-spacing:.08em;">STEER</div>
+    <div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-family:var(--font-hud);font-size:.44rem;color:rgba(var(--acc-rgb),.4);letter-spacing:.08em;">LOOK / AIM</div>
     <div style="position:absolute;inset:0;border-radius:50%;background:rgba(var(--panel-rgb),.6);border:1px solid rgba(var(--acc-rgb),.25);backdrop-filter:blur(8px);"></div>
     <div id="atmo-steer-knob" style="position:absolute;width:38px;height:38px;border-radius:50%;background:rgba(var(--acc-rgb),.18);border:1px solid rgba(var(--acc-rgb),.5);left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(var(--acc-rgb),.3);"></div>
   </div>
   <!-- IDLE: full stop & hover, the same as IDLE in open space — a bubble above the right stick -->
   <button id="atmo-idle-btn" class="side-pad atmo-idle" onclick="toggleAtmoIdle()" title="IDLE — full stop &amp; hover in place"><span class="sp-ico">⏸</span>IDLE</button>
-  <!-- right joystick: roll/altitude -->
+  <!-- right joystick: thrust / strafe — the same stick as open space -->
   <div style="position:absolute;bottom:calc(96px + var(--safe-bot));right:24px;width:100px;height:100px;pointer-events:auto;" id="atmo-climb-zone">
-    <div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-family:var(--font-hud);font-size:.44rem;color:rgba(var(--acc-rgb),.4);letter-spacing:.08em;">CLIMB/DIVE</div>
+    <div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-family:var(--font-hud);font-size:.44rem;color:rgba(var(--acc-rgb),.4);letter-spacing:.08em;">THRUST / ROLL</div>
     <div style="position:absolute;inset:0;border-radius:50%;background:rgba(var(--panel-rgb),.6);border:1px solid rgba(var(--acc-rgb),.25);backdrop-filter:blur(8px);"></div>
     <div id="atmo-climb-knob" style="position:absolute;width:38px;height:38px;border-radius:50%;background:rgba(var(--acc-rgb),.18);border:1px solid rgba(var(--acc-rgb),.5);left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(var(--acc-rgb),.3);"></div>
   </div>
@@ -2088,32 +2091,15 @@ window.addEventListener('jots:vault',async ()=>{
       else d=getSaveSlots()[nw._i];
       if(d&&d.v==='DM2'){ try{ localStorage.setItem('dm_autosave',JSON.stringify(d)); }catch(e){} }
     }
-    _journeyOfferResume();
+    _journeyRefreshResume();
   }catch(e){ console.warn('[journeys] sync',e); }
 });
-// Welcome back: on the main menu, signed in, with a journey saved — it loads
-// by itself after a short count (PLAY NOW / STAY IN MENU to choose).
-let _jnOffered=false;
-function _journeyOfferResume(){
-  if(_jnOffered) return;
-  if(!(window.JOTS&&JOTS.vault&&JOTS.vault.ready)) return;
-  const app=$('app'); if(typeof STATE==='undefined'||STATE.screen!=='menu'||!app||!app.classList.contains('vis')||_gameInProgress) return;
-  let d=null; try{ d=JSON.parse(localStorage.getItem('dm_autosave')||'null'); }catch(e){}
-  if(!d||d.v!=='DM2') return;
-  _jnOffered=true;
+// Signed in, the newest journey (from any device) is now this device's autosave:
+// the main menu's Resume / Continue button (above the Skyboard builder) picks
+// it up. That button is the one way back in — no welcome pop-up, no countdown.
+function _journeyRefreshResume(){
+  if(typeof STATE==='undefined'||STATE.screen!=='menu') return;
   try{ _checkAutosaveResume(); refreshMenuStatus(); }catch(e){}
-  const bar=document.createElement('div'); bar.id='jn-welcome';
-  bar.innerHTML='<div class="jw-t">☁ WELCOME BACK</div><div class="jw-n"></div><div class="jw-m"></div><div class="jw-a"><button class="jw-go">▶ PLAY NOW</button><button class="jw-no">STAY IN MENU</button></div><div class="jw-bar"><i></i></div>';
-  bar.querySelector('.jw-n').textContent=d.slotName||'Your journey';
-  bar.querySelector('.jw-m').textContent=[_journeyPlace(d),d.ts?new Date(d.ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''].filter(Boolean).join(' · ');
-  document.body.appendChild(bar);
-  const N=6; let t0=performance.now(), raf=0, done=false;
-  const close=()=>{ done=true; cancelAnimationFrame(raf); bar.classList.add('out'); setTimeout(()=>bar.remove(),350); };
-  const go=()=>{ if(done) return; close(); const run=()=>resumeJourney(d); if(typeof window.jotsChooseMode==='function') window.jotsChooseMode(run); else run(); };
-  bar.querySelector('.jw-go').onclick=go;
-  bar.querySelector('.jw-no').onclick=close;
-  const tick=()=>{ if(done) return; if(STATE.screen!=='menu'){ close(); return; } const k=(performance.now()-t0)/1000/N; bar.querySelector('.jw-bar i').style.width=Math.min(100,k*100)+'%'; if(k>=1){ go(); return; } raf=requestAnimationFrame(tick); };
-  raf=requestAnimationFrame(tick);
 }
 async function journeyLoad(entry){
   let d=null;
@@ -2759,7 +2745,6 @@ function enterApp(){
       const app=$('app'); if(app) app.classList.add('vis');
       try{ goScreen('menu'); }catch(e){console.warn('goScreen:',e);}
       try{ _checkAutosaveResume(); }catch(e){}
-      try{ _journeyOfferResume(); }catch(e){}
     }
     try{ updateFullscreenButtons(); }catch(e){}
     if(window.__THREE_LOAD_FAILED__){ try{toast('⚠ 3D engine unavailable — try refresh / check network',4500,'warn');}catch(e){} }
@@ -2770,7 +2755,6 @@ function enterApp(){
 function _revealMenuAfterGfx(){
   $('app').classList.add('vis');goScreen('menu');
   _checkAutosaveResume();
-  try{ _journeyOfferResume(); }catch(e){}
 }
 // Check if there's a valid autosave in localStorage and show resume button.
 // Main menu status panel: pilot, where the last save was, when.
@@ -2916,6 +2900,7 @@ const AUDIO = {
     {name:'TEMPLE OF LIGHT',src:'music/temple_of_light.mp3'},
     {name:'WHERE STARS REMAIN',src:'music/where_stars_remain.mp3'},
     {name:'LOCKED BEHIND GLASS',src:'music/locked_behind_glass.mp3'},
+    {name:'WHERE THE WOOD MEETS WIRE',src:'music/where_the_wood_meets_wire.mp3'},
   ],
   bundled:[],           // active list — starts as the fallback, gets replaced by the live folder scan once it resolves
   playlist:[],          // [{name, src, isObjectUrl}]
@@ -10108,11 +10093,8 @@ function updateAssist(dt){
   // FOCUS / ORBIT hold you at a standoff outside a body, and FOCUS ignores
   // the throttle. On a star that read as an invisible wall: you push toward
   // it and never get in. Throttle on a star lets go so you can dive through.
-  // Same for a world whose ground is open (PW, space mode): throttle lets go
-  // so you can fly down into its air and the sky takes over.
-  const _intoWorld=ASSIST.target&&typeof PW!=='undefined'&&PW.active&&PW.mode==='space'&&PW.body===ASSIST.target;
-  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&(ASSIST.target.type==='Star'||_intoWorld)&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
-    disengageAssist(_intoWorld?'Manual control — descending':'Manual control — fly on through');return false;
+  if((ASSIST.mode==='orbit'||ASSIST.mode==='focus'||ASSIST.mode==='travel')&&ASSIST.target&&ASSIST.target.type==='Star'&&(keyThrust||Math.abs(JOY.Ry)>0.18)){
+    disengageAssist('Manual control — fly on through');return false;
   }
   if(ASSIST.mode==='orbit'){
     const tb=ASSIST.target;if(!tb||!tb.mesh){disengageAssist();return false;}
@@ -10259,67 +10241,9 @@ function updateFlight(dt){
     return;
   }
 
-  // ── Look: left joystick / arrow keys — FULL 360° free orientation ──
-  // Rotations are applied about the pilot's own LOCAL axes (quaternion), so
-  // pitch keeps going straight through vertical and all the way around —
-  // loop after loop, any direction, no turntable clamp. Yaw likewise spins
-  // freely about the pilot's local up. Signs were locked numerically against
-  // three r128 to match the old feel exactly at level flight.
-  const ls=0.8*dt; // comfortable look speed
-  if(JOY.Lx)spRotateLocal(sp,0,1,0,-JOY.Lx*ls);
-  if(JOY.Ly)spRotateLocal(sp,1,0,0,-JOY.Ly*ls);
-  let _apLook=!!(JOY.Lx||JOY.Ly||KEYS["ArrowLeft"]||KEYS["ArrowRight"]||KEYS["ArrowUp"]||KEYS["ArrowDown"]);
-  { const ml=takeMouseLook(), k=MOUSE_LOOK.sens;   // mouse steering (pointer lock)
-    if(ml.x||ml.y) _apLook=true;
-    if(ml.x) spRotateLocal(sp,0,1,0,-ml.x*k);
-    if(ml.y) spRotateLocal(sp,1,0,0,-ml.y*k); }
-  if(KEYS["ArrowLeft"]) spRotateLocal(sp,0,1,0, 0.9*dt);
-  if(KEYS["ArrowRight"])spRotateLocal(sp,0,1,0,-0.9*dt);
-  if(KEYS["ArrowUp"])   spRotateLocal(sp,1,0,0, 0.9*dt);
-  if(KEYS["ArrowDown"]) spRotateLocal(sp,1,0,0,-0.9*dt);
-  // ── Roll: hold pads (mobile) + Q/E (desktop) about the pilot's LOCAL Z ──
-  let rollIn=ROLL_HOLD;
-  if(KEYS["KeyQ"])rollIn= 1;
-  if(KEYS["KeyE"])rollIn=-1;
-  if(rollIn){spRotateLocal(sp,0,0,1,rollIn*1.4*dt);cancelAutoLevel();}
-  spSyncLegacy(sp); // keep HUD/save-compat yaw+pitch derived from the quat
-
-  // ── Thrust: right joystick gradual acceleration + DART speed mode ──
-  // Joystick pushes a target speed; velocity lerps toward it over time.
-  // DART speed mode multiplies the top speed — instantly engaged, no button hold needed.
-  let tf=JOY.Ry*-1, ts=JOY.Rx;
-  if(KEYS["KeyW"])tf=Math.max(tf,1);
-  if(KEYS["KeyS"])tf=Math.min(tf,-0.5);
-  if(KEYS["KeyA"])ts=Math.min(ts,-1);
-  if(KEYS["KeyD"])ts=Math.max(ts,1);
-
-  const dartMul=DART_MODES[dartSpeedMode].multiplier;
-  // Base top speed — joystick at full = 0.25 units/frame at cruise
-  // DART mode multiplies that. Gradual acceleration via lerp.
-  const targetSpd=0.25*dartMul;
-  const accel=dartSpeedMode>0?0.06:0.03; // DART modes accelerate faster
-
-  if(tf!==0||ts!==0){
-    // 6-DOF thrust: forward follows the view through loops; strafe is
-    // orientation-relative (local right), not world-horizontal, so the
-    // controls stay intuitive at any attitude. (spForward/spRight return
-    // distinct scratch vectors — safe to hold both simultaneously.)
-    const fwd  =spForward(sp);
-    const right=spRight(sp);
-    sp.vel.addScaledVector(fwd,   tf*targetSpd*accel);
-    sp.vel.addScaledVector(right, ts*targetSpd*accel*.55);
-  }
-  // Damping. While actively throttling, DART modes hold speed (low drag) for a
-  // smooth cruise; the MOMENT you let off the throttle, real drag kicks in so
-  // the ship coasts to a stop instead of being stuck at speed until you toggle.
-  const throttling=(Math.abs(tf)>0.02||Math.abs(ts)>0.02);
-  let drag;
-  if(throttling) drag=dartSpeedMode>0?0.985:0.90;
-  else           drag=dartSpeedMode>0?0.90:0.82; // release → noticeable slow-down
-  if(SPACE_AP.on&&_spaceApTick(sp,_apLook,throttling)) drag=1;   // autopilot holds the speed itself
-  sp.vel.multiplyScalar(drag);
-  // clamp tiny residual so it fully settles to idle rather than micro-drifting
-  if(!throttling&&sp.vel.length()<0.002)sp.vel.set(0,0,0);
+  // ── Sticks, keys and pads: the one board control model (the sky over a world flies with it too) ──
+  const _bc=_boardControls(sp,dt,(look,thr)=>SPACE_AP.on&&_spaceApTick(sp,look,thr));
+  const tf=_bc.tf, ts=_bc.ts;
   // The BOARD is what moves through the world now. Motion is per frame, so
   // near a star (where the plasma and the bubble cost the most and a phone's
   // frame rate drops) step by real time instead — a slow frame rate no longer
@@ -10355,6 +10279,78 @@ function updateFlight(dt){
   recordBodyPositions();
 }
 
+// ── The board's control model ────────────────────────────────────────
+// Open space AND the sky over a world fly with this one function, so both
+// thumbsticks do exactly the same thing everywhere: LEFT = look/aim (free
+// 6-DOF about the pilot's own axes), RIGHT = thrust (up/down) + strafe
+// (left/right), Q/E or the hold pads roll, W/S/A/D thrust/strafe. `sp` is any
+// {quat, vel} state (STATE.flight in space, atmoState in the sky); vel is in
+// space units per frame. apHook(look, throttling) → true while an autopilot
+// holds the speed. Returns {tf, ts, look, throttling}.
+function _boardControls(sp,dt,apHook){
+  // ── Look: left joystick / arrow keys — FULL 360° free orientation ──
+  // Rotations are applied about the pilot's own LOCAL axes (quaternion), so
+  // pitch keeps going straight through vertical and all the way around —
+  // loop after loop, any direction, no turntable clamp. Yaw likewise spins
+  // freely about the pilot's local up. Signs were locked numerically against
+  // three r128 to match the old feel exactly at level flight.
+  const ls=0.8*dt; // comfortable look speed
+  if(JOY.Lx)spRotateLocal(sp,0,1,0,-JOY.Lx*ls);
+  if(JOY.Ly)spRotateLocal(sp,1,0,0,-JOY.Ly*ls);
+  let _apLook=!!(JOY.Lx||JOY.Ly||KEYS["ArrowLeft"]||KEYS["ArrowRight"]||KEYS["ArrowUp"]||KEYS["ArrowDown"]);
+  { const ml=takeMouseLook(), k=MOUSE_LOOK.sens;   // mouse steering (pointer lock)
+    if(ml.x||ml.y) _apLook=true;
+    if(ml.x) spRotateLocal(sp,0,1,0,-ml.x*k);
+    if(ml.y) spRotateLocal(sp,1,0,0,-ml.y*k); }
+  if(KEYS["ArrowLeft"]) spRotateLocal(sp,0,1,0, 0.9*dt);
+  if(KEYS["ArrowRight"])spRotateLocal(sp,0,1,0,-0.9*dt);
+  if(KEYS["ArrowUp"])   spRotateLocal(sp,1,0,0, 0.9*dt);
+  if(KEYS["ArrowDown"]) spRotateLocal(sp,1,0,0,-0.9*dt);
+  // ── Roll: hold pads (mobile) + Q/E (desktop) about the pilot's LOCAL Z ──
+  let rollIn=ROLL_HOLD;
+  if(KEYS["KeyQ"])rollIn= 1;
+  if(KEYS["KeyE"])rollIn=-1;
+  if(rollIn){spRotateLocal(sp,0,0,1,rollIn*1.4*dt);cancelAutoLevel();}
+  if(sp===STATE.flight) spSyncLegacy(sp); // keep HUD/save-compat yaw+pitch derived from the quat
+
+  // ── Thrust: right joystick gradual acceleration + DART speed mode ──
+  // Joystick pushes a target speed; velocity lerps toward it over time.
+  // DART speed mode multiplies the top speed — instantly engaged, no button hold needed.
+  let tf=JOY.Ry*-1, ts=JOY.Rx;
+  if(KEYS["KeyW"])tf=Math.max(tf,1);
+  if(KEYS["KeyS"])tf=Math.min(tf,-0.5);
+  if(KEYS["KeyA"])ts=Math.min(ts,-1);
+  if(KEYS["KeyD"])ts=Math.max(ts,1);
+
+  const dartMul=DART_MODES[dartSpeedMode].multiplier;
+  // Base top speed — joystick at full = 0.25 units/frame at cruise
+  // DART mode multiplies that. Gradual acceleration via lerp.
+  const targetSpd=0.25*dartMul;
+  const accel=dartSpeedMode>0?0.06:0.03; // DART modes accelerate faster
+
+  if(tf!==0||ts!==0){
+    // 6-DOF thrust: forward follows the view through loops; strafe is
+    // orientation-relative (local right), not world-horizontal, so the
+    // controls stay intuitive at any attitude. (spForward/spRight return
+    // distinct scratch vectors — safe to hold both simultaneously.)
+    const fwd  =spForward(sp);
+    const right=spRight(sp);
+    sp.vel.addScaledVector(fwd,   tf*targetSpd*accel);
+    sp.vel.addScaledVector(right, ts*targetSpd*accel*.55);
+  }
+  // Damping. While actively throttling, DART modes hold speed (low drag) for a
+  // smooth cruise; the MOMENT you let off the throttle, real drag kicks in so
+  // the ship coasts to a stop instead of being stuck at speed until you toggle.
+  const throttling=(Math.abs(tf)>0.02||Math.abs(ts)>0.02);
+  let drag;
+  if(throttling) drag=dartSpeedMode>0?0.985:0.90;
+  else           drag=dartSpeedMode>0?0.90:0.82; // release → noticeable slow-down
+  if(apHook&&apHook(_apLook,throttling)) drag=1;   // an autopilot holds the speed itself
+  sp.vel.multiplyScalar(drag);
+  // clamp tiny residual so it fully settles to idle rather than micro-drifting
+  if(!throttling&&sp.vel.length()<0.002)sp.vel.set(0,0,0);
+  return {tf,ts,look:_apLook,throttling};
+}
 // Orient & place the board model at the player position, banking into turns.
 function updateBoardTransform(tf,ts){
   const sp=STATE.flight;
@@ -10823,14 +10819,6 @@ async function upgradePlanetLOD(dt){
 }
 
 let _hudT=0;
-// ALT: height above the nearest world's surface when near one (same 400 km/unit as
-// its distance readout), otherwise how far out from the Sun, in AU
-function _hudAltTxt(pos){
-  let nb=null,nd=Infinity;
-  for(const b of celestialBodies){ if(!b||!b.mesh||b.type==='Star') continue; const d=b.mesh.position.distanceTo(pos)-_bodyR(b); if(d<nd){ nd=d; nb=b; } }
-  if(nb&&nd<_bodyR(nb)*40) return Math.max(0,Math.round(nd*400)).toLocaleString()+'km';
-  return (pos.length()/AU_UNITS).toFixed(2)+'AU';
-}
 function updateHUD(){
   if(!boardFlight)return;
   // Throttle to 5 Hz. Readable numbers don't need 60fps, and this function
@@ -10853,7 +10841,7 @@ function updateHUD(){
   }catch(e){}
   const _altTxt=(galSky&&galSky.ready&&galSky.offsetLy>=0.05)
     ?(galSky.offsetLy<10?galSky.offsetLy.toFixed(2)+' ly':galSky.offsetLy<1e6?Math.round(galSky.offsetLy).toLocaleString()+' ly':(galSky.offsetLy/1e6).toFixed(2)+'M ly')
-    :_hudAltTxt(pos);
+    :Math.round(pos.length()*400)+'km';
   $('hud-alt').textContent=_altTxt;
   $('hud-lat').textContent=(Math.atan2(pos.y,Math.sqrt(pos.x*pos.x+pos.z*pos.z))*180/Math.PI).toFixed(2)+'°';
   $('hud-lon').textContent=(Math.atan2(pos.z,pos.x)*180/Math.PI).toFixed(2)+'°';
@@ -16000,12 +15988,13 @@ function resumeFlightLoop(){ _startFlightLoop(); }   // one loop for space, the 
 // ════════════════════════════════════════════════════════════════════
 //  ✦ ATMOSPHERIC FLIGHT  — skyboard flight inside a planet's atmosphere
 // ────────────────────────────────────────────────────────────────────
-//  Throttle-driven flight with Mach speed presets. The lowest preset gauges
-//  idle → Mach 0.5; higher presets cap at Mach 1..7 (top cruising Mach 7).
-//  One world, no gates: past the top of the air (PWS_UP) the space flight
-//  model takes the same board over the same planet (one renderer, one scene);
-//  coming down below PWS_DOWN the sky controller takes it back. The world
-//  only closes once you are well out in space (PWS_CLOSE radii).
+//  The air is flown exactly like vacuum: the open-space control model
+//  (_boardControls — same sticks, keys, speeds, drag, no gravity), the board's
+//  full 6-DOF attitude carried straight across the top of the air in both
+//  directions (PWS_UP / PWS_DOWN only decide which frame the ground's near
+//  detail is built in). The Mach bubbles and the throttle set the autopilots'
+//  cruise speed (FLY THERE, TO SPACE). The world only closes once you are well
+//  out in space (PWS_CLOSE radii).
 // ════════════════════════════════════════════════════════════════════
 // M1…M8 bubbles (SUBSONIC retired — IDLE is the dead stop now).
 const MACH_PRESETS=[
@@ -16016,13 +16005,15 @@ const MACH_AUTO_DEFAULT=4;   // the landing globe's FLY THERE cruises at M5 unle
 const MACH_UNITS=70; // scene units/sec per Mach 1 (tuned for feel)
 const ATMO_TAKEOFF_S=1.6;   // automatic climb after boarding on the surface
 const ATMO_LAND_AGL=40;     // LAND appears below this height above the ground (~130 ft)
-let _atmoCamRel=null;
-window.__whenThreeReady(function(){ _atmoCamRel=new THREE.Vector3(); });
+// The default flight altitude: 150 ft (~46 m) above the site — the sky's start height
+// from before the orbit↔ground work (#125/#126). The landing globe's SKY drops you here.
+const ATMO_DEFAULT_AGL=46;
+let _atmoCamRel=null,_atmoCamUp=null;
+window.__whenThreeReady(function(){ _atmoCamRel=new THREE.Vector3(); _atmoCamUp=new THREE.Vector3(0,1,0); });
 let atmoActive=false,atmoRenderer=null,atmoScene=null,atmoCamera=null;
 let atmoBoard=null,_atmoBody=null,_atmoSite=null,_atmoHeight=null,_atmoCamInit=false;
 let _atmoSky=null,_atmoPal=null;
 let atmoPreset=0,atmoThrottle=0,atmoMach=0;
-let atmoSteer={x:0,y:0},atmoClimb={x:0,y:0};
 let atmoState=null;
 let _atmoArm=1;   // the camera's spring arm (pulled in when a ridge stands between her and it)
 const ATMO_BOARD_SCALE=2.4;   // the board reads larger against the sky; it eases back to walking size as she sets down
@@ -16036,20 +16027,21 @@ const ATMO_BOARD_SCALE=2.4;   // the board reads larger against the sky; it ease
 //  ground once, as the real planet — a level-of-detail quadtree over the
 //  whole globe in the planet frame (_pwfMap) — and from then on there is
 //  no loading and no cut: the orbit globe dissolves into the ground's own
-//  globe far out, the air shell glows on the limb, and as you come down
-//  the space controls hand over to the sky controls at the top of the air
-//  (and back on the way up), the tiles sharpening a level at a time down
-//  to the marching-cubes patch and the rocks round her as she lands.
+//  globe far out, the air shell glows on the limb, and as you come down the
+//  same flight carries on (same controls, attitude and speed — nothing is
+//  re-oriented or re-mapped at the top of the air), the tiles sharpening a
+//  level at a time down to the marching-cubes patch and the rocks round her
+//  as she lands, and coarsening again on the way back up.
 //  Drawn in layers: open space first (stars, galaxy, sun, the other
 //  worlds, seen from where the camera really is), the world over it; low
 //  down by day the sky dome covers space and the world draws alone.
 //  LIFTOFF, LAND and stepping off the board only change who is driving —
-//  the space flight model, the sky flight controller or her feet.
+//  the board (one flight model) or her feet.
 // ════════════════════════════════════════════════════════════════════
 const PW={active:false,opening:false,gen:0,mode:null,body:null,site:null,pal:null,renderer:null,scene:null,camera:null,
   board:null,ground:null,props:new Map(),propsGroup:null,blend:null,seaSpan:0,seaCell:25,atmo:null,skyK:1,bg:null,sp:null,_camFlat:null};
 window.PW=PW;
-const PWS_OPEN=9, PWS_CLOSE=11, PWS_DOWN=2600, PWS_UP=2750;   // planet radii out (open/close the world); heights of the sky-flight hand-over
+const PWS_OPEN=9, PWS_CLOSE=11, PWS_DOWN=2600, PWS_UP=2750;   // planet radii out (open/close the world); heights where the board moves between the space and ground frames (same flight)
 // Build the world round `focus` (local x/z): light, ground, sky, air, board — on the flight renderer.
 function _pwBuild(body,site,mode,focus){
   const gen=++PW.gen;
@@ -16138,8 +16130,8 @@ function _pwSetMode(mode){
   [so,ao].forEach(o=>{ o.style.opacity=''; o.style.pointerEvents=''; o.style.transition=''; });
   document.body.classList.toggle('pw-hud',!space);   // the flight HUD hides under the sky / ground HUD
   surfaceActive=walk; atmoActive=fly;
+  if(!fly&&PW.camera) PW.camera.up.set(0,1,0);   // the sky's camera rolls with the board; the ground's never does
   if(boardFlight) boardFlight.visible=false;   // she rides the world's board now
-  _pwNoCull();
   const body=PW.body;
   if(walk){
     window.addEventListener('keydown',_surfKeyDown); window.addEventListener('keyup',_surfKeyUp);
@@ -16160,9 +16152,6 @@ function _pwSetMode(mode){
   }
   try{ window.DMGlobe&&DMGlobe.sync(); }catch(e){}
 }
-// the rider and her board are never frustum-culled (a skinned body's bind-pose
-// bounds, or a frame switch, could drop them for a frame or for good)
-function _pwNoCull(){ for(const o of [PW.board,CHAR.root,boardFlight]) if(o) o.traverse(m=>{ m.frustumCulled=false; }); }
 // One frame of the world (called from the one flight loop).
 function _pwFrame(dt){
   const mode=PW.mode, now=performance.now();
@@ -16225,9 +16214,8 @@ function _pwRender(){
     if(spec) try{ DMSpec.pre(cam); }catch(e){}
     r.toneMappingExposure=1.0+0.05*PW.skyK;
     r.render(scene,cam);
-    PW._drawOK=Math.min(1e6,(PW._drawOK|0)+1);
     _shotGrab(r);
-  }catch(e){ PW._drawOK=0; _animLoopWarn('world-render',e); }
+  }catch(e){ _animLoopWarn('world-render',e); }
   finally{
     r.autoClearColor=true; r.toneMappingExposure=1.0;
     if(spec) try{ DMSpec.post(cam); }catch(e){}
@@ -16289,8 +16277,8 @@ function _pwWorldTick(dt){
       if(d0.lengthSq()>1e-6&&d1.lengthSq()>1e-6){ const qa=new THREE.Quaternion().setFromUnitVectors(d0.normalize(),d1.normalize()); cam.quaternion.premultiply(qa); }
       cam.position.copy(dp);
     }
-    // the fov eases back to the sky's own after the hand-over from space
-    const fovT=72; if(Math.abs(cam.fov-fovT)>0.01){ cam.fov+= (fovT-cam.fov)*Math.min(1,dt*1.5); cam.updateProjectionMatrix(); }
+    // the sky keeps the open-space camera's field of view; on foot it eases to the ground's
+    const fovT=fly?((CAM_OFFSETS[camMode]||CAM_OFFSETS[0]).fov||62):72; if(Math.abs(cam.fov-fovT)>0.01){ cam.fov+= (fovT-cam.fov)*Math.min(1,dt*1.5); cam.updateProjectionMatrix(); }
     // where the board is in open space (leaving the world puts you back right there)
     try{ const bp=fly?atmoState.pos:surfPlayer.pos; _pwsFromDrawn(_pwVec(3).set(px,bp.y,pz),STATE.flight.pos); if(boardFlight) boardFlight.position.copy(STATE.flight.pos); }catch(e){}
   }
@@ -16393,7 +16381,7 @@ function _pwPropsTick(px,pz,agl){
 function _pwClose(opts){
   if(!PW.active&&!PW.opening) return;
   const scene=PW.scene, body=PW.body; ++PW.gen;
-  PW.active=false; PW.opening=false; PW._drawOK=0;
+  PW.active=false; PW.opening=false;
   surfaceActive=false; atmoActive=false; PW.mode=null; PW.blend=null; PW.sp=null; PW._camFlat=null; PW.atmo=null;
   window.removeEventListener('keydown',_surfKeyDown); window.removeEventListener('keyup',_surfKeyUp);
   try{ _landToolsReset(); }catch(e){}
@@ -16434,7 +16422,6 @@ async function enterAtmosphericFlight(body,site,start){
   const here=PW.active&&PW.body===body&&site&&typeof site.lat==='number'&&!start;
   if(atmoActive){ if(here) atmoFlyTo(site.lat,site.lon,{cruise:true}); return; }   // already in this sky: fly there
   if(here&&surfaceActive){ _lmWalkFly(site.lat,site.lon); return; }                // on this world's ground: board, lift off and fly there
-  if(PW.active&&PW.mode==='space'&&PW.body===body&&site&&typeof site.lat==='number'&&!(start&&start.journal)){ _pwSpaceDescend(site,false); return; }
   if(PW.active&&surfaceActive&&PW.body===body&&start&&!start.journal){ _pwBeginFly(start); return; }   // lifting off where she stands
   if(PW.active) _pwCloseToSpace();
   CHAR._transitioning=false;
@@ -16446,39 +16433,44 @@ async function enterAtmosphericFlight(body,site,start){
   if(!ok) return;
   _pwBeginFly(start,{fresh:true});
 }
-// Hand the world to the flight controller. start (optional): {x, z, y, yaw,
-// pitch, camRel, alt, fromSpace, mach} — lift off from that spot/heading with
-// the camera where the walk camera was, or carry on from open space at the
-// same place, heading, speed and camera; otherwise 150 ft (~46 m) above the site.
+// Hand the world to the sky. start (optional): {x, z, y, yaw, pitch, camRel,
+// alt} — lift off from that spot/heading with the camera where the walk camera
+// was; or {fromSpace, quat, vel, camRel, camUp}: the board coming down from
+// open space carries on exactly as it was (same attitude, motion, camera and
+// controls — nothing is re-oriented, re-levelled or re-mapped). Otherwise 150 ft
+// (~46 m) above the site, the default flight altitude.
 function _pwBeginFly(start,opts){
   const fresh=!!(opts&&opts.fresh);
-  // a leftover ORBIT would hijack the camera on entry (it looked like she was lying flat)
-  charOrbitActive=false;
-  ATMO_AP.on=false; try{ $('ap-btn-atmo').classList.remove('active'); }catch(e){}
   const fromSpace=!!(start&&start.fromSpace);
-  // the sky starts on the trailing view (her and the whole board in frame) — coming down from space it keeps yours
-  if(camMode!==0&&!fromSpace){ camMode=0; try{ _applyCamOffset(); const cb=$('cam-btn'); if(cb) cb.textContent='CAM 1'; }catch(e){} }
-  atmoPreset=0; atmoThrottle=0; atmoMach=0; atmoIdle=false; try{ _atmoIdleUI(); }catch(e){}
-  if(fromSpace&&start.mach>0){   // the speed you came in at, held by the throttle
-    let pi=MACH_PRESETS.findIndex(p=>p.max>=start.mach); if(pi<0) pi=MACH_PRESETS.length-1;
-    atmoPreset=pi; atmoMach=start.mach; atmoThrottle=Math.min(1,start.mach/MACH_PRESETS[pi].max);
+  if(!fromSpace){
+    // a leftover ORBIT would hijack the camera on entry (it looked like she was lying flat)
+    charOrbitActive=false;
+    ATMO_AP.on=false; try{ $('ap-btn-atmo').classList.remove('active'); }catch(e){}
+    // the sky starts on the trailing view (her and the whole board in frame)
+    if(camMode!==0){ camMode=0; try{ _applyCamOffset(); const cb=$('cam-btn'); if(cb) cb.textContent='CAM 1'; }catch(e){} }
+    atmoPreset=0; atmoThrottle=0; atmoMach=0;
   }
+  atmoIdle=false; try{ _atmoIdleUI(); }catch(e){}
   const board=PW.board; atmoBoard=board; board.visible=true;
   surfPlayer=null; surfBoard=null;
   if(fresh) board.scale.setScalar(ATMO_BOARD_SCALE);   // from the ground it grows into the sky size as she climbs (updateAtmoFlight)
   const H=_atmoHeight;
-  if(start){
+  if(fromSpace){
+    atmoState={pos:new THREE.Vector3(start.x,start.y,start.z),vel:start.vel.clone(),quat:start.quat.clone(),yaw:0,pitch:0,roll:0,takeoff:0};
+  } else if(start){
     const sx=start.x, sz=start.z, gh=H(sx,sz);
-    atmoState={pos:new THREE.Vector3(sx,isFinite(start.y)?Math.max(gh+1,start.y):gh+4.5,sz),vel:new THREE.Vector3(),yaw:start.yaw||0,pitch:isFinite(start.pitch)?start.pitch:0,roll:0,takeoff:fromSpace?0:ATMO_TAKEOFF_S};
+    atmoState={pos:new THREE.Vector3(sx,isFinite(start.y)?Math.max(gh+1,start.y):gh+4.5,sz),vel:new THREE.Vector3(),yaw:start.yaw||0,pitch:isFinite(start.pitch)?start.pitch:0,roll:0,takeoff:ATMO_TAKEOFF_S};
     if(isFinite(start.alt)){ atmoState.pos.y=Math.max(gh+6,start.alt); atmoState.takeoff=0; }   // a Journal waypoint: straight back to the height it was marked at
-  } else atmoState={pos:new THREE.Vector3(0,H(0,0)+46,0),vel:new THREE.Vector3(),yaw:0,pitch:0,roll:0};
+  } else atmoState={pos:new THREE.Vector3(0,H(0,0)+ATMO_DEFAULT_AGL,0),vel:new THREE.Vector3(),yaw:0,pitch:0,roll:0,takeoff:0};
+  if(!atmoState.quat) atmoState.quat=_atmoAimQ(atmoState.yaw,atmoState.pitch).clone();
+  _atmoYP(atmoState);
   board.position.copy(atmoState.pos);
-  board.rotation.order='YXZ'; board.rotation.y=atmoState.yaw-Math.PI/2;
-  if(fromSpace){ board.rotation.x=-atmoState.pitch; board.rotation.z=0; board.scale.setScalar(ATMO_BOARD_SCALE); }
-  _atmoCamInit=false;
+  board.rotation.order='YXZ'; board.quaternion.copy(atmoState.quat).multiply(_BOARD_ALIGN);
+  if(fromSpace) board.scale.setScalar(ATMO_BOARD_SCALE);
+  _atmoCamInit=false; _atmoCamUp.set(0,1,0);
   if(start&&start.camRel){
     if(!fromSpace){ atmoCamera.position.copy(atmoState.pos).add(start.camRel); atmoCamera.lookAt(atmoState.pos); }
-    _atmoCamRel.copy(start.camRel); _atmoCamInit=true;
+    _atmoCamRel.copy(start.camRel); if(start.camUp) _atmoCamUp.copy(start.camUp); _atmoCamInit=true;
   }
   // she rides this board: boarding on foot already mounted her (her own size);
   // arriving from space she's put on it now
@@ -16487,8 +16479,7 @@ function _pwBeginFly(start,opts){
   }
   _pwSetMode('fly');
   if(_pendingAutoFly) setTimeout(_takePendingAutoFly,0);
-  else if(fromSpace) toast('🛹 Into the '+PW.body.name+' sky — the board is yours',2200);
-  else toast(start&&!fresh?'🛹 Lifting off — steer up to climb into the sky':'🛹 Skyboard airborne over '+PW.body.name+' — throttle up!',2600);
+  else if(!fromSpace) toast(start&&!fresh?'🛹 Lifting off — the sticks fly the board just like open space':'🛹 Skyboard airborne over '+PW.body.name+' — the sticks fly it just like open space',2600);
 }
 
 // Mach speed bubbles: round pads like the ones round the sticks, one
@@ -16533,63 +16524,74 @@ function toggleAtmoIdle(force){
 }
 window.toggleAtmoIdle=toggleAtmoIdle; window.setAtmoPreset=setAtmoPreset;
 
+// The sky flies with the open-space control model (_boardControls): the same
+// sticks, keys, pads, speeds and drag, no gravity — the air is treated exactly
+// like vacuum. The board keeps a full 6-DOF attitude (s.quat) and a velocity in
+// space units per frame (s.vel), moved by _atmoK() flat units per space unit:
+// the space flight model's own scale at the top of the air, so nothing about
+// the flight changes when the board crosses it in either direction — only the
+// ground's level of detail does. The autopilots (lift-off, FLY THERE, IDLE,
+// LAND, TO SPACE) fly the board by heading/pitch; any stick takes it back.
+function _atmoK(){ const b=PW.body; if(!b) return 1; const sc=_pwSpaceScale(PWS_DOWN,b); return Math.max(1e-6,sc.f*sc.mk*sc.Sx); }
+// The flat sky's east-west / north-south scale against the true (drawn) world at
+// height y (_pwfMap's stretch at the focus: ~1 near the ground, ~1.36 at the top of
+// the air). Motion and the camera are measured in the true world, so the board flies
+// along its nose and the view sits where open space's would at every height.
+function _atmoJ(y){ const rh=(_planetR()+y)/_planetR(); return {jx:Math.max(0.05,rh*(PWF.on?PWF.cl*PWF.g:1)),jz:PWF.on?rh:1}; }
+// heading/pitch of the board's nose (for the HUD, the map, the wake and the autopilots)
+function _atmoYP(s){ const f=_pwVec(0).set(0,0,-1).applyQuaternion(s.quat); s.pitch=Math.asin(_clamp(f.y,-1,1)); s.yaw=Math.atan2(-f.x,-f.z); }
+const _atmoQ=[null,null];
+function _atmoAimQ(yaw,pitch){ const q=_atmoQ[0]||(_atmoQ[0]=new THREE.Quaternion()), e=_atmoQ[1]||(_atmoQ[1]=new THREE.Euler(0,0,0,'YXZ')); e.set(pitch,yaw,0,'YXZ'); return q.setFromEuler(e); }
+function _atmoManualInput(){
+  return Math.abs(JOY.Lx)+Math.abs(JOY.Ly)+Math.abs(JOY.Rx)+Math.abs(JOY.Ry)>0.18||!!ROLL_HOLD||!!MOUSE_LOOK.dx||!!MOUSE_LOOK.dy||
+    !!(KEYS['KeyW']||KEYS['KeyS']||KEYS['KeyA']||KEYS['KeyD']||KEYS['KeyQ']||KEYS['KeyE']||KEYS['ArrowUp']||KEYS['ArrowDown']||KEYS['ArrowLeft']||KEYS['ArrowRight']);
+}
 function updateAtmoFlight(dt){
   const s=atmoState;if(!s)return;
-  const landing=!!s.landing;
-  // steering: left joy = yaw + pitch (hands-off while the board sets down)
-  const ml=takeMouseLook();
-  if(!landing){
-    s.yaw-=atmoSteer.x*1.4*dt + ml.x*MOUSE_LOOK.sens;
-    s.pitch=Math.max(-0.8,Math.min(0.8,s.pitch-atmoSteer.y*0.9*dt - ml.y*MOUSE_LOOK.sens*0.8));
-    // Keyboard: W/S throttle, A/D turn, Space climb, Shift dive
-    if(KEYS['KeyA']) s.yaw+=1.2*dt;
-    if(KEYS['KeyD']) s.yaw-=1.2*dt;
-    if(KEYS['KeyW']||KEYS['KeyS']){
-      atmoThrottle=_clamp(atmoThrottle+(KEYS['KeyW']?0.6:-0.6)*dt,0,1);
-      try{ $('atmo-throttle').value=Math.round(atmoThrottle*100); }catch(e){}
-    }
-  } else s.pitch=THREE.MathUtils.lerp(s.pitch,0,Math.min(1,dt*3));
-  // climb/dive from right joy (y) + bank roll from its x
-  const keyClimb=(KEYS['Space']?1:0)-((KEYS['ShiftLeft']||KEYS['ShiftRight'])?1:0);
-  if(atmoIdle&&!landing){
-    const manual=Math.abs(atmoSteer.x)+Math.abs(atmoSteer.y)+Math.abs(atmoClimb.x)+Math.abs(atmoClimb.y)>0.18||
-      KEYS['KeyW']||KEYS['KeyA']||KEYS['KeyS']||KEYS['KeyD']||KEYS['Space']||KEYS['ShiftLeft']||KEYS['ShiftRight']||atmoThrottle>0;
-    if(manual){ atmoIdle=false; _atmoIdleUI(); }
+  if(!s.quat||!s.quat.isQuaternion) s.quat=_atmoAimQ(s.yaw||0,s.pitch||0).clone();
+  if(!s.vel) s.vel=new THREE.Vector3();
+  const landing=!!s.landing, K=_atmoK();
+  // a stick, key or roll pad: the pilot has the board (ends lift-off, auto-flight, IDLE and TO SPACE)
+  if(!landing&&!s.touchdown&&_atmoManualInput()){
+    if(s.auto){ s.auto=null; try{ _landMarkerClear(); }catch(e){} toast('Autopilot off — you have the board',1400); }
+    if(atmoIdle){ atmoIdle=false; _atmoIdleUI(); }
+    s.takeoff=0; s.toSpace=false;
   }
-  if(s.toSpace){   // TO SPACE: nose up, full speed, out through the top of the air (any stick takes it back)
-    const man=Math.abs(atmoSteer.x)+Math.abs(atmoSteer.y)+Math.abs(atmoClimb.x)+Math.abs(atmoClimb.y)>0.25||KEYS['KeyA']||KEYS['KeyD']||KEYS['KeyS']||(KEYS['ShiftLeft']||KEYS['ShiftRight']);
-    if(man||landing){ s.toSpace=false; }
-    else { s.pitch+=(0.75-s.pitch)*Math.min(1,dt*1.5); atmoPreset=MACH_PRESETS.length-1; atmoThrottle=1; s.takeoff=Math.min(s.takeoff||0,0.4); }
+  let tf=0, ts=0;
+  const scripted=landing||s.touchdown||s.takeoff>0||!!s.auto||atmoIdle||!!s.toSpace;
+  if(!scripted){
+    // ── the pilot flies: exactly the open-space model ──
+    const c=_boardControls(s,dt,(look,thr)=>ATMO_AP.on&&_atmoApTick(s,dt,look,thr,K));
+    tf=c.tf; ts=c.ts;
+    const J=_atmoJ(s.pos.y);
+    s.pos.x+=s.vel.x*K/J.jx; s.pos.y+=s.vel.y*K; s.pos.z+=s.vel.z*K/J.jz;
+    _atmoYP(s);
+    atmoMach=s.vel.length()*K*60/MACH_UNITS;
+  } else {
+    // ── an autopilot flies: heading/pitch and a Mach speed ──
+    takeMouseLook();   // (queued mouse motion must not jump the view when the pilot takes over)
+    _atmoYP(s);
+    if(landing) s.pitch=THREE.MathUtils.lerp(s.pitch,0,Math.min(1,dt*3));
+    if(s.toSpace){ s.pitch+=(0.75-s.pitch)*Math.min(1,dt*1.5); atmoPreset=MACH_PRESETS.length-1; atmoThrottle=1; }
+    const cap=MACH_PRESETS[atmoPreset].max;
+    if(atmoIdle&&!landing){ atmoMach*=0.8; if(atmoMach<0.002) atmoMach=0; s.pitch=THREE.MathUtils.lerp(s.pitch,0,Math.min(1,dt*3)); }
+    else if(!_atmoAutopilot(s,dt)) atmoMach=THREE.MathUtils.lerp(atmoMach,landing?0:atmoThrottle*cap,landing?Math.min(1,dt*2.2):0.04);
+    // Lift-off after boarding on the surface: rise clear of the ground first.
+    if(s.takeoff>0){ const k=s.takeoff/ATMO_TAKEOFF_S; s.pos.y+=18*k*dt; s.takeoff-=dt; }
+    const speed=atmoMach*MACH_UNITS;
+    const fx=-Math.sin(s.yaw)*Math.cos(s.pitch), fy=Math.sin(s.pitch), fz=-Math.cos(s.yaw)*Math.cos(s.pitch);
+    s.pos.x+=fx*speed*dt; s.pos.y+=fy*speed*dt; s.pos.z+=fz*speed*dt;
+    // the attitude eases to the autopilot's (level); its motion carries on when the pilot takes the stick
+    s.quat.slerp(_atmoAimQ(s.yaw,s.pitch),1-Math.exp(-dt*6)).normalize();
+    { const J=_atmoJ(s.pos.y); s.vel.set(fx*J.jx,fy,fz*J.jz).multiplyScalar(speed/60/K); }
   }
-  const climb=(landing||atmoIdle)?0:_clamp(-atmoClimb.y+keyClimb,-1,1); const bank=(landing||atmoIdle)?0:atmoClimb.x;
-  s.roll=THREE.MathUtils.lerp(s.roll,-bank*0.5,0.1);
-  _atmoApTick(s,dt,Math.abs(atmoSteer.y)>0.15||Math.abs(ml.y)>1e-4||climb!==0||!!KEYS['ArrowUp']||!!KEYS['ArrowDown']);
-  // speed from throttle, capped by the selected Mach preset; LAND brakes it
-  const cap=MACH_PRESETS[atmoPreset].max;
-  // the landing globe's autopilot flies the board itself until you steer
-  if(atmoIdle&&!landing){ atmoMach*=0.8; if(atmoMach<0.002) atmoMach=0; s.pitch=THREE.MathUtils.lerp(s.pitch,0,Math.min(1,dt*3)); }
-  else if(!_atmoAutopilot(s,dt)) atmoMach=THREE.MathUtils.lerp(atmoMach,landing?0:atmoThrottle*cap,landing?Math.min(1,dt*2.2):0.04);
-  // Lift-off after boarding on the surface: rise clear of the ground first.
-  if(s.takeoff>0){
-    const k=s.takeoff/ATMO_TAKEOFF_S;
-    s.pos.y+=18*k*dt;
-    s.takeoff-=dt;
-  }
-  const speed=atmoMach*MACH_UNITS;
-  // forward vector from yaw/pitch
-  const fx=-Math.sin(s.yaw)*Math.cos(s.pitch);
-  const fy=Math.sin(s.pitch)+climb*0.5;
-  const fz=-Math.cos(s.yaw)*Math.cos(s.pitch);
-  s.pos.x+=fx*speed*dt;
-  s.pos.y+=fy*speed*dt + climb*40*dt;
-  s.pos.z+=fz*speed*dt;
-  // terrain floor
+  // terrain floor (the board slides along it; nothing pulls it down)
   const groundH=_atmoHeight?_atmoHeight(s.pos.x,s.pos.z):0;
   if(landing){
     // Settle toward hover height over the ground while braking.
     s.pos.y+=((groundH+4)-s.pos.y)*Math.min(1,dt*1.6);
   }
-  if(s.pos.y<groundH+4){s.pos.y=groundH+4;}
+  if(s.pos.y<groundH+4){ s.pos.y=groundH+4; if(s.vel.y<0) s.vel.y=0; }
   const agl=s.pos.y-groundH;
   if(landing && !s.touchdown && atmoMach<0.03 && agl<6){
     s.touchdown=true;
@@ -16598,58 +16600,29 @@ function updateAtmoFlight(dt){
   // the board is bigger against the sky and eases back to walking size as it sets down
   { const want=(landing||s.touchdown)?1:ATMO_BOARD_SCALE, bs=atmoBoard.scale.x;
     if(Math.abs(want-bs)>1e-3) atmoBoard.scale.setScalar(bs+(want-bs)*Math.min(1,dt*1.6)); }
-  // over the top of the air: the space flight model takes the board (no cut)
+  // over the top of the air: open space carries on with the same model, attitude and speed
   if(!landing && s.pos.y>PWS_UP){ _pwFlyToSpace(); return; }
   // the world's edge (the poles): the sky map ends there
-  { const lim=(89.5-Math.abs(_atmoSiteRef().lat))/ATMO_DEG_PER_UNIT, zc=_atmoSiteRef().lat/ATMO_DEG_PER_UNIT; s.pos.z=Math.max(zc-89.5/ATMO_DEG_PER_UNIT,Math.min(zc+89.5/ATMO_DEG_PER_UNIT,s.pos.z)); void lim; }
-  // ── Orient & place the board the SAME way as space flight ───────────────
-  // The board model's nose points +X, so yaw maps with a -90° base offset
-  // (identical to updateBoardTransform). This fixes the sideways look.
+  { const zc=_atmoSiteRef().lat/ATMO_DEG_PER_UNIT; s.pos.z=Math.max(zc-89.5/ATMO_DEG_PER_UNIT,Math.min(zc+89.5/ATMO_DEG_PER_UNIT,s.pos.z)); }
+  // ── Place the board and orient it exactly as open space does (updateBoardTransform)
   if(!s.touchdown){ // after touchdown the step-off animation owns the board
     atmoBoard.position.copy(s.pos);
     atmoBoard.position.y+=Math.sin(flightTime*.9)*.05; // hover bob
   }
-  atmoBoard.rotation.order='YXZ';
-  atmoBoard.rotation.y=s.yaw-Math.PI/2;
-  atmoBoard.rotation.x=THREE.MathUtils.lerp(atmoBoard.rotation.x||0, -s.pitch, 0.12);
-  atmoBoard.rotation.z=THREE.MathUtils.lerp(atmoBoard.rotation.z||0, s.roll, 0.10);
-  // ── Follow camera: behind & above along the heading, looking over the board.
-  //    Use the SAME CAM_OFFSETS as space, but scale up by the board's visual
-  //    scale (2.4×) so the camera sits the same RELATIVE distance behind the
-  //    board as it does in interstellar space. Previously the 1.4× fudge was
-  //    too small for the enlarged board, making the camera feel glued on top.
-  // CAM 1 in the atmosphere keeps the original follow distance (back 7 /
-  // up 2.8): the whole board and her stay in frame. Space's CAM 1 moved in
-  // closer, and borrowing it here put the camera on her back.
-  const o=camMode===0?ATMO_CAM_FOLLOW:(CAM_OFFSETS[camMode]||ATMO_CAM_FOLLOW);
-  const boardScale=(atmoBoard.scale.x||2.4)*2.5; // extra pull-back so whole board fits in frame
-  let back=o.back*boardScale, up=o.up*boardScale, look=o.look*boardScale;
-  {
-    // Every camera keeps the whole board and her in view: measure them (once
-    // a second) and back off until their bounding sphere fits, along the
-    // mode's own angle (Chase sits a little tighter and lower, Drone wider).
-    const fitK=camMode===1?0.92:(camMode===2?1.55:1.0);
-    const now=performance.now();
-    if(!atmoBoard.userData._frameT||now-atmoBoard.userData._frameT>1000){
-      atmoBoard.userData._frameT=now;
-      // the board and her only (solid, visible meshes — not glows, trails or lights), and never more than a few board lengths
-      try{ const bx=new THREE.Box3(), tb=new THREE.Box3(); atmoBoard.updateMatrixWorld(true);
-        atmoBoard.traverseVisible(o=>{ if(o.isMesh&&!o.isSprite&&!o.isPoints&&o.geometry&&!o.userData.noFit){ if(!o.geometry.boundingBox) o.geometry.computeBoundingBox(); tb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); bx.union(tb); } });
-        const sz=bx.isEmpty()?null:bx.getSize(new THREE.Vector3()); atmoBoard.userData._frameR=sz?Math.min(sz.length()*0.5,(atmoBoard.scale.x||2.4)*4):0; }catch(e){}
-    }
-    const R=atmoBoard.userData._frameR||0;
-    if(R>0){
-      const vf=THREE.MathUtils.degToRad(atmoCamera.fov||62)/2, hf=Math.atan(Math.tan(vf)*(atmoCamera.aspect||1.6));
-      const d=R/Math.sin(Math.min(vf,hf))*1.08*fitK, el=Math.atan2(o.up,o.back);
-      back=Math.max(back,d*Math.cos(el)); up=Math.max(up,d*Math.sin(el)); look=Math.min(look,R*0.25);
-    }
-  }
-  const fwd=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(s.pitch*0.5,s.yaw,0,'YXZ'));
-  // Smooth the camera's offset FROM the board, not its world position, so
-  // it never falls behind at speed (a world-space lerp lags ∝ speed).
-  const desiredRel=fwd.clone().multiplyScalar(-back).add(new THREE.Vector3(0,up,0));
-  if(!_atmoCamInit){_atmoCamRel.copy(desiredRel);_atmoCamInit=true;}
-  else _atmoCamRel.lerp(desiredRel,Math.min(1,dt*(s.takeoff>0?1.5:4)));
+  _sQ1.copy(s.quat).multiply(_BOARD_ALIGN);
+  _sQ1.multiply(_sQ2.setFromAxisAngle(_AXIS_X,-tf*0.04));
+  _sQ1.multiply(_sQ3.setFromAxisAngle(_AXIS_Z,-ts*0.35));
+  atmoBoard.quaternion.slerp(_sQ1,0.12);
+  // ── Follow camera: open space's (CAM_OFFSETS, up-vector following the board),
+  //    at the distance the space camera has at the top of the air, scaled with the board.
+  const o=CAM_OFFSETS[camMode]||CAM_OFFSETS[0];
+  const ck=_atmoCamBack()/o.back*((atmoBoard.scale.x||ATMO_BOARD_SCALE)/ATMO_BOARD_SCALE);
+  const fwd=_pwVec(1).set(0,0,-1).applyQuaternion(s.quat), up=_pwVec(2).set(0,1,0).applyQuaternion(s.quat);
+  const desiredRel=_pwVec(3).copy(fwd).multiplyScalar(-o.back*ck).addScaledVector(up,o.up*ck);
+  { const J=_atmoJ(s.pos.y); desiredRel.x/=J.jx; desiredRel.z/=J.jz; }   // (true-world offset → flat)
+  if(!_atmoCamInit){ _atmoCamRel.copy(desiredRel); _atmoCamUp.copy(up); _atmoCamInit=true; }
+  else _atmoCamRel.lerp(desiredRel,Math.min(1,dt*(s.takeoff>0?1.5:6)));
+  _atmoCamUp.lerp(up,Math.min(1,dt*6)).normalize();
   atmoCamera.position.copy(s.pos).add(_atmoCamRel);
   // spring arm: when a ridge or cliff stands between her and the camera, the camera comes in in front of it
   if(_atmoHeight){
@@ -16662,7 +16635,8 @@ function updateAtmoFlight(dt){
     if(_atmoArm<0.999) atmoCamera.position.copy(s.pos).addScaledVector(_atmoCamRel,_atmoArm).add(new THREE.Vector3(0,1.5*(1-_atmoArm),0));
   }
   { const cgh=_atmoHeight?_atmoHeight(atmoCamera.position.x,atmoCamera.position.z):-1e9; if(atmoCamera.position.y<cgh+2) atmoCamera.position.y=cgh+2; }
-  atmoCamera.lookAt(s.pos.clone().addScaledVector(fwd,look).add(new THREE.Vector3(0,0.6,0)));
+  atmoCamera.up.copy(_atmoCamUp);
+  atmoCamera.lookAt(_pwVec(3).copy(s.pos).addScaledVector(fwd,o.look*ck).addScaledVector(_atmoCamUp,0.4*ck));
   // HUD
   const altFt=Math.round((s.pos.y-groundH)*3.28);
   { const ll=_atmoLatLon(s.pos.x,s.pos.z); _localClock('atmo-speed','MACH '+atmoMach.toFixed(2),ll.lon); }
@@ -16684,25 +16658,31 @@ function toggleAtmoAutopilot(){
   const gh=_atmoHeight?_atmoHeight(atmoState.pos.x,atmoState.pos.z):0;
   toast(ATMO_AP.on?'🛰 Autopilot on — holding '+Math.max(0,Math.round((atmoState.pos.y-gh)*3.28))+' ft, avoiding terrain':'Autopilot off — you have the board',1800);
 }
-function _atmoApTick(s,dt,manualPitch){
-  if(!ATMO_AP.on||s.landing||!_atmoHeight) return;
-  if(manualPitch){ ATMO_AP.holdY=s.pos.y; return; }
-  const H=_atmoHeight, v=Math.max(30,atmoMach*MACH_UNITS);
-  const need=(yaw)=>{
-    const fx=-Math.sin(yaw), fz=-Math.cos(yaw); let m=-1e9;
+function _atmoApTick(s,dt,look,throttling,K){
+  if(s.landing||!_atmoHeight) return false;
+  if(look){ ATMO_AP.holdY=s.pos.y; return false; }   // you aim: it holds the new height when you let go
+  if(throttling) return false;                         // you throttle: it takes the new speed
+  const H=_atmoHeight, spd=s.vel.length(), v=Math.max(30,spd*K*60);
+  _atmoYP(s);
+  let yaw=s.yaw;
+  const need=(yw)=>{
+    const fx=-Math.sin(yw), fz=-Math.cos(yw); let m=-1e9;
     for(const t of [0.35,0.7,1.2,1.9,2.8,4,5.5]){ const d=v*t+15, h=H(s.pos.x+fx*d,s.pos.z+fz*d)+16+d*0.035; if(h>m) m=h; }
     return m;
   };
-  const ahead=need(s.yaw);
+  const ahead=need(yaw);
   if(ahead>ATMO_AP.holdY+50){
     let best=0, bn=ahead;
-    for(const o of [0.35,-0.35,0.7,-0.7]){ const n=need(s.yaw+o); if(n<bn-40){ bn=n; best=o; } }
-    if(best){ s.yaw+=Math.sign(best)*Math.min(Math.abs(best),0.9*dt); s.roll=THREE.MathUtils.lerp(s.roll,-Math.sign(best)*0.35,0.08); }
+    for(const o of [0.35,-0.35,0.7,-0.7]){ const n=need(yaw+o); if(n<bn-40){ bn=n; best=o; } }
+    if(best) yaw+=Math.sign(best)*Math.min(Math.abs(best),0.9*dt);
   }
   const target=Math.max(ATMO_AP.holdY,ahead,H(s.pos.x,s.pos.z)+12), err=target-s.pos.y;
   const vy=_clamp(err*0.9,-v*0.45-15,v*0.8+40), want=Math.asin(_clamp(vy/v,-0.55,0.7));
-  s.pitch+=(want-s.pitch)*Math.min(1,dt*2.5);
-  if(atmoMach*MACH_UNITS<20) s.pos.y+=_clamp(err*1.2,-25,60)*dt;   // hovering or slow: rise or sink straight
+  const pitch=s.pitch+(want-s.pitch)*Math.min(1,dt*2.5);
+  s.quat.slerp(_atmoAimQ(yaw,pitch),Math.min(1,dt*4)).normalize();
+  if(spd*K*60<20) s.pos.y+=_clamp(err*1.2,-25,60)*dt;   // hovering or slow: rise or sink straight
+  else s.vel.copy(_pwVec(0).set(0,0,-1).applyQuaternion(s.quat)).multiplyScalar(spd);   // the speed you had, along the new course
+  return true;
 }
 // Space: keeps the heading and speed you had, and bends the course round any
 // planet, moon, star or rock that would pass too close ahead, then comes back
@@ -16748,19 +16728,22 @@ function _spaceApTick(sp,manualLook,throttling){
 
 function setupAtmoJoysticks(){
   if(setupAtmoJoysticks.bound) return; setupAtmoJoysticks.bound=true;
-  const mk=(zoneId,knobId,out)=>{
+  const mk=(zoneId,knobId,side)=>{
     const zone=$(zoneId),knob=$(knobId);if(!zone)return;
     let active=false,tid=null,ox=0,oy=0;const R=50;
     const start=(x,y)=>{active=true;const r=zone.getBoundingClientRect();ox=r.left+r.width/2;oy=r.top+r.height/2;mv(x,y);};
-    const mv=(x,y)=>{if(!active)return;let dx=_clamp(x-ox,-R,R),dy=_clamp(y-oy,-R,R);knob.style.left=(50+dx/R*42)+'%';knob.style.top=(50+dy/R*42)+'%';out.x=dx/R;out.y=dy/R;};
-    const end=()=>{active=false;tid=null;knob.style.left='50%';knob.style.top='50%';out.x=0;out.y=0;};
+    const mv=(x,y)=>{if(!active)return;let dx=_clamp(x-ox,-R,R),dy=_clamp(y-oy,-R,R);knob.style.left=(50+dx/R*42)+'%';knob.style.top=(50+dy/R*42)+'%';JOY[side+'x']=dx/R;JOY[side+'y']=dy/R;};
+    const end=()=>{active=false;tid=null;knob.style.left='50%';knob.style.top='50%';JOY[side+'x']=0;JOY[side+'y']=0;};
     zone.addEventListener('touchstart',e=>{e.preventDefault();if(active)return;const t=e.changedTouches[0];tid=t.identifier;start(t.clientX,t.clientY);},{passive:false});
     window.addEventListener('touchmove',e=>{if(!active||tid===null)return;for(const t of e.changedTouches)if(t.identifier===tid){mv(t.clientX,t.clientY);break;}},{passive:true});
-    window.addEventListener('touchend',e=>{if(!active||tid===null)return;for(const t of e.changedTouches)if(t.identifier===tid){end();break;}});
+    const lift=e=>{if(!active||tid===null)return;for(const t of e.changedTouches)if(t.identifier===tid){end();break;}};
+    window.addEventListener('touchend',lift); window.addEventListener('touchcancel',lift);
     zone.addEventListener('mousedown',e=>{start(e.clientX,e.clientY);const m=ev=>mv(ev.clientX,ev.clientY),u=()=>{end();document.removeEventListener('mousemove',m);document.removeEventListener('mouseup',u);};document.addEventListener('mousemove',m);document.addEventListener('mouseup',u);});
   };
-  mk('atmo-steer-zone','atmo-steer-knob',atmoSteer);
-  mk('atmo-climb-zone','atmo-climb-knob',atmoClimb);
+  // the sky's sticks ARE the open-space sticks (the same JOY the flight model reads): left = look/aim,
+  // right = thrust/strafe — and a thumb held across the top of the air keeps flying
+  mk('atmo-steer-zone','atmo-steer-knob','L');
+  mk('atmo-climb-zone','atmo-climb-knob','R');
 }
 
 // Land from atmospheric flight → walk mode at the current spot.
@@ -16810,10 +16793,10 @@ function _atmoTouchdown(){
 // is carried round with the planet (co-rotating — the ground stays still
 // under you unless you fly), and below a few radii the speed, the board's
 // size and the camera's distance ease from open-space scale to the sky's
-// with height, so at the top of the air (PWS_DOWN) the sky controller
-// takes the board at the same place, heading, speed and camera. Climbing
-// out past PWS_UP hands it back. Past PWS_CLOSE radii the world closes
-// and space carries on with the same board, same frame.
+// with height. Under the top of the air (PWS_DOWN) the board carries on in
+// the ground's frame with the same control model, attitude, motion and
+// camera (_pwSpaceToFly); over PWS_UP it carries on back out here. Past
+// PWS_CLOSE radii the world closes and space carries on with the same board.
 function _pwSpaceWatch(){
   if(PW.active||PW.opening||window.DM_FLAT_WORLD) return;
   if(typeof flightInited==='undefined'||!flightInited||STATE.screen!=='flight'||SHIP_WALK.active||!boardFlight||!STATE.flight||!STATE.flight.pos) return;
@@ -16839,7 +16822,7 @@ async function _pwSpaceOpen(b){
 function _pwBeginSpace(){
   const b=PW.body, cur=PW.sp;
   PW.sp={P:b.mesh.position.clone(),Q:b.mesh.quaternion.clone(),flat:new THREE.Vector3(),f:1,fc:1,t:1,alt:1e9,camAlt:1e9,speed:0,
-    out:cur?!!cur.out:false,auto:cur?cur.auto:null};
+    out:cur?!!cur.out:false};
   const board=PW.board; board.visible=true;
   if(CHAR.loaded&&CHAR.root&&!(CHAR.mounted&&CHAR.root.parent===board)){ try{ mountSkyboard(board); _forceCharVisible(); }catch(e){} }
   atmoState=null; atmoBoard=null; surfPlayer=null; surfBoard=null;
@@ -16873,13 +16856,12 @@ function _pwSpaceStep(dt,first){
   const sc=_pwSpaceScale(la.alt,b);
   const p0=sp.pos.clone();
   const manual=!!(JOY.Lx||JOY.Ly||JOY.Rx||JOY.Ry||KEYS['KeyW']||KEYS['KeyS']||KEYS['KeyA']||KEYS['KeyD']||KEYS['ArrowUp']||KEYS['ArrowDown']||KEYS['ArrowLeft']||KEYS['ArrowRight']);
-  if(manual&&(S.out||S.auto)){ S.out=false; if(S.auto){ S.auto=null; toast('Autopilot off — you have the board',1400); } }
+  if(manual&&S.out) S.out=false;
   if(!first) try{ updateFlight(dt); }catch(e){ _animLoopWarn('updateFlight',e); }
   const step=sp.pos.clone().sub(p0);
   sp.pos.copy(p0).addScaledVector(step,sc.f*sc.mk);
-  // the autopilots: out to space (TO SPACE / LIFTOFF), or down to a spot picked on the landing globe
+  // the autopilot out to space (TO SPACE)
   if(S.out) _pwSpaceOutTick(sp,b,sc,dt);
-  else if(S.auto) _pwSpaceAutoTick(sp,b,sc,dt,la);
   S.speed=(sp.pos.distanceTo(p0))*sc.Sx/Math.max(1e-3,dt||1/60);
   try{ updateBoardTransform(0,0); }catch(e){}
   // the follow camera: the same offsets, scaled
@@ -16897,15 +16879,10 @@ function _pwSpaceStep(dt,first){
   PW.board.scale.setScalar(FLIGHT_BOARD_WORLD_SCALE*sc.f*sc.Sx);
   // the orbit globe dissolves into the ground's own globe far out (and back on the way out)
   const dr=la.dist/_bodyR(b);
-  const rev=_smooth01((PWS_OPEN-0.4-dr)/1.6);
-  _pwfReveal(rev);
-  // Keep the orbit globe until the world has painted a few frames AND the
-  // dissolve is nearly done. Do NOT wait on tile coverage (#127 did — that
-  // blocked the Safari hand-over on iPhone). A slow WebGL tablet can miss
-  // early world frames; leaving the orbit globe up closes that hole.
-  const painted=(PW._drawOK|0)>=2;
-  b.mesh.visible=!(painted&&rev>0.92);
-  // 4. hand-overs: into the sky, or away from the world
+  _pwfReveal(_smooth01((PWS_OPEN-0.4-dr)/1.6));
+  b.mesh.visible=PWF.reveal<0.999;
+  // 4. away from the world; or under the top of the air, where the ground's
+  //    near detail takes over — the same flight carries on (_pwSpaceToFly)
   if(dr>PWS_CLOSE){ _pwSpaceClose(); return; }
   if(la.alt<PWS_DOWN&&!S.out) _pwSpaceToFly();
 }
@@ -16918,42 +16895,7 @@ function _pwSpaceOutTick(sp,b,sc,dt){
   sp.pos.addScaledVector(dir,spd*Math.max(1,(dt||1/60)*60)*0.6);
   _pwAimLevel(sp,b,dir,dt,2.4);
 }
-// The landing globe picked a spot while you're still in space: fly down to it
-// (over the curve of the world, never through it), then the sky autopilot
-// carries on to it — and sets her down there for SURFACE.
-function _pwSpaceDescend(site,land){
-  if(!PW.sp) return;
-  PW.sp.out=false; PW.sp.auto={lat:site.lat,lon:site.lon,land:!!land};
-  try{ ASSIST&&ASSIST.mode&&typeof cancelAssist==='function'&&cancelAssist(); }catch(e){}
-  SPACE_AP.on=false; try{ $('ap-btn-space').classList.remove('active'); }catch(e){}
-  try{ _clearLandPrompt(); }catch(e){}
-  try{ window.DMGlobe&&DMGlobe.collapse&&DMGlobe.collapse(); }catch(e){}
-  toast((land?'⬇ Descending to ':'🛹 Descending into the sky over ')+_lmFmt(site.lat,site.lon),2200);
-}
-function _pwSpaceAutoTick(sp,b,sc,dt,la){
-  const a=PW.sp.auto, R=_planetR(), r=_bodyR(b), Sx=R/r;
-  const d2r=Math.PI/180, latLonDir=(lat,lon)=>new THREE.Vector3(Math.cos(lat*d2r)*Math.cos(lon*d2r),Math.sin(lat*d2r),-Math.cos(lat*d2r)*Math.sin(lon*d2r));
-  const ub=latLonDir(la.lat,la.lon), ut=latLonDir(a.lat,a.lon), th=Math.acos(Math.max(-1,Math.min(1,ub.dot(ut))));
-  const Q=b.mesh.getWorldQuaternion(new THREE.Quaternion());
-  // along the great circle at height; then a glide (~30°) down toward the spot, so the
-  // board meets the top of the air at an angle the sky controller flies (no flip at hand-over)
-  let tang=ut.clone().addScaledVector(ub,-ub.dot(ut));
-  if(tang.lengthSq()<1e-8){ tang=_pwVec(3).set(0,0,-1).applyQuaternion(spQuat(sp)).applyQuaternion(Q.clone().invert()); tang.addScaledVector(ub,-ub.dot(tang)); }
-  if(tang.lengthSq()<1e-8){ tang.set(0,1,0).addScaledVector(ub,-ub.y); if(tang.lengthSq()<1e-8) tang.set(1,0,0); }
-  tang.normalize();
-  const ax=new THREE.Vector3().crossVectors(ub,tang).normalize();
-  let aimDir, aimAlt;
-  if(th>0.12&&la.alt>R*0.35){ aimDir=ub.clone().applyAxisAngle(ax,0.12); aimAlt=Math.max(3200,Math.min(la.alt,R*0.6)); }
-  else { aimAlt=1800; const glide=Math.min(0.6,Math.max(0,la.alt-aimAlt)/(R*0.577)); aimDir=ub.clone().applyAxisAngle(ax,Math.max(glide,Math.min(th,0.12))); }
-  const target=aimDir.applyQuaternion(Q).multiplyScalar((R+aimAlt)/Sx).add(b.mesh.position);
-  const to=target.clone().sub(sp.pos), dist=to.length();
-  const v=Math.min(dist*0.9,Math.max(0.0008,dist*0.9))*Math.max(0.016,dt||1/60);   // space units this frame (eases in)
-  const dir=to.normalize();
-  sp.pos.addScaledVector(dir,Math.min(v,dist));
-  sp.vel.set(0,0,0);
-  _pwAimLevel(sp,b,dir,dt,3.6);
-}
-// face along `dir` with the world's up overhead (no roll: the horizon stays level into the sky's hand-over)
+// face along `dir` with the world's up overhead (TO SPACE climbs out level)
 const _pwAimM=[null];
 function _pwAimLevel(sp,b,dir,dt,rate){
   const M=_pwAimM[0]||(_pwAimM[0]=new THREE.Matrix4());
@@ -16963,46 +16905,42 @@ function _pwAimLevel(sp,b,dir,dt,rate){
   const aim=new THREE.Quaternion().setFromRotationMatrix(M);
   spQuat(sp).slerp(aim,1-Math.exp(-(dt||1/60)*rate)).normalize(); try{ spSyncLegacy(sp); }catch(e){}
 }
-// below the top of the air: the sky controller takes the board (same place, heading, speed and camera)
+// Under the top of the air: the world's near ground takes over from open
+// space. The board carries on exactly as it was — same place, attitude,
+// motion per frame, camera and controls (both use _boardControls).
 function _pwSpaceToFly(){
   const sp=STATE.flight, S=PW.sp, b=PW.body;
   if(b&&b.mesh) b.mesh.visible=false;
   _pwfSet(S.flat.x,S.flat.z,S.camAlt,PW.site); _pwsSync(b,PW.site);
   const R=_planetR(), rh=(R+S.alt)/R, jx=rh*PWF.cl*PWF.g, jz=rh;
-  const q=_pwsQToDrawn(spQuat(sp)), f=new THREE.Vector3(0,0,-1).applyQuaternion(q);
-  const fd=new THREE.Vector3(f.x/jx,f.y,f.z/jz).normalize();
-  const yaw=Math.atan2(-fd.x,-fd.z), pitch=Math.max(-0.8,Math.min(0.8,Math.asin(Math.max(-1,Math.min(1,fd.y)))));
-  const mach=Math.min(MACH_PRESETS[MACH_PRESETS.length-1].max,(S.speed/rh)/MACH_UNITS);
+  const toFlat=v=>{ v.x/=jx; v.z/=jz; return v; };
+  // attitude and motion in the true world, exactly as they are (the sky measures both there too)
+  const quat=_pwsQToDrawn(spQuat(sp)).clone();
+  const sc=_pwSpaceScale(S.alt,b);
+  const vel=sp.vel.clone().applyQuaternion(_PWS.Qi).applyQuaternion(_PWS.Mi).multiplyScalar(sc.f*sc.mk*sc.Sx/_atmoK());
   const camD=_pwsToDrawn(flightCamera.position), boardD=_pwsToDrawn(boardFlight.position);
-  const camRel=camD.sub(boardD); camRel.x/=jx; camRel.z/=jz;
-  const auto=S.auto;
-  // the sky's camera starts where the space camera was (in the flat world: the board + the same offset)
-  PW.blend={p:new THREE.Vector3(S.flat.x,S.alt,S.flat.z).add(camRel),q:PW.camera.quaternion.clone(),f:new THREE.Vector3(S.flat.x,S.alt,S.flat.z),t:0};
-  _pwBeginFly({x:S.flat.x,z:S.flat.z,y:S.alt,yaw,pitch,camRel,fromSpace:true,mach});
-  if(auto){ setAtmoPreset(Math.max(MACH_AUTO_DEFAULT,atmoPreset),true); atmoFlyTo(auto.lat,auto.lon,{land:auto.land,cruise:true}); }
+  const camRel=toFlat(camD.sub(boardD));
+  const camUp=_camUp.clone().applyQuaternion(_PWS.Qi).applyQuaternion(_PWS.Mi).normalize();
+  _pwBeginFly({x:S.flat.x,z:S.flat.z,y:S.alt,quat,vel,camRel,camUp,fromSpace:true});
 }
-// over the top of the air: the space flight model takes the board back
+// Over the top of the air: open space carries on with the same board, attitude, motion and camera.
 function _pwFlyToSpace(){
   const s=atmoState, b=PW.body, sp=STATE.flight; if(!s||!b||!sp) return;
   const cam=PW.camera;
   _pwfSet(s.pos.x,s.pos.z,cam.position.y,PW.site); _pwsSync(b,PW.site);
   const R=_planetR(), rh=(R+s.pos.y)/R, jx=rh*PWF.cl*PWF.g, jz=rh;
+  const toDrawn=v=>{ v.x*=jx; v.z*=jz; return v; };
   const boardD=_pwVec(0).set(s.pos.x,s.pos.y,s.pos.z);
   _pwsFromDrawn(boardD,sp.pos); if(boardFlight) boardFlight.position.copy(sp.pos);
-  // heading and pitch → the space board's orientation (drawn frame → space)
-  const qd=new THREE.Quaternion().setFromEuler(new THREE.Euler(s.pitch,s.yaw,0,'YXZ'));
-  sp.quat=_pwsQFromDrawn(qd,new THREE.Quaternion()); try{ spSyncLegacy(sp); }catch(e){}
+  sp.quat=_pwsQFromDrawn(s.quat,new THREE.Quaternion()); try{ spSyncLegacy(sp); }catch(e){}
   if(boardFlight) boardFlight.quaternion.copy(sp.quat).multiply(_BOARD_ALIGN);
-  const fl=new THREE.Vector3(-Math.sin(s.yaw)*Math.cos(s.pitch),Math.sin(s.pitch),-Math.cos(s.yaw)*Math.cos(s.pitch));
-  const dD=new THREE.Vector3(fl.x*jx,fl.y,fl.z*jz), spd=dD.length()*atmoMach*MACH_UNITS;   // drawn units / s
-  const dS=dD.normalize().applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q);
   const sc=_pwSpaceScale(s.pos.y,b);
-  sp.vel.copy(dS).multiplyScalar(spd/(sc.Sx*60*Math.max(1e-6,sc.f*sc.mk)));
+  sp.vel.copy(s.vel).multiplyScalar(_atmoK()).applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q).multiplyScalar(1/(sc.Sx*Math.max(1e-6,sc.f*sc.mk)));
   // the camera stays where it is: its offset from the board, in space units (unscaled by the height ease)
   const camF=PW._camFlat?PW._camFlat.p:cam.position;
-  const rel=new THREE.Vector3(camF.x-s.pos.x,camF.y-s.pos.y,camF.z-s.pos.z); rel.x*=jx; rel.z*=jz;
+  const rel=toDrawn(new THREE.Vector3(camF.x-s.pos.x,camF.y-s.pos.y,camF.z-s.pos.z));
   _camRel.copy(rel.applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q).multiplyScalar(1/(sc.Sx*Math.max(1e-6,sc.fc))));
-  _camUp.set(0,1,0).applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q); _followInit=true;
+  _camUp.copy(_atmoCamUp).applyQuaternion(_PWS.M).applyQuaternion(_PWS.Q).normalize(); _followInit=true;
   flightCamera.fov=cam.fov; flightCamera.updateProjectionMatrix();
   const out=!!s.toSpace;
   const ld=PW._lastDrawn; PW.sp=null; _pwBeginSpace(); PW.sp.out=out;
@@ -17117,9 +17055,6 @@ window._lmWalkFly=_lmWalkFly;
 // Runs inside updateAtmoFlight; returns true while it's flying the board.
 function _atmoAutopilot(s,dt){
   const a=s.auto; if(!a||s.landing) return false;
-  const manual=Math.abs(atmoSteer.x)>0.2||Math.abs(atmoSteer.y)>0.2||Math.abs(atmoClimb.x)>0.2||Math.abs(atmoClimb.y)>0.2||
-    KEYS['KeyW']||KEYS['KeyS']||KEYS['KeyA']||KEYS['KeyD']||KEYS['Space'];
-  if(manual){ s.auto=null; _landMarkerClear(); toast('Autopilot off — you have the board',1600); return false; }
   const dx=a.x-s.pos.x, dz=a.z-s.pos.z, dist=Math.hypot(dx,dz);
   if(a.cruise){
     // still lifting off: climb out first, the throttle already pushing up to speed
@@ -17760,6 +17695,9 @@ async function loadCharacterAssets(){
   }catch(e){}
 
   CHAR.loaded = true; CHAR.loading = false;
+  // Real-time strand hair (hair_strands.js + characterassests/ariel_hair_strands.bin). Fails soft: if the
+  // module/data is missing or the loaded character is a different file, the skinned hair cards just stay visible.
+  try{ import('./hair_strands.js').then(m=>m.attachHairStrands(CHAR,THREE,{url:CHAR_ASSET_BASE+'ariel_hair_strands.bin',getGravityScale:()=>{try{if(surfaceActive)return 1;if(CHAR.mounted)return atmoActive?0.3:0.08;}catch(e){}return 1;}})).catch(e=>console.info('[hair] strands not attached:',e&&e.message)); }catch(e){}
   try{ if(typeof boardFlight!=='undefined' && boardFlight) remountSkyboard(boardFlight); }catch(e){}
   CHAR._loadPromise=null;
   return CHAR.root;
@@ -18021,15 +17959,104 @@ function applySkyboardStance(t){
    on rotation.z, which is the TILT/roll axis — that reads as cocking
    her head over toward her shoulder, not turning it. The actual
    turn-to-look-sideways axis is rotation.y (yaw). */
+/* Head look-forward (rest-pose agnostic). The Ariel rig has non-identity rest
+   rotations and a stance clip that turns the whole body, so the old absolute
+   Euler yaw (0.78 rad) pointed her head wherever the clip left it. Now we
+   measure where the head is ACTUALLY facing (head-local forward axis taken
+   from the bind pose, rotated through the live bone chain), compare it with
+   the board's nose direction, and add the missing yaw about the vertical
+   axis, split between neck and head. Tunable live: window.DART_HEAD.
+     yawBias  extra radians to look left(+)/right(-) of the nose
+     maxYaw   largest correction applied (rad)
+     neckShare share of the turn taken by the neck (head takes the rest)  */
+const DART_HEAD = window.DART_HEAD = window.DART_HEAD || { on:true, yawBias:0, maxYaw:1.5, neckShare:0.4, pitchBias:0, level:true, pitch:-0.05, maxPitch:0.6, maxRoll:0.7, rollAmount:1.0 };
+let _hfFwd = null, _hfUp = null, _hfMesh = null;
+let _hfQ, _hfQ2, _hfV, _hfM;
+window.__whenThreeReady(function(){ _hfQ = new THREE.Quaternion(); _hfQ2 = new THREE.Quaternion(); _hfV = new THREE.Vector3(); _hfM = new THREE.Matrix4(); });
+function _hfRootQ(bone, out){            // bone rotation expressed under CHAR.root (rotations only, mirror-safe)
+  out.identity(); const chain=[]; let o=bone;
+  while(o && o!==CHAR.root){ chain.push(o); o=o.parent; }
+  for(let i=chain.length-1;i>=0;i--) out.multiply(chain[i].quaternion);
+  return out;
+}
+function _hfInit(){
+  const sm=CHAR.skinnedMesh, hb=CHAR.bones.Head; if(!sm||!sm.skeleton||!hb) return false;
+  const idx=sm.skeleton.bones.indexOf(hb); if(idx<0) return false;
+  _hfM.copy(sm.skeleton.boneInverses[idx]).invert();
+  const q=new THREE.Quaternion(), p=new THREE.Vector3(), sc=new THREE.Vector3();
+  _hfM.decompose(p,q,sc);
+  const qi=q.clone().invert();
+  _hfFwd=new THREE.Vector3(0,0,1).applyQuaternion(qi);   // rest-pose face direction is +Z in mesh space
+  _hfUp=new THREE.Vector3(0,1,0).applyQuaternion(qi);    // rest-pose crown direction is +Y
+  _hfMesh=sm; return true;
+}
+function _hfYawBone(bone, angle, ax, ay, az){
+  if(!bone || Math.abs(angle)<1e-5) return;
+  _hfRootQ(bone.parent||CHAR.root,_hfQ);                 // parent rotation in root space
+  _hfQ2.setFromAxisAngle(_hfV.set(ax||0, ay===undefined?1:ay, az||0),angle);   // yaw about root-up (or a given axis)
+  // local' = parent^-1 * yaw * parent * local
+  bone.quaternion.premultiply(_hfQ).premultiply(_hfQ2).premultiply(_hfQ.clone().invert());
+}
+function _hfYawNow(){
+  _hfRootQ(CHAR.bones.Head,_hfQ);
+  _hfV.copy(_hfFwd).applyQuaternion(_hfQ);
+  return Math.atan2(_hfV.x,_hfV.z);
+}
+// which end of the board is the FRONT? The staff trails past the BACK tip, so the front is
+// the end opposite the staff (measured from the board's own parts, not assumed).
+let _hfFrontBoard=null,_hfFrontSign=-1;
+function _hfFront(){
+  const board=CHAR.root&&CHAR.root.parent; if(!board) return _hfFrontSign;
+  if(_hfFrontBoard===board) return _hfFrontSign;
+  try{
+    let st=null,dk=null; const c=new THREE.Vector3();
+    board.traverse(o=>{
+      if(!o.isMesh||!o.geometry||o===CHAR.skinnedMesh) return;
+      let q=o,mine=false; while(q){ if(q===CHAR.root){mine=true;break;} q=q.parent; } if(mine) return;
+      const n=(o.name||'').toLowerCase();
+      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      o.geometry.boundingBox.getCenter(c);
+      if(/staff/.test(n)&&!st) st=c.x; else if(/deck|hull/.test(n)&&dk===null) dk=c.x;
+    });
+    if(st!==null&&dk!==null&&Math.abs(st-dk)>0.05){ _hfFrontSign = (st>dk)?-1:1; _hfFrontBoard=board; }
+  }catch(e){}
+  return _hfFrontSign;
+}
 function applySkyboardHeadOverride(){
   const b = CHAR.bones;
-  if(!b.neck && !b.Head) return;
-  const hipsZ = b.Hips ? b.Hips.rotation.z : 0;
-  const hipsX = b.Hips ? b.Hips.rotation.x : 0;
-  const lookYaw = 0.78; // ~45 degrees — best-guess sign/direction, flip if it turns out to look the other way
-  const swayYaw = hipsZ*0.3; // gentle turn-sway tied to the clip's own hip motion, same axis as the look
-  if(b.neck) b.neck.rotation.set(-hipsX*0.4 - 0.03, lookYaw*0.55 + swayYaw, 0);
-  if(b.Head) b.Head.rotation.set(0.01, lookYaw*0.45 + swayYaw*0.6, 0);
+  if(!DART_HEAD.on || !b.Head) return;
+  if(!_hfFwd || _hfMesh!==CHAR.skinnedMesh){ if(!_hfInit()) return; }
+  // direction the board's nose points, expressed in the character's pre-mirror root space
+  CHAR.root.updateMatrix();
+  _hfM.copy(CHAR.root.matrix).invert();
+  const nose=new THREE.Vector3(_hfFront(),0,0).transformDirection(_hfM);   // board front, in her pre-mirror space
+  const target=Math.atan2(nose.x,nose.z)+DART_HEAD.yawBias;
+  const wrap=a=>{ while(a>Math.PI)a-=2*Math.PI; while(a<-Math.PI)a+=2*Math.PI; return a; };
+  const lim=DART_HEAD.maxYaw;
+  let err=wrap(target-_hfYawNow());
+  err=Math.max(-lim,Math.min(lim,err));
+  if(b.neck){ _hfYawBone(b.neck, err*DART_HEAD.neckShare); err=wrap(target-_hfYawNow()); err=Math.max(-lim,Math.min(lim,err)); }
+  _hfYawBone(b.Head, err);
+  // level the gaze: if she is looking down/up more than the target pitch, take it out (neck 40% / head 60%)
+  if(DART_HEAD.level){
+    _hfRootQ(b.Head,_hfQ); const f=_hfFwd.clone().applyQuaternion(_hfQ);
+    const pitchCur=Math.asin(Math.max(-1,Math.min(1,f.y)));
+    let pe=Math.max(-DART_HEAD.maxPitch,Math.min(DART_HEAD.maxPitch,(DART_HEAD.pitch+DART_HEAD.pitchBias)-pitchCur));
+    const hl=Math.hypot(f.x,f.z)||1, ax=f.z/hl, az=-f.x/hl;       // horizontal axis perpendicular to facing
+    if(b.neck) _hfYawBone(b.neck, -pe*DART_HEAD.neckShare, ax, 0, az);
+    _hfYawBone(b.Head, -pe*(b.neck?1-DART_HEAD.neckShare:1), ax, 0, az);
+    // un-roll: bring the crown back toward world-up so the face isn't cocked sideways
+    _hfRootQ(b.Head,_hfQ); const f2=_hfFwd.clone().applyQuaternion(_hfQ).normalize(), u=_hfUp.clone().applyQuaternion(_hfQ);
+    const wu=new THREE.Vector3(0,1,0);
+    u.addScaledVector(f2,-u.dot(f2)); wu.addScaledVector(f2,-wu.dot(f2));
+    if(u.lengthSq()>1e-6 && wu.lengthSq()>1e-6){
+      u.normalize(); wu.normalize();
+      let re=Math.atan2(f2.dot(new THREE.Vector3().crossVectors(u,wu)), u.dot(wu));
+      re=Math.max(-DART_HEAD.maxRoll,Math.min(DART_HEAD.maxRoll,re))*DART_HEAD.rollAmount;
+      if(b.neck) _hfYawBone(b.neck, re*DART_HEAD.neckShare, f2.x, f2.y, f2.z);
+      _hfYawBone(b.Head, re*(b.neck?1-DART_HEAD.neckShare:1), f2.x, f2.y, f2.z);
+    }
+  }
 }
 
 /* ── STATE MACHINE ──────────────────────────────────────────────
@@ -18674,7 +18701,8 @@ function mountSkyboard(boardObj,opts){
    her instead of a globe, and layered on top of the live flight/atmo
    render loop rather than opening a separate overlay/renderer. */
 let charOrbitActive=false, charOrbitYaw=0, charOrbitPitch=0.25, charOrbitDist=9.0; // was 4.5 — too close on entry per feedback, now starts several yards back so the whole asset group is visible
-let _charOrbitDrag=null, _charOrbitPinch=null, _charOrbitListenersBound=false;
+let _charOrbitDrag=null, _charOrbitPinch=null, _charOrbitPinchC=null, _charOrbitListenersBound=false, _charOrbitPanning=false;
+let _charOrbitPan=null; window.__whenThreeReady(function(){ _charOrbitPan=new THREE.Vector3(); });   // world-space truck/pedestal offset of the orbit focus (two-finger / right-drag)
 
 function _charOrbitCanvas(){
   if(surfaceActive) return $('surface-canvas');
@@ -18720,6 +18748,15 @@ function updateCharOrbitCamera(){
   else if(atmoActive && atmoBoard){ atmoBoard.getWorldPosition(target); }
   else if(boardFlight){ boardFlight.getWorldPosition(target); }
   else return;
+  target.add(_charOrbitPan);   // truck / pedestal offset
+  // Zooming in glides the focus up to her face so you can get right up on it.
+  if(charOrbitDist<6 && CHAR.bones && CHAR.bones.Head){
+    const hp=new THREE.Vector3(); CHAR.bones.Head.getWorldPosition(hp);
+    const t=Math.max(0,Math.min(1,(6-charOrbitDist)/4.5)), k=(t*t*(3-2*t))*(_charOrbitPan.lengthSq()>1e-6?0:1);
+    target.lerp(hp,k);
+  }
+  const _nearWant=Math.min(0.1,Math.max(0.03,charOrbitDist*0.08));
+  if(cam.near!==_nearWant){cam.near=_nearWant;cam.updateProjectionMatrix();}
   const cy=Math.cos(charOrbitYaw), sy=Math.sin(charOrbitYaw), cp=Math.cos(charOrbitPitch), sp=Math.sin(charOrbitPitch);
   cam.position.set(target.x+sy*cp*charOrbitDist, target.y+sp*charOrbitDist, target.z+cy*cp*charOrbitDist);
   // on the ground the orbit camera can't dip into the terrain either
@@ -18735,20 +18772,30 @@ function updateCharOrbitCamera(){
 function _charOrbitMax(){ return surfaceActive?220:(atmoActive?320:30); }
 function _bindCharOrbitListenersOnce(){
   if(_charOrbitListenersBound) return; _charOrbitListenersBound=true;
+  const panBy=(dx,dy)=>{
+    const cam = surfaceActive ? surfCamera : (atmoActive ? atmoCamera : flightCamera); if(!cam) return;
+    const k=charOrbitDist*0.0019;
+    const r=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0), u=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
+    _charOrbitPan.addScaledVector(r,-dx*k).addScaledVector(u,dy*k);
+    const m=Math.max(2,charOrbitDist*1.5); if(_charOrbitPan.length()>m) _charOrbitPan.setLength(m);
+  };
   const move=(x,y)=>{
     if(!_charOrbitDrag) return;
     const dx=x-_charOrbitDrag.x, dy=y-_charOrbitDrag.y;
+    if(_charOrbitPanning){ panBy(dx,dy); _charOrbitDrag={x,y}; return; }
     charOrbitYaw -= dx*0.006;
     charOrbitPitch = Math.max(-1.45, Math.min(1.45, charOrbitPitch+dy*0.006));
     _charOrbitDrag={x,y};
   };
-  window.addEventListener('mousedown', e=>{ if(!charOrbitActive||e.target!==_charOrbitCanvas())return; _charOrbitDrag={x:e.clientX,y:e.clientY}; });
+  window.addEventListener('mousedown', e=>{ if(!charOrbitActive||e.target!==_charOrbitCanvas())return; _charOrbitPanning=(e.button===2||e.button===1||e.shiftKey); _charOrbitDrag={x:e.clientX,y:e.clientY}; });
+  window.addEventListener('contextmenu', e=>{ if(charOrbitActive&&e.target===_charOrbitCanvas()) e.preventDefault(); });
+  window.addEventListener('dblclick', e=>{ if(charOrbitActive&&e.target===_charOrbitCanvas()) _charOrbitPan.set(0,0,0); });
   window.addEventListener('mousemove', e=>{ if(charOrbitActive) move(e.clientX,e.clientY); });
-  window.addEventListener('mouseup', ()=>{ _charOrbitDrag=null; });
+  window.addEventListener('mouseup', ()=>{ _charOrbitDrag=null; _charOrbitPanning=false; });
   window.addEventListener('touchstart', e=>{
     if(!charOrbitActive||e.target!==_charOrbitCanvas())return;
     if(e.touches.length===1) _charOrbitDrag={x:e.touches[0].clientX,y:e.touches[0].clientY};
-    else if(e.touches.length===2) _charOrbitPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    else if(e.touches.length===2){ _charOrbitPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); _charOrbitPinchC={x:(e.touches[0].clientX+e.touches[1].clientX)/2,y:(e.touches[0].clientY+e.touches[1].clientY)/2}; _charOrbitDrag=null; }
   },{passive:true});
   window.addEventListener('touchmove', e=>{
     if(!charOrbitActive) return;
@@ -18756,15 +18803,18 @@ function _bindCharOrbitListenersOnce(){
     else if(e.touches.length===2 && _charOrbitPinch){
       e.preventDefault();
       const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      charOrbitDist=Math.max(1.2,Math.min(_charOrbitMax(),charOrbitDist*(_charOrbitPinch/d)));
+      charOrbitDist=Math.max(0.4,Math.min(_charOrbitMax(),charOrbitDist*(_charOrbitPinch/d)));
       _charOrbitPinch=d;
+      const cx=(e.touches[0].clientX+e.touches[1].clientX)/2, cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      if(_charOrbitPinchC) panBy(cx-_charOrbitPinchC.x, cy-_charOrbitPinchC.y);
+      _charOrbitPinchC={x:cx,y:cy};
     }
   },{passive:false});
-  window.addEventListener('touchend', e=>{ if(e.touches.length===0){ _charOrbitDrag=null; _charOrbitPinch=null; } });
+  window.addEventListener('touchend', e=>{ if(e.touches.length===0){ _charOrbitDrag=null; _charOrbitPinch=null; _charOrbitPinchC=null; _charOrbitPanning=false; } });
   window.addEventListener('wheel', e=>{
     if(!charOrbitActive||e.target!==_charOrbitCanvas())return;
     e.preventDefault();
-    charOrbitDist=Math.max(1.2,Math.min(_charOrbitMax(),charOrbitDist*(1+Math.sign(e.deltaY)*0.08)));
+    charOrbitDist=Math.max(0.4,Math.min(_charOrbitMax(),charOrbitDist*(1+Math.sign(e.deltaY)*0.08)));
   },{passive:false});
 }
 
@@ -18781,10 +18831,17 @@ function toggleCharOrbit(){
   });
   if(charOrbitActive){
     _bindCharOrbitListenersOnce();
-    charOrbitYaw=0; charOrbitPitch=0.25; charOrbitDist=9.0; // matches the new default above
-    try{toast('🔄 Orbit view — drag/scroll or pinch to look around, tap ORBIT again to exit',3200);}catch(e){}
+    charOrbitYaw=0; charOrbitPitch=0.25; _charOrbitPan.set(0,0,0);
+    // start pulled back so the whole rider + board is in view: at least where the
+    // flight camera already sits, and never closer than a comfortable default
+    let _d0=14; try{ const _t=new THREE.Vector3();
+      if(CHAR.loaded&&CHAR.root) CHAR.root.getWorldPosition(_t); else if(boardFlight) boardFlight.getWorldPosition(_t);
+      _d0=Math.max(14,cam.position.distanceTo(_t)*1.25); }catch(e){}
+    charOrbitDist=Math.min(_charOrbitMax()*0.9,_d0);
+    try{toast('🔄 Orbit view — drag to orbit · pinch to dolly · two-finger drag to pan (double-tap/click recentres) · tap ORBIT to exit',3200);}catch(e){}
   } else {
     _charOrbitDrag=null; _charOrbitPinch=null;
+    try{ if(cam.near!==0.1){cam.near=0.1;cam.updateProjectionMatrix();} }catch(e){}
   }
 }
 
@@ -18809,7 +18866,6 @@ async function enterSurface(body,site,opts){
   opts=opts||{};
   try{ _clearLandPrompt(); }catch(e){}
   if(opts.inPlace&&PW.active&&atmoActive&&PW.body===body){ _pwBeginWalk(opts); return; }
-  if(PW.active&&PW.mode==='space'&&PW.body===body&&site&&typeof site.lat==='number'&&!opts.spawn){ _pwSpaceDescend(site,true); return; }
   if(PW.active&&atmoActive&&PW.body===body&&site&&typeof site.lat==='number'&&!opts.spawn){ atmoFlyTo(site.lat,site.lon,{land:true,cruise:true}); return; }
   if(PW.active&&surfaceActive&&PW.body===body&&site&&typeof site.lat==='number'&&!opts.spawn){ _lmWalkFly(site.lat,site.lon,{land:true}); return; }   // elsewhere on this world: fly over and set down there
   if(PW.active) _pwCloseToSpace();
@@ -22777,7 +22833,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 </script>
 
 <!-- ?v= stamps: bump on every UI change so browsers never mix a new page with cached old styles -->
-<link rel="stylesheet" href="ui/dm-ui.css?v=110">
+<link rel="stylesheet" href="ui/dm-ui.css?v=111">
 <link rel="stylesheet" href="ui/dm-hud.css?v=115">
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
 <link rel="stylesheet" href="ui/dm-safety.css?v=1">

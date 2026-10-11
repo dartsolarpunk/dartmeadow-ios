@@ -14,3 +14,5 @@ static/og-share*.jpg
 characterassests/Meshy_AI_T_Pose_Sentinel_*
 Filler.txt
 CNAME
+characterassests/_backup_autumn/
+assets/social-share.jpg

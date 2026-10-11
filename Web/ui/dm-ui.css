@@ -108,21 +108,6 @@
 .pf-jn-live{color:#7dffb4;border:1px solid rgba(125,255,180,.5);background:rgba(125,255,180,.1);animation:pfJnPulse 1.8s ease-in-out infinite;}
 .pf-jn-auto{color:var(--text-dim);border:1px solid rgba(var(--acc-rgb),.3);}
 @keyframes pfJnPulse{50%{opacity:.55}}
-/* Welcome back: the newest journey loads by itself after a short count */
-#jn-welcome{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9800;width:min(420px,calc(100vw - 32px));padding:14px 16px 10px;
-  background:linear-gradient(135deg,rgba(var(--acc-rgb),.16),rgba(8,10,20,.88));border:1px solid rgba(var(--acc-rgb),.45);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);box-shadow:0 0 30px rgba(var(--acc-rgb),.25);animation:jwIn .35s ease-out;transition:opacity .3s,transform .3s;}
-#jn-welcome.out{opacity:0;transform:translateX(-50%) translateY(14px);}
-@keyframes jwIn{from{opacity:0;transform:translateX(-50%) translateY(14px)}}
-#jn-welcome .jw-t{font-family:var(--font-hud);font-size:.55rem;letter-spacing:.24em;color:var(--acc);}
-#jn-welcome .jw-n{font-family:var(--font-hud);font-size:.9rem;letter-spacing:.08em;color:var(--text);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-#jn-welcome .jw-m{font-size:.6rem;color:var(--text-dim);margin-top:2px;}
-#jn-welcome .jw-a{display:flex;gap:8px;margin-top:10px;}
-#jn-welcome button{flex:1;padding:9px 10px;border:1px solid rgba(var(--acc-rgb),.4);background:rgba(var(--acc-rgb),.12);color:var(--text);font-family:var(--font-hud);font-size:.58rem;letter-spacing:.14em;cursor:pointer;}
-#jn-welcome .jw-go{background:rgba(var(--acc-rgb),.32);border-color:var(--acc);}
-#jn-welcome .jw-bar{height:2px;margin-top:10px;background:rgba(var(--acc-rgb),.15);}
-#jn-welcome .jw-bar i{display:block;height:100%;width:0;background:var(--acc);box-shadow:0 0 8px var(--acc);}
-@media (orientation:landscape) and (max-height:500px){#jn-welcome{bottom:10px;padding:10px 12px 8px;}#jn-welcome .jw-a{margin-top:6px;}}
 /* Administration notes */
 .pf-tab{position:relative;}
 .pf-dot{display:none;width:6px;height:6px;margin-left:6px;border-radius:50%;background:#ff5a6a;box-shadow:0 0 6px #ff5a6a;vertical-align:1px;}

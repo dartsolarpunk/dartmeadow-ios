@@ -1,4 +1,4 @@
-sha=ee0c9ee053c84deb55ae8511b825ea4d51dba321
-date=2026-10-05T01:50:46-04:00
-subject=Merge pull request #129 from dartsolarpunk/android-orbit-safe
+sha=d03887cb22e9d44988df3decaa44d54cf558ce8d
+date=2026-10-11T16:07:44-04:00
+subject=sw v27: flush cached animation GLB from 3671e5a (GLB-only commit after the v26 bump)
 source=https://github.com/dartsolarpunk/dartmeadow-space.git

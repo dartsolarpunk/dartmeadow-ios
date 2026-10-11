@@ -283,8 +283,8 @@
   }
   function modeBubbles(){
     if(G.mode==='space') return [
-      {k:'land',t:'LAND',tip:'Land and walk at the marker',need:true,on:()=>goSurface()},
-      {k:'sky',t:'SKY',tip:'Fly the skyboard in the sky above the marker',need:true,on:()=>goSky()},
+      {k:'land',t:'LAND',tip:'Land and walk at the marker (no marker: a spot is picked for you, under the board)',on:()=>goSurface()},
+      {k:'sky',t:'SKY',tip:'Fly the skyboard at the default flight altitude (150 ft) over the marker (no marker: a spot is picked for you, under the board)',on:()=>goSky()},
       {k:'mark',t:'MARK',tip:'Save the plotted site to your Journal',need:true,on:()=>markTarget()},
       {k:'info',t:'INFO',tip:'About this world',on:()=>info()}];
     if(G.mode==='surf') return [
@@ -332,8 +332,28 @@
   const pulse=()=>{ const w=G.el&&G.el.querySelector('.dg-globe'); if(!w) return; w.classList.remove('nudge'); void w.offsetWidth; w.classList.add('nudge'); };
 
   // ── what the bubbles do ───────────────────────────────────────────────
-  function goSurface(){ const b=G.body, t=G.target; if(!b||!t) return; try{ _clearLandPrompt(); }catch(e){} tst('⬇ Landing on '+b.name+' at '+fmt(t.lat,t.lon),1800); enterSurface(b,{lat:t.lat,lon:t.lon}); }
-  function goSky(){ const b=G.body, t=G.target; if(!b||!t) return; try{ _clearLandPrompt(); }catch(e){} tst('🛹 Into the sky over '+b.name+' at '+fmt(t.lat,t.lon),1800); enterAtmosphericFlight(b,{lat:t.lat,lon:t.lon}); }
+  // No marker plotted: pick the spot for them — the ground right under the board
+  // (or the middle of the globe's view), moved to the nearest dry land if that's sea.
+  function autoSpot(){
+    let lat=G.lat0, lon=G.lon0;
+    try{ const b=G.body, sp=STATE&&STATE.flight; if(b&&b.mesh&&sp&&sp.pos){ const la=_pwsLatLonAlt(b,sp.pos); if(isFinite(la.lat)&&isFinite(la.lon)){ lat=la.lat; lon=la.lon; } } }catch(e){}
+    lat=Math.max(-70,Math.min(70,lat)); lon=wrap(lon);
+    const hm=G.hm;
+    if(hm&&hm.h&&hm.W&&hm.H){
+      const hAt=(la,lo)=>{ const u=(((Math.floor((wrap(lo)/360+0.5)*hm.W))%hm.W)+hm.W)%hm.W, v=Math.max(0,Math.min(hm.H-1,Math.floor((0.5-la/180)*hm.H))); return hm.h[v*hm.W+u]; };
+      if(!(hAt(lat,lon)>0)){
+        search: for(let r=2;r<=90;r+=2) for(let k=0;k<24;k++){
+          const a=k/24*Math.PI*2, la=lat+r*Math.cos(a), lo=lon+r*Math.sin(a)/Math.max(0.2,Math.cos(lat*D2R));
+          if(la<-70||la>70) continue;
+          if(hAt(la,lo)>0){ lat=la; lon=wrap(lo); break search; }
+        }
+      }
+    }
+    return {lat:Math.round(lat*100)/100, lon:Math.round(lon*100)/100};
+  }
+  function spot(){ if(G.target) return G.target; const t=autoSpot(); G.target=t; try{ kick(); }catch(e){} tst('◎ No marker plotted — picked '+fmt(t.lat,t.lon)+' for you',1800); return t; }
+  function goSurface(){ const b=G.body; if(!b) return; const t=spot(); try{ _clearLandPrompt(); }catch(e){} tst('⬇ Landing on '+b.name+' at '+fmt(t.lat,t.lon),1800); enterSurface(b,{lat:t.lat,lon:t.lon}); }
+  function goSky(){ const b=G.body; if(!b) return; const t=spot(); try{ _clearLandPrompt(); }catch(e){} tst('🛹 Into the sky over '+b.name+' at '+fmt(t.lat,t.lon)+' — 150 ft up',1800); enterAtmosphericFlight(b,{lat:t.lat,lon:t.lon}); }
   function markTarget(){
     const b=G.body, t=G.target; if(!b||!t||!window.DMJournal) return;
     try{ const place=Object.assign(_jnSysRef(),{body:b.name,site:{lat:+t.lat.toFixed(4),lon:+t.lon.toFixed(4)},x:0,z:0,yaw:0});
