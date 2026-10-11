@@ -19,8 +19,8 @@
         grooms run in real time).
      3. All strands are rendered as one camera-facing ribbon mesh whose
         positions are rewritten each frame.  The skinned hair-card mesh baked
-        into the GLB (the "Ariel Hair" mesh) is hidden once strands are live;
-        if this module or its data fails to load the cards simply stay visible.
+        into the GLB (the old "Ariel Hair" mesh) has been removed from the
+        character file; if an older GLB still has it, it is hidden once strands are live.
 
    RUNTIME API (window.DART_HAIR after attach):
        HAIR.params   {gravity, damping, shapeStiffness, tipStiffness, wind:Vector3,
@@ -64,7 +64,13 @@ export function buildHair(CHAR, THREE, buf, opts = {}) {
   /* ---------------- guard: only attach to the matching character (has the hair-card mesh) ---------------- */
   const cardMeshes = [];
   CHAR.root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && /Ariel.?Hair(?!Strands)/i.test(o.name)) cardMeshes.push(o); });
-  if (!cardMeshes.length) throw new Error('[hair] character has no Ariel hair-card mesh (different character file) - strands not attached');
+  // The old sculpted hair-card mesh ("zzAriel Hair", 31,590 verts) was removed from the GLB (Oct 2026):
+  // _forceCharVisible() kept re-showing it as bulky black hair over the strands. The GLB keeps an
+  // empty, zero-area "zzAriel Hair stub" so older copies of this guard (e.g. the Rig Viewer) still
+  // attach; Ariel is also recognised by her own meshes (Scalp / Ariel body).
+  let isAriel = cardMeshes.length > 0;
+  if (!isAriel) CHAR.root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && /^Scalp|^Ariel/i.test(o.name)) isAriel = true; });
+  if (!isAriel) throw new Error('[hair] character is not Ariel (no Scalp/Ariel mesh, different character file) - strands not attached');
 
   /* ---------------- bones ---------------- */
   const root = CHAR.root;
