@@ -144,7 +144,7 @@ if(location.search.indexOf('debug')!==-1){
 <link href="./vendor/fonts/google-fonts.css" rel="stylesheet">
 <script src="ui/dm-time.js?v=95"></script>
 <script src="ui/dm-earth.js?v=1"></script>
-<script src="ui/dm-theme.js?v=80"></script>
+<script src="ui/dm-theme.js?v=81"></script>
 <script src="ui/dm-fluid.js?v=80"></script>
 <script src="ui/dm-journal.js?v=98"></script>
 <script src="ui/dm-worldstyle.js?v=93"></script>
@@ -722,6 +722,14 @@ body.pw-hud #screen-flight > :not(#flight-canvas){display:none !important;}
 .pf-th-sw{display:inline-flex;flex-shrink:0;width:22px;height:14px;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,.2);}
 .pf-th-sw i{flex:1;}
 .pf-custom{display:flex;gap:6px;margin-top:6px;}
+.pf-xh{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.pf-xh-sw{width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;color:#000;font-family:var(--font-hud);font-size:.55rem;font-weight:700;}
+.pf-xh-sw.on{outline:2px solid var(--gold);outline-offset:2px;}
+.pf-xh-g{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.pf-xh-g input{flex:1;accent-color:var(--xh-color,var(--cyan));}
+.pf-xh-prev{display:inline-flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:4px;background:rgba(0,0,0,.45);color:var(--xh-color,var(--cyan));}
+.pf-xh-prev svg{opacity:var(--xh-op,.8);filter:var(--xh-filter,none);}
+.pf-xh-prev svg .xh-core{fill:var(--xh-core,currentColor);}
 .pf-save{display:flex;gap:6px;margin-top:8px;}
 .pf-save input{flex:1;min-width:0;padding:7px 9px;border-radius:3px;border:1px solid rgba(var(--acc-rgb),.35);background:rgba(0,0,0,.35);color:var(--text);font-family:var(--font-body);font-size:.66rem;}
 .pf-save .pf-btn{flex:0 0 auto;}
@@ -923,7 +931,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 <script src="ui/dm-friends.js?v=2" defer></script>
 <script src="ui/dm-spectator.js?v=1" defer></script>
 <script src="ui/dm-stack.js?v=1" defer></script>
-<script src="ui/dm-globe.js?v=6" defer></script>
+<script src="ui/dm-globe.js?v=7" defer></script>
 <script src="ui/dm-star.js?v=3" defer></script>
 <script src="ui/dm-starbubble.js?v=3" defer></script>
 </head>
@@ -1516,13 +1524,13 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
     </div>
   </div>
   <div id="ar-crosshair">
-    <svg width="36" height="36" viewBox="0 0 36 36" opacity="0.6">
+    <svg width="36" height="36" viewBox="0 0 36 36">
       <circle cx="18" cy="18" r="10" fill="none" stroke="currentColor" stroke-width="0.8"/>
       <line x1="18" y1="2" x2="18" y2="9" stroke="currentColor" stroke-width="0.8"/>
       <line x1="18" y1="27" x2="18" y2="34" stroke="currentColor" stroke-width="0.8"/>
       <line x1="2" y1="18" x2="9" y2="18" stroke="currentColor" stroke-width="0.8"/>
       <line x1="27" y1="18" x2="34" y2="18" stroke="currentColor" stroke-width="0.8"/>
-      <circle cx="18" cy="18" r="1.5" fill="currentColor"/>
+      <circle class="xh-core" cx="18" cy="18" r="1.5" fill="currentColor"/>
     </svg>
   </div>
   <div id="minimap"><canvas id="minimap-canvas" width="100" height="100"></canvas>
@@ -5845,7 +5853,6 @@ function makeFlightPlanetTexture(kind, colorHex, seedVal, bodyName){
   const seed=(typeof seedVal==='number'?seedVal:5);
   const key=(bodyName||kind)+'|'+seed+'|'+((colorHex>>>0)&0xffffff).toString(16);
   if(_flightPlanetTexCache[key]) return _flightPlanetTexCache[key];
-  const isEarth = kind==='earth' || bodyName==='Earth';
   const isMars = kind==='mars' || bodyName==='Mars';
   // Med/High get 512h; Low stays 256 for iPhone memory
   const S = (GFX && GFX.preset==='low') ? 256 : 512;
@@ -5856,33 +5863,14 @@ function makeFlightPlanetTexture(kind, colorHex, seedVal, bodyName){
   // near-black and every continent murky once the star really lit them
   const C=h=>new THREE.Color(h).convertLinearToSRGB();
   const base=C(colorHex||0x888888);
-  const water=C(0x0a3a6a);
-  const land=C(0x3a6a3a);
-  const land2=C(0x274d27);
   const rock=base.clone().multiplyScalar(0.75);
-  const snow=C(0xe8eef6);
   const marsRock=C(0xb5623a), marsDark=C(0x7a3a24), marsIce=C(0xe8d8c8);
   const img=cx.createImageData(S*2,S); const d=img.data;
   for(let y=0;y<S;y++){
     for(let x=0;x<S*2;x++){
       const lon=(x/(S*2))*360-180, lat=90-(y/S)*180;
       let r,g,b;
-      if(isEarth){
-        const landV=earthLandMask(lat,lon,seed);
-        const elev=(typeof earthElevation==='function')?earthElevation(lat,lon,seed):Math.max(0,landV);
-        const pole=Math.abs(lat)>70;
-        if(pole){ r=225; g=235; b=248; }
-        else if(landV>0){
-          const e=Math.min(1.4, Math.max(0,elev));
-          const ridge=(_fbm(lon*0.12+seed,lat*0.12+seed,seed+19,3));
-          const c=land.clone().lerp(land2, Math.min(1,ridge*0.6+(e>0.9?0.5:0)));
-          r=c.r*255*(0.62+e*0.5); g=c.g*255*(0.65+e*0.42); b=c.b*255*(0.48+e*0.3);
-          if(e>1.1 && Math.abs(lat)>28){ r=snow.r*255; g=snow.g*255; b=snow.b*255; }
-        } else {
-          const e=Math.min(-landV,1)*0.5;
-          r=water.r*255*(0.4+e*0.3); g=water.g*255*(0.5+e*0.3); b=water.b*255*(0.85+e*0.25);
-        }
-      } else if(isMars){
+      if(isMars){
         const h=marsFeatureHeight(lat,lon,seed);
         const t=(h+1200)/3400;
         const tc=THREE.MathUtils.clamp(t,0,1);
@@ -5893,7 +5881,7 @@ function makeFlightPlanetTexture(kind, colorHex, seedVal, bodyName){
         const u=x/(S*2)*6, v=y/S*3;
         const n=_fbm(u+seed*0.01,v,seed,5);
         const pole=Math.abs(lat)>78;
-        if(pole && (isEarth||kind==='ice'||n>0.55)){ r=230; g=236; b=248; }
+        if(pole && (kind==='ice'||n>0.55)){ r=230; g=236; b=248; }
         else if(n>0.52){
           const e=(n-0.52)*2.0;
           const c=base.clone().lerp(rock, Math.min(1,e));
@@ -6033,7 +6021,7 @@ function _attachJotsNearFill(group, radius, tintHex){
   try{
     group.traverse(o=>{
       if(!o.isMesh||!o.material)return;
-      if(o.name==='JOTS_WebGLAtmo'||o.name==='JOTS_DustyAtmo'||o.name==='JOTS_PlanetWaterShell')return;
+      if(o.name==='JOTS_WebGLAtmo'||o.name==='JOTS_DustyAtmo')return;
       const mats=Array.isArray(o.material)?o.material:[o.material];
       mats.forEach(m=>{
         if(!m)return;
@@ -6221,9 +6209,9 @@ function _buildJotsDustyRingGroup(planetR, opts){
 }
 
 function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kind, bodyName){
-  // Historian FIX INTENT (f1b8547 WebGL look):
-  // Earth → continent-mask albedo; others → makePlanetTexture (canvas
-  // continents/bands). All MeshStandard, lit by the star (addSunLight).
+  // Every world: a canvas albedo until its whole-planet map is ready, then the
+  // map itself (_applyWorldMapToFlightBody) — the same map the globe widget,
+  // the sky and the ground use. All MeshStandard, lit by the star.
   const group=new THREE.Group();
   group.userData.webglRich=true;
   const seg=_webglPlanetSegForPreset();
@@ -6232,32 +6220,18 @@ function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kin
   const isEarth = k==='earth' || nm==='Earth';
   const isMars = k==='mars' || nm==='Mars';
   let mesh;
-  if(isEarth){
-    // lit by the star itself like every other world (the old GLSL day/night
-    // ShaderMaterial can't run under WebGPURenderer's WebGL2 backend and drew
-    // Earth black); albedo from the continent mask
-    const dayMap=makeFlightPlanetTexture('earth', colorHex||0x2244cc, seedVal, 'Earth');
-    const mat=new THREE.MeshStandardMaterial({map:dayMap, color:0xffffff, roughness:0.82, metalness:0.02});
-    mesh=new THREE.Mesh(new THREE.SphereGeometry(radius, seg, seg), mat);
-    mesh.name='JOTS_WebGLPlanet';
-  } else {
-    // Prefer live makePlanetTexture (f1b8547 applyProceduralTextures path)
+  {
     let type='Rocky';
-    if(isMars) type='Rocky';
-    else if(k.includes('gas')||nm==='Jupiter'||nm==='Saturn') type='Gas Giant';
+    if(k.includes('gas')||nm==='Jupiter'||nm==='Saturn') type='Gas Giant';
     else if(k.includes('ice')||nm==='Uranus'||nm==='Neptune') type='Ice Giant';
-    else if(k==='habitable') type='Habitable';
-    const baseHex='#'+new THREE.Color(colorHex||0x888888).getHexString();
-    let tex;
-    try{
-      tex=makePlanetTexture(type, baseHex, (typeof seedVal==='number'?seedVal:5));
-    }catch(e){
-      tex=makeFlightPlanetTexture(kind, colorHex, seedVal, bodyName);
+    let tex=null;
+    // ocean worlds (Earth / habitable): plain sea colour until the map arrives
+    if(!(isEarth||k==='habitable')){
+      try{ tex=isMars?makeFlightPlanetTexture('mars', colorHex||0xcc4411, seedVal, 'Mars'):makePlanetTexture(type, '#'+new THREE.Color(colorHex||0x888888).getHexString(), (typeof seedVal==='number'?seedVal:5)); }
+      catch(e){ tex=makeFlightPlanetTexture(kind, colorHex, seedVal, bodyName); }
     }
-    // Mars: prefer named-feature flight texture over generic rocky fbm
-    if(isMars) tex=makeFlightPlanetTexture('mars', colorHex||0xcc4411, seedVal, 'Mars');
     const mat=new THREE.MeshStandardMaterial({
-      map:tex, color:0xffffff, roughness: type.includes('Giant')?0.85:0.95, metalness:0.02
+      map:tex, color:tex?0xffffff:(colorHex||0x2244cc), roughness: type.includes('Giant')?0.85:0.95, metalness:0.02
     });
     mesh=new THREE.Mesh(new THREE.SphereGeometry(radius, seg, seg), mat);
     mesh.name='JOTS_WebGLPlanet';
@@ -6363,36 +6337,10 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
   const colorBuf=new THREE.StorageBufferAttribute(maxVerts,3);
   const colorNode=storage(colorBuf,'vec3',maxVerts);
 
-  // Real geography for Earth/Mars, ported to TSL from the CPU-side
-  // earthLandMask/marsFeatureHeight/EARTH_CONTINENTS (originally written
-  // (CPU buildMarchingCubesPlanet stub removed — dual forever-GL/CPU stack).
-  // This GPU builder, buildProceduralPlanetMesh, is the live path; it used
-  // to only have generic Worley/fractal noise for every planet including
-  // Earth). Same continent ellipses, same
-  // named Mars features (Olympus Mons, Valles Marineris, hemispheric
-  // dichotomy), rewritten as branchless TSL so they run in the compute
-  // shader instead of a per-pixel CPU loop.
-  // the real Earth: sample the ETOPO5 land value (DMEarth) when it's loaded
-  const _earthTex=(window.DMEarth&&DMEarth.ready)?DMEarth.texture():null;
-  const _earthLandMaskTSL=(dir)=>{
-    const lat=dir.y.clamp(-1,1).asin(), lon=atan2(dir.z.negate(),dir.x);
-    if(_earthTex){
-      const uvE=vec2(lon.div(Math.PI*2).add(0.5),lat.div(Math.PI).add(0.5));
-      return window.texture(_earthTex,uvE).level(0).r.mul(2.6).sub(1.0);
-    }
-    let inside=float(-2.0);
-    EARTH_CONTINENTS.forEach(c=>{
-      const clat=c.lat*Math.PI/180, clon=c.lon*Math.PI/180, crlat=c.rlat*Math.PI/180, crlon=c.rlon*Math.PI/180;
-      const cr=Math.cos(c.rot), sr=Math.sin(c.rot);
-      const dlon=lon.sub(clon).add(Math.PI*3).mod(Math.PI*2).sub(Math.PI); // shortest signed wrap, same as the CPU version's %360 trick
-      const dlat=lat.sub(clat);
-      const u=dlon.mul(cr).sub(dlat.mul(sr)).div(crlon), v=dlon.mul(sr).add(dlat.mul(cr)).div(crlat);
-      inside=inside.max(float(1).sub(u.mul(u).add(v.mul(v))));
-    });
-    // Mild coast noise (match CPU earthLandMask) so low-LOD MC keeps silhouettes
-    const coastNoise=mx_fractal_noise_float(dir.mul(14.0).add(vec3(11.3,4.7,8.1)),3,2.0,0.5).mul(0.19);
-    return inside.add(coastNoise);
-  };
+  // Mars keeps its named features (TSL port of marsFeatureHeight) for the
+  // far mesh; every other world, Earth included, uses the one generic relief.
+  // Colour comes from the world's own map once it is built
+  // (_applyWorldMapToFlightBody) — the same map the globe widget shows.
   const _marsFeatureTSL=(dir)=>{
     const lat=dir.y.clamp(-1,1).asin(), lon=atan2(dir.z.negate(),dir.x);
     const latDeg=lat.mul(180/Math.PI), lonDeg=lon.mul(180/Math.PI);
@@ -6432,29 +6380,12 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
     const craterRim=rim1.add(rim2);
     const genericRelief=terrain.mul(0.9).sub(bowl.mul(0.6)).add(craterRim.mul(0.6)).add(plateau).add(peaks); // roughly -1..1
     let relief;
-    if(kind==='earth'){
-      // Strong land/ocean step so continents read at low MC N (8–12 cells).
-      // Interior (land field) + ridged belts give Himalayas-ish altitude;
-      // same mask drives orbit tex + surface site bias (CPU earthElevation).
-      const land=_earthLandMaskTSL(dir);
-      const land01=land.clamp(0.0,1.0);
-      const ridgeE=float(1.0).sub(mx_fractal_noise_float(dir.mul(9.0).add(seedU),4,2.0,0.5).abs());
-      const ridgeE2=float(1.0).sub(mx_fractal_noise_float(dir.mul(18.0).add(seedU).add(vec3(2,7,1)),3,2.0,0.5).abs());
-      const terraceE=mx_fractal_noise_float(dir.mul(3.2).add(seedU),3,2.0,0.5).mul(0.5).add(0.5);
-      const plateauE=terraceE.mul(4.0).floor().div(4.0).mul(0.4);
-      // Named-ish orographic punch: high-freq ridge × interior strength
-      const orogen=ridgeE.mul(ridgeE).mul(1.35).add(ridgeE2.pow(3.0).mul(0.7)).mul(land01.add(0.15));
-      const landHeight=float(1.05).add(land01.mul(0.85)).add(orogen).add(plateauE.mul(land01));
-      const oceanHeight=float(-0.55).sub(land.negate().clamp(0.0,1.0).mul(0.55));
-      relief=select(land.greaterThan(0.0),landHeight,oceanHeight);
-    } else if(kind==='mars'){
+    if(kind==='mars'){
       relief=_marsFeatureTSL(dir).add(plateau.mul(0.35)).add(peaks.mul(0.5));
     } else {
       relief=genericRelief;
     }
-    // Earth gets slightly taller continent relief so low-LOD silhouettes read
-    // from orbit; other bodies keep the ~1.2% cliff/peak budget.
-    const reliefScale=(kind==='earth')?(radius*0.018):(radius*0.012);
+    const reliefScale=radius*0.012;   // ~1.2% cliff/peak budget, every world
     return float(radius).add(relief.mul(reliefScale));
   });
 
@@ -6519,8 +6450,6 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
         const baseC=new THREE.Color(colorHex);
         const rockC=baseC.clone().multiplyScalar(0.65);
         const snowC=new THREE.Color(0xeef2f6);
-        const oceanShallowC=new THREE.Color(0x2a6b8a), oceanDeepC=new THREE.Color(0x0a2540);
-        const landC=new THREE.Color(0x4a7a3a), mountainC=new THREE.Color(0x6b5844);
         const colorFor=(v)=>{
           const up=v.normalize();
           const slope=float(1).sub(nrm.dot(up).clamp(0,1));
@@ -6531,28 +6460,6 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
           // by anything, so the whole snow-cap blend had gone silently
           // dead). ~75% up the new relief range, same proportion as before.
           const snowT=height.sub(radius*0.009).div(radius*0.003).clamp(0,1);
-          if(kind==='earth'){
-            // Soft sandbox smart-material feel: sand→grass→dirt→rock + mottled
-            // polar/highland snow. Keep ocean particles/atmo untouched; continents
-            // stay land-mask driven (#48 YAY hold).
-            const land=_earthLandMaskTSL(up);
-            const oceanC=mix(vec3(oceanShallowC.r,oceanShallowC.g,oceanShallowC.b),vec3(oceanDeepC.r,oceanDeepC.g,oceanDeepC.b),land.negate().clamp(0,1));
-            const sandC=vec3(0.72,0.66,0.42), dirtC=vec3(0.42,0.33,0.24), iceC=vec3(0.78,0.85,0.92);
-            const mott=mx_fractal_noise_float(up.mul(18.0).add(seedU),3,2.0,0.5).mul(0.5).add(0.5);
-            const elevBand=height.div(radius*0.012+1e-5).clamp(0.0,1.0);
-            let c=mix(sandC, vec3(landC.r,landC.g,landC.b), land.clamp(0.0,1.0).mul(0.85).add(mott.mul(0.15)));
-            c=mix(c, dirtC, elevBand.smoothstep(0.25,0.55).mul(0.55));
-            c=mix(c, vec3(mountainC.r,mountainC.g,mountainC.b), slope.smoothstep(0.3,0.7).max(elevBand.smoothstep(0.55,0.9)));
-            const latAbs=up.y.abs();
-            const polarSnow=latAbs.smoothstep(0.78,0.92); // ~high-lat caps
-            const snowMix=snowT.max(polarSnow.mul(elevBand.add(0.35).clamp(0.0,1.0)));
-            const snowCol=mix(vec3(snowC.r,snowC.g,snowC.b), iceC, mott.mul(0.5));
-            c=mix(c, snowCol, snowMix.mul(select(land.greaterThan(0.0),float(1),float(0.25))));
-            // Rock speck in snow so caps are not featureless
-            c=mix(c, vec3(mountainC.r,mountainC.g,mountainC.b), snowMix.mul(mott.sub(0.65).max(0.0).mul(1.8)).clamp(0.0,0.35).mul(select(land.greaterThan(0.0),float(1),float(0))));
-            c=select(land.greaterThan(0.0),c,oceanC);
-            return c;
-          }
           let c=vec3(baseC.r,baseC.g,baseC.b);
           c=mix(c,vec3(rockC.r,rockC.g,rockC.b),slope.smoothstep(0.35,0.75));
           c=mix(c,vec3(snowC.r,snowC.g,snowC.b),snowT);
@@ -6563,9 +6470,11 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
         vertexNode.element(outBase.add(slot)).assign(v0);
         vertexNode.element(outBase.add(slot).add(1)).assign(v1);
         vertexNode.element(outBase.add(slot).add(2)).assign(v2);
-        normalNode.element(outBase.add(slot)).assign(nrm);
-        normalNode.element(outBase.add(slot).add(1)).assign(nrm);
-        normalNode.element(outBase.add(slot).add(2)).assign(nrm);
+        // shading leans on the sphere's own normal so a coarse far mesh reads
+        // as a round world, not facets; the face normal keeps a little relief
+        normalNode.element(outBase.add(slot)).assign(v0.normalize().add(nrm.mul(0.35)).normalize());
+        normalNode.element(outBase.add(slot).add(1)).assign(v1.normalize().add(nrm.mul(0.35)).normalize());
+        normalNode.element(outBase.add(slot).add(2)).assign(v2.normalize().add(nrm.mul(0.35)).normalize());
         colorNode.element(outBase.add(slot)).assign(col);
         colorNode.element(outBase.add(slot).add(1)).assign(col);
         colorNode.element(outBase.add(slot).add(2)).assign(col);
@@ -6587,69 +6496,8 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
   group.add(planetMcMesh);
 
   if(hasAtmosphere){
-    // Water — Earth only (Venus/Mars/rocky get dusty Rayleigh shells without oceans).
-    // Sandbox = dm-jots-sandbox (github.com/dartsolarpunk/dm-jots-sandbox).
-    // Ported from the sandbox's depth-aware shell (same technique:
-    // the opaque terrain above renders first in the frame, so by the time
-    // this transparent water fragment shades, viewportLinearDepth already
-    // holds "whatever's behind me" - comparing that to this fragment's own
-    // depth gives live water-column thickness at every point, with no
-    // separate baked mask, same as the sandbox reference). Sized at
-    // radius*1.08 to match the sandbox's own PLANET_RADIUS(40)+3.2 ratio,
-    // sitting inside the terrain's own height variance (±radius*0.12-0.18
-    // per the density function above) so it only submerges low ground.
-    if(kind==='earth'){
-    const WATER_R=radius*1.008; // matches the new ~1.2%-of-radius relief (was 1.08, tuned to the old 12% relief)
-    const waterMat=new THREE.MeshStandardNodeMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,metalness:0.05});
-    const sceneDepthW=viewportLinearDepth;
-    const surfaceDepthW=linearDepth(positionView.z);
-    const depthDiffW=sceneDepthW.sub(surfaceDepthW).max(0.0);
-    const depthFactorW=depthDiffW.mul(3.2).clamp(0.0,1.0);
-    const shallowC=vec3(0.34,0.76,0.72),midC=vec3(0.10,0.45,0.52),deepC=vec3(0.02,0.09,0.20);
-    const baseColorW=mix(mix(shallowC,midC,smoothstep(0.0,0.45,depthFactorW)),deepC,smoothstep(0.35,1.0,depthFactorW));
-    const foamW=float(1.0).sub(smoothstep(0.0,0.05,depthDiffW));
-    const foamNoiseW=mx_fractal_noise_float(positionWorld.mul(8.0).add(vec3(time.mul(0.3),0,time.mul(0.2))),3,2.0,0.5);
-    const foamMaskW=foamW.mul(smoothstep(0.15,0.6,foamNoiseW.mul(0.5).add(0.5)).add(0.35).clamp(0.0,1.0));
-    const wavePosW=positionWorld.mul(2.6).add(vec3(time.mul(0.15),0.0,time.mul(0.11)));
-    const waveNW=mx_fractal_noise_float(wavePosW,4,2.0,0.5);
-    const wavePos2W=positionWorld.mul(2.6).add(vec3(time.mul(0.11).add(50.0),0.0,time.mul(-0.13)));
-    const waveN2W=mx_fractal_noise_float(wavePos2W,4,2.0,0.5);
-    const wavePos3W=positionWorld.mul(9.0).add(vec3(time.mul(0.4).add(12.0),0.0,time.mul(0.33)));
-    const waveN3W=mx_fractal_noise_float(wavePos3W,2,2.0,0.5);
-    const waveNormalW=normalWorld.add(vec3(
-      waveNW.mul(0.12).add(waveN3W.mul(0.035)),
-      waveN2W.mul(0.12).add(waveN3W.mul(0.035)),
-      waveNW.mul(waveN2W).mul(0.08)
-    )).normalize();
-    const viewDirW=positionWorld.sub(cameraPosition).normalize();
-    const fresnelW=float(1.0).sub(viewDirW.dot(waveNormalW).abs()).pow(2.5);
-    const shineW=fresnelW.mul(0.55);
-    waterMat.colorNode=mix(baseColorW,vec3(1,1,1),foamMaskW).add(vec3(0.55,0.65,0.75).mul(shineW));
-    waterMat.opacityNode=clamp(float(0.4).add(depthFactorW.mul(0.5)).add(foamMaskW.mul(0.4)).add(shineW.mul(0.3)),0.0,0.97);
-    waterMat.normalNode=waveNormalW;
-    waterMat.roughnessNode=clamp(float(0.06).add(waveN3W.abs().mul(0.12)),0.03,0.28);
-    const waterMesh=new THREE.Mesh(new THREE.SphereGeometry(WATER_R,64,40),waterMat);
-    waterMesh.renderOrder=1;
-    waterMesh.name='JOTS_PlanetWaterShell';
-    waterMesh.userData.isWaterVolume=true;
-    waterMesh.userData.waterVolume=true; // Stabilizer Swim_Forward (orbital shell marker)
-    waterMesh.userData.liquidName='water';
-    waterMesh.userData.waterRadius=WATER_R;
-    waterMesh.userData.planetRadius=radius;
-    group.add(waterMesh);
-    // Optional inner "volume" marker sphere (slightly smaller) for bounds queries
-    const waterVolMarker=new THREE.Mesh(
-      new THREE.SphereGeometry(WATER_R*0.995,16,12),
-      new THREE.MeshBasicMaterial({visible:false})
-    );
-    waterVolMarker.name='JOTS_PlanetWaterVolume';
-    waterVolMarker.userData.isWaterVolume=true;
-    waterVolMarker.userData.waterVolume=true; // Stabilizer Swim_Forward
-    waterVolMarker.userData.liquidName='water';
-    waterVolMarker.userData.waterRadius=WATER_R;
-    waterVolMarker.userData.planetRadius=radius;
-    group.add(waterVolMarker);
-    } // end Earth-only water
+    // (No Earth-only water shell: seas are the map's own two-tone blue, like
+    // every world's liquid, with no extra transparent full-planet pass.)
 
     // Source: Sebastian Lague, "Coding Adventure: Atmosphere"
     //   (youtube.com/watch?v=DxfEbulyFcY; github.com/SebLague/Solar-System,
@@ -6666,9 +6514,7 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
     const planetCenterU=uniform(new THREE.Vector3(0,0,0));
     const ATMO_R=HALF*atmoMul;
     const _atmoSamp=(typeof _jotsAtmoSampleBudgets==='function')?_jotsAtmoSampleBudgets():{view:4,sun:3};
-    // Earth nudges toward sandbox 10/5 without exceeding preset budget+2
-    let VIEW_SAMPLES=_atmoSamp.view, SUN_SAMPLES=_atmoSamp.sun;
-    if(kind==='earth'){ VIEW_SAMPLES=Math.min(10, Math.max(VIEW_SAMPLES, VIEW_SAMPLES+2)); SUN_SAMPLES=Math.min(5, Math.max(SUN_SAMPLES, SUN_SAMPLES+1)); }
+    const VIEW_SAMPLES=_atmoSamp.view, SUN_SAMPLES=_atmoSamp.sun;   // same budget for every world
     const raySphere=Fn(([center,rad,ro,rd])=>{
       const offset=ro.sub(center);
       const b=offset.dot(rd).mul(2.0);
@@ -10580,9 +10426,9 @@ function updateBodies(dt){
         _approachBestDist=dist;_approachBestBody=b;
       }
       // getting close: dress the planet in the map of the ground you'd land on
-      if(!b._wmReq && dist<rad*14 && b.name!=='Earth' && !b.isAsteroid && b.type!=='Comet'){
+      if(!b._wmReq && dist<rad*14 && !b.isAsteroid && b.type!=='Comet'){
         b._wmReq=true;
-        try{ worldMapFor(b,m=>_applyWorldMapToFlightBody(b,m)); }catch(e){ console.warn('[worldmap] flight',e); }
+        try{ worldMapFor(b,m=>{ b._wm=m; _applyWorldMapToFlightBody(b,m); }); }catch(e){ console.warn('[worldmap] flight',e); }
       }
     }
   }
@@ -10758,6 +10604,7 @@ async function upgradeWebGLPlanetLOD(){
     _disposeObject3D(oldGroup);
     b.mesh=newGroup;
     b._webglSeg=wantSeg;
+    if(b._wm) _applyWorldMapToFlightBody(b,b._wm);   // keep wearing its map
     if(b.name==='Earth')earthMesh=newGroup;
   }catch(e){
     console.warn('[planet LOD webgl] rebuild failed', e && e.message);
@@ -10810,6 +10657,7 @@ async function upgradePlanetLOD(dt){
     _disposeObject3D(oldGroup);
     b.mesh=newGroup;
     b.mcRes=newRes;b.mcTier=newTier;
+    if(b._wm) _applyWorldMapToFlightBody(b,b._wm);   // keep wearing its map
     if(b.name==='Earth')earthMesh=newGroup;
   }catch(e){
     console.warn('[planet LOD] rebuild failed for',b.name,'at tier',newTier,'-',e.message,e);
@@ -12434,6 +12282,9 @@ function _pfEnsure(){
     '<div class="pf-themes" id="pf-themes"></div>'+
     '<div class="pf-row-d" style="margin-top:8px;">Custom colours \u2014 tap one to open the colour picker:</div>'+
     '<div class="pf-custom" id="pf-custom"></div>'+
+    '<div class="pf-row-d" style="margin-top:10px;">Crosshair \u2014 colour and neon glow (kept with your theme):</div>'+
+    '<div class="pf-xh" id="pf-xh"></div>'+
+    '<div class="pf-xh-g"><span class="pf-row-d">Glow</span><input type="range" id="pf-xh-glow" min="0" max="100" step="1" aria-label="Crosshair glow"><span class="pf-row-d" id="pf-xh-gn"></span><span class="pf-xh-prev" id="pf-xh-prev"></span></div>'+
     '<div class="pf-save"><input id="pf-th-name" maxlength="32" placeholder="Name these colours\u2026" autocomplete="off" spellcheck="false"><button class="pf-btn" id="pf-th-save">\uFF0B SAVE THEME</button></div>'+
     '<div class="pf-sec">MY THEMES</div>'+
     '<div class="pf-themes" id="pf-mine"></div>'+
@@ -12526,6 +12377,25 @@ function _pfRenderThemes(){
     cus.appendChild(b);
   });
   _pfRenderMine();
+  _pfRenderCross();
+}
+// Crosshair: theme primary, a few presets, or any colour; glow 0 = none
+function _pfRenderCross(){
+  const T=window.DMTheme, box=$('pf-xh'), gl=$('pf-xh-glow'); if(!T||!box||!gl||!T.setCrosshair) return;
+  const x=T.crosshair; box.textContent='';
+  const sw=(col,label,on,click)=>{ const b=document.createElement('button'); b.className='pf-xh-sw'+(on?' on':''); b.title=label; b.setAttribute('aria-label','Crosshair '+label);
+    b.style.background=col; b.onclick=click; box.appendChild(b); return b; };
+  sw(T.colors().acc,'theme colour',!x.color,()=>{ T.setCrosshair({color:null}); _pfRenderCross(); }).textContent='T';
+  T.crossPresets.forEach(c=>sw(c,c,x.color===c,()=>{ T.setCrosshair({color:c}); _pfRenderCross(); }));
+  const custom=x.color&&!T.crossPresets.includes(x.color);
+  const cb=sw(custom?x.color:'conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)','custom colour',custom,()=>{
+    const before=T.crosshair.color;
+    window.DMColorPicker.open({color:before||T.colors().acc,title:'Crosshair colour',
+      onChange:h=>T.setCrosshair({color:h}), onDone:()=>_pfRenderCross(), onCancel:()=>{ T.setCrosshair({color:before}); _pfRenderCross(); }});
+  }); cb.textContent='+';
+  gl.value=Math.round(x.glow*100); $('pf-xh-gn').textContent=Math.round(x.glow*100)+'%';
+  gl.oninput=()=>{ T.setCrosshair({glow:gl.value/100}); $('pf-xh-gn').textContent=gl.value+'%'; };
+  const pv=$('pf-xh-prev'); if(pv&&!pv.firstChild){ const ch=$('ar-crosshair'); if(ch&&ch.firstElementChild){ const c=ch.firstElementChild.cloneNode(true); c.setAttribute('width','30'); c.setAttribute('height','30'); pv.appendChild(c); } }
 }
 // MY THEMES: the player's own saved themes. Tap to use, \u270E to rename, \u2715 to delete.
 let _pfRenaming=null;
@@ -12910,14 +12780,7 @@ function makePlanetTexture(type,baseHex,seed){
       let n=_fbm(u,v,seed,5);
       let r,g,b;
       if(type==='Habitable'){
-        // Shared earthLandMask + earthElevation (orbital MC / land-pick / walk)
-        const lon=(x/(S*2))*360-180, lat=90-(y/S)*180;
-        let landN=n>0.52, elev=0;
-        if(typeof earthLandMask==='function'){
-          const lv=earthLandMask(lat,lon,seed);
-          landN=lv>0;
-          elev=(typeof earthElevation==='function')?earthElevation(lat,lon,seed):Math.max(0,lv);
-        }
+        const landN=n>0.52, elev=Math.max(0,(n-0.52)*3);
         const pole=Math.abs(y/S-0.5)>0.42;
         if(pole){r=235;g=240;b=250;}
         else if(landN){const e=Math.min(1.4,Math.max(0,elev));r=55+e*95;g=105+e*75;b=45+e*35; if(e>1.1){r=220;g=228;b=240;}}
@@ -15726,122 +15589,6 @@ function getSurfacePalette(body){
 }
 // ════════════════════════════════════════════════════════════════════
 //  ✦ WORLD GLOBE TEXTURES — the landing globe (ui/dm-globe.js) wears these
-// ════════════════════════════════════════════════════════════════════
-// Builds a high-res "Mantis Radar"-style globe texture for the orbital-approach
-// view: shaded terrain/water from the body palette, PLUS a glowing lat/long
-// graticule grid and bright coastline outlines mapped onto the sphere — the
-// holographic recon look. One per body type/seed, cached.
-const _orbitTexCache={};
-function makeOrbitGlobeTexture(body){
-  const pal=getSurfacePalette(body);
-  const type=body.type||'Rocky';
-  const seed=(body.name?body.name.length*7:5)+3;
-  const key=type+'|'+(body.name||'')+'|'+seed;
-  if(_orbitTexCache[key])return _orbitTexCache[key];
-  const isEarth=body.name==='Earth', isMars=body.name==='Mars';
-  // Earth land-pick gets 768h for sharper continent edges; others stay 512.
-  const S=isEarth?768:512;const cv=document.createElement('canvas');cv.width=S*2;cv.height=S;
-  const cx=cv.getContext('2d');
-  const water=new THREE.Color(pal.water?0x0a3a6a:(pal.atmos?0x10303a:0x101418));
-  const land =new THREE.Color(pal.ground||0x3a6a3a);
-  const land2=new THREE.Color(pal.ground2||0x274d27);
-  const img=cx.createImageData(S*2,S);const d=img.data;
-  // Real geography for Earth/Mars — same earthLandMask/marsFeatureHeight
-  // used (via their TSL port) on the actual compute-shader planet now,
-  // so the landing-selection map matches what you fly past instead of
-  // showing an unrelated random fbm blob field. Everything else keeps
-  // the generic procedural look, same as before.
-  const marsRock=new THREE.Color(0xb5623a), marsDark=new THREE.Color(0x7a3a24), marsIce=new THREE.Color(0xe8d8c8);
-  // base shaded surface — landmasses vs water via fbm, polar caps
-  for(let y=0;y<S;y++){
-    for(let x=0;x<S*2;x++){
-      const lon=(x/(S*2))*360-180, lat=90-(y/S)*180;
-      let r,g,b;
-      if(isEarth){
-        // Same earthLandMask + earthElevation as MC / surface — high contrast
-        // so Africa/Eurasia/Americas/Australia/Antarctica read on the land-pick map.
-        const landV=earthLandMask(lat,lon,seed);
-        const elev=(typeof earthElevation==='function')?earthElevation(lat,lon,seed):Math.max(0,landV);
-        const pole=Math.abs(lat)>70;
-        if(pole){r=230;g=238;b=250;}
-        else if(landV>0){
-          const e=Math.min(1.4, Math.max(0,elev));
-          const mountain=e>0.85;
-          const mott=_fbm(lon*0.18+seed,lat*0.18+seed,seed+77,2);
-          r=land.r*255*(0.55+e*0.55); g=land.g*255*(0.58+e*0.48); b=land.b*255*(0.42+e*0.35);
-          // Dirt/brown transition on mid-elev ridges (sandbox smart-material feel)
-          if(e>0.55 && e<=0.85){ r=Math.min(255,r*0.75+70); g=Math.min(255,g*0.7+55); b=Math.min(255,b*0.65+40); }
-          if(mountain){ r=Math.min(255,90+e*70); g=Math.min(255,85+e*55); b=Math.min(255,70+e*40); }
-          // Mottled snow/ice — not a flat white plate on high ridges / polar verge
-          const snowW=Math.max(0, Math.min(1, (e-1.0)/0.35)) * (Math.abs(lat)>28?1:0)
-            + (Math.abs(lat)>62?Math.max(0,(Math.abs(lat)-62)/12)*0.55:0);
-          if(snowW>0.05){
-            const iceT=0.35+mott*0.4;
-            r=r*(1-snowW)+(230*(1-iceT)+200*iceT)*snowW;
-            g=g*(1-snowW)+(238*(1-iceT)+215*iceT)*snowW;
-            b=b*(1-snowW)+(250*(1-iceT)+235*iceT)*snowW;
-            if(mott>0.72){ r=r*0.82+55; g=g*0.82+50; b=b*0.85+45; } // rock speck
-          }
-        } else {
-          const e=Math.min(-landV,1);
-          r=water.r*255*(0.35+e*0.25); g=water.g*255*(0.45+e*0.3); b=water.b*255*(0.85+e*0.2);
-        }
-      } else if(isMars){
-        const h=marsFeatureHeight(lat,lon,seed);
-        const t=(h+1200)/3400; // roughly normalize to 0..1 across the real range this function produces
-        const tc=THREE.MathUtils.clamp(t,0,1);
-        const base=marsDark.clone().lerp(marsRock,THREE.MathUtils.smoothstep(tc,0.25,0.65));
-        const withIce=base.clone().lerp(marsIce,Math.abs(lat)>78?THREE.MathUtils.smoothstep(tc,0.5,0.9)*0.6:0);
-        r=withIce.r*255;g=withIce.g*255;b=withIce.b*255;
-      } else {
-        const u=x/(S*2)*6, v=y/S*3;
-        const n=_fbm(u,v,seed,5);
-        const pole=Math.abs(y/S-0.5)>0.43;
-        const isLand = n>0.5;
-        if(pole){r=225;g=235;b=248;}
-        else if(isLand){const e=(n-0.5)*2.2;r=land.r*255*(0.7+e);g=land.g*255*(0.7+e);b=land.b*255*(0.7+e);}
-        else {const e=n*0.8;r=water.r*255*(0.6+e);g=water.g*255*(0.7+e);b=water.b*255*(0.8+e);}
-      }
-      const i=(y*S*2+x)*4;
-      d[i]=Math.min(255,r);d[i+1]=Math.min(255,g);d[i+2]=Math.min(255,b);d[i+3]=255;
-    }
-  }
-  cx.putImageData(img,0,0);
-  // ── coastline outlines: trace where land meets water, draw glowing cyan edge
-  cx.strokeStyle='rgba(80,230,255,0.55)';cx.lineWidth=1.4;cx.shadowColor='rgba(0,229,255,0.8)';cx.shadowBlur=3;
-  for(let y=2;y<S-2;y+=1){
-    for(let x=2;x<S*2-2;x+=1){
-      let c,rn,dn;
-      if(isEarth){
-        const lon=(x/(S*2))*360-180, lat=90-(y/S)*180;
-        c=earthLandMask(lat,lon,seed)>0;
-        rn=earthLandMask(lat,(x+1)/(S*2)*360-180,seed)>0;
-        dn=earthLandMask(90-(y+1)/S*180,lon,seed)>0;
-      } else if(isMars){
-        c=false;rn=false;dn=false; // no coastlines on Mars — no liquid water surface
-      } else {
-        const u=x/(S*2)*6,v=y/S*3;
-        c=_fbm(u,v,seed,5)>0.5;
-        rn=_fbm((x+1)/(S*2)*6,v,seed,5)>0.5;
-        dn=_fbm(u,(y+1)/S*3,seed,5)>0.5;
-      }
-      if(c!==rn||c!==dn){cx.fillStyle=isEarth?'rgba(140,250,255,0.85)':'rgba(120,240,255,0.5)';cx.fillRect(x,y,isEarth?1.5:1,isEarth?1.5:1);}
-    }
-  }
-  cx.shadowBlur=0;
-  // ── lat/long graticule grid (the radar/hologram mapping) ────────────
-  cx.strokeStyle='rgba(0,229,255,0.22)';cx.lineWidth=1;
-  for(let lon=0;lon<=24;lon++){const gx=lon/24*S*2;cx.beginPath();cx.moveTo(gx,0);cx.lineTo(gx,S);cx.stroke();}
-  for(let lat=0;lat<=12;lat++){const gy=lat/12*S;cx.beginPath();cx.moveTo(0,gy);cx.lineTo(S*2,gy);cx.stroke();}
-  // brighter equator + prime meridian
-  cx.strokeStyle='rgba(91,127,255,0.5)';cx.lineWidth=1.6;
-  cx.beginPath();cx.moveTo(0,S/2);cx.lineTo(S*2,S/2);cx.stroke();
-  cx.beginPath();cx.moveTo(S,0);cx.lineTo(S,S);cx.stroke();
-  const tex=new THREE.CanvasTexture(cv);
-  tex.wrapS=THREE.RepeatWrapping;
-  _orbitTexCache[key]=tex;return tex;
-}
-
 // The planet you fly past wears the same whole-planet map as its orbit
 // globe — baked from the very ground you walk on — so the mesas, dune seas,
 // craters and basins seen from space are the ones you land on. Each point of
@@ -15878,9 +15625,10 @@ function _applyWorldMapToFlightBody(b,m){
 // arrives first, then the full one.
 const _worldMapCache={};
 // the real Earth's relief arriving after a map or chart was drawn: redraw them from it
+// (normally it is in before the solar system is built, so this rarely runs)
 window.addEventListener('dm:earth-ready',()=>{
   try{ Object.keys(_worldMapCache).forEach(k=>{ if(k.startsWith('Earth|')) delete _worldMapCache[k]; }); }catch(e){}
-  try{ if(typeof _orbitTexCache!=='undefined') Object.keys(_orbitTexCache).forEach(k=>{ if(/\|Earth\|/.test(k)){ try{_orbitTexCache[k].dispose();}catch(e){} delete _orbitTexCache[k]; } }); }catch(e){}
+  try{ (celestialBodies||[]).forEach(b=>{ if(b&&b.name==='Earth'){ b._wmReq=false; } }); }catch(e){}
 });
 function worldMapFor(body,onPass){
   const pal=getSurfacePalette(body), seed=_worldSeed(body), key=(body.name||'?')+'|'+seed+'|wm1';
@@ -18108,40 +17856,43 @@ function _thumbInit(sm,bones,side){
   const flexAx=k=>{ const g=goal.clone().sub(w.T[k].p).normalize(); const a=new THREE.Vector3().crossVectors(t(k),g); return a.lengthSq()>1e-8?a.normalize():lat.clone(); };
   return {side,H,T,I1,I2,M1,hAx,lat,np,t0:t(0),flex:[flexAx(0),flexAx(1),flexAx(2)],Hq:w.H.q,Tq:w.T.map(x=>x.q),I1q:w.I1.q};
 }
+// per-frame scratch (no allocation in the pose post-pass)
+let _hpV=null, _hpQ=null;   // made on first use (THREE arrives with the module)
+function _hpScratch(){ if(!_hpV){ _hpV=[0,1,2,3,4,5,6,7].map(()=>new THREE.Vector3()); _hpQ=[0,1,2,3,4,5,6,7].map(()=>new THREE.Quaternion()); } }
 function _thumbCurl(r){
   // how far the clip curls her index: the index knuckle's live bend relative to its bind bend (0 straight … 1 curled ~85°)
   if(!r.I2) return 0;
-  const q=new THREE.Quaternion().copy(r.I1.quaternion), q0=r.I1q.clone().premultiply(r.Hq.clone().invert());   // bind local
-  const d=q0.clone().invert().multiply(q); const ang=2*Math.acos(Math.min(1,Math.abs(d.w)));
+  if(!r._I1b) r._I1b=r.I1q.clone().premultiply(r.Hq.clone().invert()).invert();   // inverse bind local, once
+  const d=_hpQ[0].copy(r._I1b).multiply(r.I1.quaternion); const ang=2*Math.acos(Math.min(1,Math.abs(d.w)));
   return Math.max(0,Math.min(1,ang/1.45));
 }
 function _thumbPose(r,g){
   const c=Math.max(0,Math.min(1,g)), D=DART_THUMB;
   // open L (0) … relaxed (D.relax) … fist (1)
   const rl=Math.max(0.01,Math.min(0.99,D.relax)), lo=c<rl, u=lo?c/rl:(c-rl)/(1-rl);
-  const hd=a=>new THREE.Vector3().addScaledVector(r.hAx,a[0]).addScaledVector(r.lat,a[1]).addScaledVector(r.np,a[2]).normalize();
-  const dA=hd(lo?D.dirOpen:D.dirRelax), dB=hd(lo?D.dirRelax:D.dirFist);
-  const dir=dA.clone().lerp(dB,u).normalize();
+  const hd=(a,o)=>o.set(0,0,0).addScaledVector(r.hAx,a[0]).addScaledVector(r.lat,a[1]).addScaledVector(r.np,a[2]).normalize();
+  const dir=hd(lo?D.dirOpen:D.dirRelax,_hpV[0]).lerp(hd(lo?D.dirRelax:D.dirFist,_hpV[1]),u).normalize();
   const fk=lo?u*D.relaxFlex:D.relaxFlex+(1-D.relaxFlex)*u;   // knuckle flexion 0 … 1
+  if(!r._Wq) r._Wq=[new THREE.Quaternion(),new THREE.Quaternion(),new THREE.Quaternion()];
+  const Wq=r._Wq, Dq=_hpQ[1], tmp=_hpQ[2], ax=_hpV[2], inv=_hpQ[3];
   // CMC: swing the metacarpal from its bind direction to dir, then the opposition twist
-  let Dq=new THREE.Quaternion().setFromUnitVectors(r.t0,dir);
-  Dq=new THREE.Quaternion().setFromAxisAngle(dir,D.opp*Math.max(0,fk)*(r.side==='Left'?1:-1)).multiply(Dq);
-  const Wq=[Dq.clone().multiply(r.Tq[0])];
+  Dq.setFromUnitVectors(r.t0,dir).premultiply(tmp.setFromAxisAngle(dir,D.opp*Math.max(0,fk)*(r.side==='Left'?1:-1)));
+  Wq[0].copy(Dq).multiply(r.Tq[0]);
   // MCP, IP: hinge flexion toward the palm only
-  const f=[0, D.mcpFlex*fk, D.ipFlex*Math.min(1,fk*1.15)], ax=new THREE.Vector3(), tmp=new THREE.Quaternion();
+  const f1=D.mcpFlex*fk, f2=D.ipFlex*Math.min(1,fk*1.15);
   for(let k=1;k<3;k++){
     ax.copy(r.flex[k]).applyQuaternion(Dq);
-    tmp.setFromAxisAngle(ax,Math.max(0,f[k])); Dq=tmp.clone().multiply(Dq);
-    Wq.push(Dq.clone().multiply(r.Tq[k]));
+    Dq.premultiply(tmp.setFromAxisAngle(ax,Math.max(0,k===1?f1:f2)));
+    Wq[k].copy(Dq).multiply(r.Tq[k]);
   }
   // to local: parent^-1 · world (Thumb1's parent is the hand, at its bind rotation in this frame)
   for(let k=0;k<3;k++){
-    const pW=k===0?r.Hq:Wq[k-1];
-    r.T[k].quaternion.copy(pW.clone().invert().multiply(Wq[k]));
+    r.T[k].quaternion.copy(inv.copy(k===0?r.Hq:Wq[k-1]).invert().multiply(Wq[k]));
   }
 }
 function _charHandsPost(sm,bones,grip){
   if(!DART_THUMB.on||!sm||!bones) return;
+  _hpScratch();
   for(const side of ['Left','Right']){
     let r=_thumbRig[side];
     if(!r||r.sm!==sm){ r=_thumbInit(sm,bones,side); if(!r) continue; r.sm=sm; _thumbRig[side]=r; }
@@ -18168,25 +17919,27 @@ function _poseBase(bone){
 }
 function _poseDone(bone){ const u=bone.userData; (u._dmPost||(u._dmPost=new THREE.Quaternion())).copy(bone.quaternion); }
 function _palmTwist(bones,w){
+  _hpScratch();
   for(const side of ['Left','Right']) for(const n of ['ForeArm','Hand']){ const b=bones[side+n]; if(b){ _poseBase(b); b.updateMatrixWorld(true); } }
   if(!DART_PALM.on||w<=0.001){ for(const side of ['Left','Right']) for(const n of ['ForeArm','Hand']){ const b=bones[side+n]; if(b) _poseDone(b); } return; }
-  const v=new THREE.Vector3(), q=new THREE.Quaternion(), rq=new THREE.Quaternion();
-  CHAR.root.getWorldQuaternion(rq); const rqi=rq.clone().invert();
+  const q=_hpQ[4], rq=_hpQ[5], rqi=_hpQ[6];
+  CHAR.root.getWorldQuaternion(rq); rqi.copy(rq).invert();
   for(const side of ['Left','Right']){
     const r=_thumbRig[side], H=bones[side+'Hand'], FA=bones[side+'ForeArm']; if(!r||!H||!FA) continue;
-    const hp=new THREE.Vector3(), fp=new THREE.Vector3(); H.getWorldPosition(hp); FA.getWorldPosition(fp);
+    const hp=H.getWorldPosition(_hpV[3]), fp=FA.getWorldPosition(_hpV[4]);
     // everything in her own (root) frame: x = her left
-    const fa=hp.clone().sub(fp).applyQuaternion(rqi).normalize();
-    H.getWorldQuaternion(q); const np=r.np.clone().applyQuaternion(r.Hq.clone().invert()).applyQuaternion(rqi.clone().multiply(q));
-    const rootHp=CHAR.root.worldToLocal(hp.clone());
-    const med=v.set(-Math.sign(rootHp.x||(side==='Left'?1:-1)),0,0);
-    const a=np.addScaledVector(fa,-np.dot(fa)), m=med.clone().addScaledVector(fa,-med.dot(fa));
+    const fa=fp.sub(hp).negate().applyQuaternion(rqi).normalize();   // hand − forearm
+    if(!r._npB) r._npB=r.np.clone().applyQuaternion(r.Hq.clone().invert());   // palm normal in the hand's bind frame, once
+    H.getWorldQuaternion(q); const np=_hpV[5].copy(r._npB).applyQuaternion(q.premultiply(rqi));
+    const rootHp=CHAR.root.worldToLocal(hp);
+    const m=_hpV[6].set(-Math.sign(rootHp.x||(side==='Left'?1:-1)),0,0);
+    const a=np.addScaledVector(fa,-np.dot(fa)); m.addScaledVector(fa,-m.dot(fa));
     if(a.lengthSq()<1e-6||m.lengthSq()<1e-6) continue;
     a.normalize(); m.normalize();
-    let ang=Math.atan2(fa.dot(new THREE.Vector3().crossVectors(a,m)),a.dot(m));
+    let ang=Math.atan2(fa.dot(_hpV[7].crossVectors(a,m)),a.dot(m));
     ang=Math.max(-DART_PALM.max,Math.min(DART_PALM.max,ang*DART_PALM.k))*w;
     // rotate about the forearm axis (given in root space → each bone's parent space)
-    const turn=(bone,an)=>{ if(Math.abs(an)<1e-4) return; const pq=new THREE.Quaternion(); bone.parent.getWorldQuaternion(pq); const ax=fa.clone().applyQuaternion(rq).applyQuaternion(pq.invert()).normalize(); bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(ax,an)); bone.updateMatrixWorld(true); };
+    const turn=(bone,an)=>{ if(Math.abs(an)<1e-4) return; const pq=bone.parent.getWorldQuaternion(_hpQ[7]); const ax=_hpV[7].copy(fa).applyQuaternion(rq).applyQuaternion(pq.invert()).normalize(); bone.quaternion.premultiply(_hpQ[0].setFromAxisAngle(ax,an)); bone.updateMatrixWorld(true); };
     turn(FA,ang*DART_PALM.foreShare); turn(H,ang*(1-DART_PALM.foreShare));
   }
   for(const side of ['Left','Right']) for(const n of ['ForeArm','Hand']){ const b=bones[side+n]; if(b) _poseDone(b); }
@@ -18218,7 +17971,7 @@ function _charPosePost(dt){
   const want=(!CHAR.mounted&&DART_PALM.states.includes(CHAR.state))?1:0;
   CHAR._palmW=(CHAR._palmW||0)+(want-(CHAR._palmW||0))*Math.min(1,(dt||0.016)*6);
   try{ CHAR.root.updateMatrixWorld(true); _palmTwist(bones,CHAR._palmW); }catch(e){}
-  if(!CHAR.mounted) try{ _standHeadLevel(); }catch(e){}
+  if(!CHAR.mounted&&DART_PALM.states.includes(CHAR.state)) try{ _standHeadLevel(); }catch(e){}   // standing / walking only (not prone, swim, climb, rope, crouch)
 }
 function _charWrapMixer(){
   const m=CHAR.mixer; if(!m||m._dmPost) return;
@@ -20363,109 +20116,10 @@ function marchingCubesMesh(densityFn,origin,size,resolution,isoLevel){
 // per-asteroid approach/landing flow (which would mean touching the
 // broader celestial-body system this pass didn't have room for) — call
 // it directly to build a landable asteroid mesh wherever needed.
-// ── Recognizable planetary geography via marching cubes ─────────────
-// Per clarified scope: not literal satellite/DEM data (a separate,
-// much bigger sourcing task) — real, working continent SILHOUETTES and
-// named real features, generated procedurally, with 'future geology'
-// (volcanism/erosion having reshaped things somewhat) as the honest
-// creative license for why this isn't pixel-perfect to today's Earth/
-// Mars. Detail target: at least on par with the reference repository's
-// demonstrated terrain quality, not a token gesture.
-//
-// Earth continents — approximate real centroids/extents (lat/lon in
-// degrees), each continent as 1-3 overlapping ellipses (single ellipses
-// can't capture a shape like Africa or South America well; a few
-// overlapping ones get meaningfully closer to a recognizable silhouette
-// without needing real coastline vector data). Rough, not authoritative —
-// good enough to be identifiable at a glance, which is the stated goal.
-// Overlapping procedural ellipses — look-ref only from Sketchfab Earth by
-// Akshat (continent silhouettes / elevation / atmo feel). NOT GeoJSON; NOT
-// the shipped mesh. Tuned so Africa, Eurasia, Americas, Australia, Antarctica
-// read at low-LOD MC + land-pick orbit texture.
-const EARTH_CONTINENTS=[
-  // Africa — Sahara bulk, west bulge, Horn, southern taper, Madagascar
-  {lat:12,lon:18,rlat:22,rlon:20,rot:0},
-  {lat:8,lon:0,rlat:12,rlon:14,rot:0.05},
-  {lat:6,lon:42,rlat:10,rlon:12,rot:-0.2},
-  {lat:-12,lon:24,rlat:18,rlon:14,rot:0.12},
-  {lat:-28,lon:24,rlat:12,rlon:10,rot:0.05},
-  {lat:-19,lon:47,rlat:7,rlon:4,rot:0.3},
-  // Europe — Iberia, UK, Scandinavia, main Europe
-  {lat:48,lon:15,rlat:14,rlon:18,rot:-0.08},
-  {lat:41,lon:-4,rlat:7,rlon:8,rot:0.15},
-  {lat:54,lon:-2,rlat:6,rlon:5,rot:0},
-  {lat:64,lon:18,rlat:10,rlon:12,rot:0.1},
-  // Asia — Middle East bridge, India, China/SE, Siberia, Japan, Arabia
-  {lat:30,lon:48,rlat:14,rlon:16,rot:0},
-  {lat:22,lon:78,rlat:14,rlon:12,rot:0.1},
-  {lat:32,lon:105,rlat:16,rlon:22,rot:-0.05},
-  {lat:55,lon:90,rlat:16,rlon:42,rot:0},
-  {lat:62,lon:140,rlat:10,rlon:22,rot:0.05},
-  {lat:36,lon:138,rlat:6,rlon:8,rot:0.35},
-  {lat:5,lon:115,rlat:8,rlon:16,rot:0},
-  // North America — Canada/US, Alaska, Greenland, Mexico/Central
-  {lat:48,lon:-100,rlat:18,rlon:28,rot:0.04},
-  {lat:62,lon:-140,rlat:10,rlon:18,rot:0.2},
-  {lat:72,lon:-40,rlat:12,rlon:18,rot:-0.15},
-  {lat:24,lon:-102,rlat:10,rlon:12,rot:0},
-  {lat:12,lon:-86,rlat:8,rlon:6,rot:0.1},
-  // South America — Amazon bulk + southern cone / Andes strip
-  {lat:-5,lon:-58,rlat:16,rlon:16,rot:-0.05},
-  {lat:-22,lon:-60,rlat:14,rlon:10,rot:0.05},
-  {lat:-40,lon:-68,rlat:14,rlon:7,rot:0.12},
-  {lat:-52,lon:-70,rlat:8,rlon:5,rot:0.05},
-  // Australia + NZ hint
-  {lat:-25,lon:134,rlat:12,rlon:16,rot:0.05},
-  {lat:-42,lon:172,rlat:6,rlon:5,rot:0.4},
-  // Antarctica — wide polar band
-  {lat:-82,lon:0,rlat:12,rlon:180,rot:0},
-];
-/** Signed land field: >0 land (higher = more interior), <0 ocean. Shared by
- *  orbital MC density (TSL port), land-pick/orbit texture, flight canvas, and
- *  surface/atmo site height so continents match across LODs. */
-function earthLandMask(lat,lon,seed){
-  if(window.DMEarth&&DMEarth.ready) return DMEarth.land(lat,lon);   // the real Earth (ETOPO5 relief)
-  let inside=-1e9;
-  for(const c of EARTH_CONTINENTS){
-    const dlon=((lon-c.lon+540)%360)-180;
-    const dlat=lat-c.lat;
-    const cr=Math.cos(c.rot),sr=Math.sin(c.rot);
-    const u=(dlon*cr-dlat*sr)/c.rlon, v=(dlon*sr+dlat*cr)/c.rlat;
-    inside=Math.max(inside,1-(u*u+v*v));
-  }
-  // Mild coastline irregularity — keep amplitude low so low-LOD MC still
-  // reads continent silhouettes (was ±0.45 and washed thin peninsulas).
-  const coastNoise=(_fbm(lon*0.07+seed,lat*0.07+seed,seed+11,3)-0.5)*0.38;
-  return inside+coastNoise;
-}
-/** Elevation  roughly -0.3..1.6 from the SAME land mask + named ridge belts
- *  (Himalayas / Andes / Rockies / Alps-ish). Used by orbit shading + surface
- *  walk contour near the landing site. */
-function earthElevation(lat,lon,seed){
-  if(window.DMEarth&&DMEarth.ready){ const e=DMEarth.metres(lat,lon); return e>0?Math.pow(e/5500,0.8)*1.4:Math.max(-0.35,e/12000); }
-  const land=earthLandMask(lat,lon,seed);
-  if(land<=0) return THREE.MathUtils.clamp(land,-1,0)*0.35;
-  let elev=Math.min(1.15, Math.max(0,land))*0.65;
-  // Distance-to-coast proxy: stronger interior → plateau/hill base
-  elev+=Math.min(0.55, Math.max(0,land-0.15))*0.5;
-  const ridge=(clat,clon,wlat,wlon,amp)=>{
-    const dlon=((lon-clon+540)%360)-180;
-    const dlat=lat-clat;
-    const t=1-(dlat*dlat)/(wlat*wlat)-(dlon*dlon)/(wlon*wlon);
-    if(t<=0) return 0;
-    return Math.pow(t,1.4)*amp;
-  };
-  elev+=ridge(28,86,7,22,0.95);   // Himalayas / Tibetan plateau
-  elev+=ridge(-25,-70,28,5,0.75); // Andes
-  elev+=ridge(42,-112,10,14,0.55); // Rockies
-  elev+=ridge(46,10,5,10,0.35);   // Alps
-  elev+=ridge(-3,36,8,6,0.4);     // East African rift highlands
-  // Fine ridged noise only on land so coasts stay readable
-  const rn=1-Math.abs(_fbm(lon*0.09+seed,lat*0.09+seed,seed+41,3)*2-1);
-  elev+=Math.pow(rn,2)*0.28*Math.min(1,land+0.2);
-  return elev;
-}
-/** Local surface height bias near a lat/lon site — same mask drives walk. */
+// ── Earth's geography: the real ETOPO5 relief (ui/dm-earth.js) ─────────
+// One source for every view — the world map (globe widget + the planet you
+// fly past), the sky and the ground. (The old look-ref continent ellipses
+// and their elevation belts are retired.)
 // Earth's ground = its real relief (geo) + the game's own hills and peaks
 // for walkable detail. With the real map loaded those peaks grow with the
 // real elevation, so mountain ranges rise where Earth has highlands and
@@ -20487,10 +20141,7 @@ function earthSiteHeightBias(lat,lon,seed,x,z,metersPerDeg){
     // (snow arrives near 3000 m as on real mountains: the ground's snow line sits ≈ 52)
     return e>0 ? -1+28*Math.pow(e/1000,0.8) : -10-40*Math.pow(-e/1000,0.6);
   }
-  const land=earthLandMask(lat2,lon2,seed);
-  const elev=earthElevation(lat2,lon2,seed);
-  if(land>0) return THREE.MathUtils.clamp(land,0,1)*28 + Math.max(0,elev)*42;
-  return THREE.MathUtils.clamp(land,-1,0)*75 + elev*20;
+  return 0;   // relief map unavailable: the world's own terrain alone
 }
 // Mars — real, specifically named, highly recognizable features rather
 // than a generic mask: Olympus Mons (the largest known volcano, ~18.5°N
@@ -21033,10 +20684,9 @@ function _pwBuildGround(pal,fx,fz,mode){
   };
   // the dense, deformed ground round her (NEAR-GROUND TESSELLATION)
   try{ _tessInit(); }catch(e){ console.warn('[tess] off:',e); TERRAIN.tessCfg=null; }
-  // Earth wind particles — subtle, GPU-friendly points; off on Low
+  // wind particles on worlds with air over open water — subtle, GPU-friendly points; off on Low
   TERRAIN.windPoints=null;
-  const isEarth=!!(body&&(body.name==='Earth'||(pal.liquidName==='water'&&pal.atmos&&pal.ground===0x3a7d34)));
-  if(isEarth&&pal.atmos&&STATE.settings.particles!=='low'&&GFX.preset!=='low'){
+  if(pal.atmos&&pal.water&&STATE.settings.particles!=='low'&&GFX.preset!=='low'){
     const WN=GFX.isMobile?120:280, pos=new Float32Array(WN*3), vel=new Float32Array(WN*3);
     for(let i=0;i<WN;i++){
       const x=fx+rnd(-220,220), z=fz+rnd(-220,220);
@@ -21045,7 +20695,7 @@ function _pwBuildGround(pal,fx,fz,mode){
     }
     const wgeo=new THREE.BufferGeometry(); wgeo.setAttribute('position',new THREE.BufferAttribute(pos,3));
     const wp=new THREE.Points(wgeo,new THREE.PointsMaterial({color:0xddeeff,size:0.55,sizeAttenuation:true,transparent:true,opacity:0.35,depthWrite:false}));
-    wp.name='JOTS_EarthWind'; wp.userData.windVel=vel; wp.frustumCulled=false;
+    wp.name='JOTS_Wind'; wp.userData.windVel=vel; wp.frustumCulled=false;
     PW.scene.add(wp); TERRAIN.windPoints=wp;
   }
 }
@@ -23016,7 +22666,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
 
 <!-- ?v= stamps: bump on every UI change so browsers never mix a new page with cached old styles -->
 <link rel="stylesheet" href="ui/dm-ui.css?v=111">
-<link rel="stylesheet" href="ui/dm-hud.css?v=115">
+<link rel="stylesheet" href="ui/dm-hud.css?v=116">
 <link rel="stylesheet" href="ui/dm-friends.css?v=1">
 <link rel="stylesheet" href="ui/dm-safety.css?v=1">
 <link rel="stylesheet" href="ui/dm-spectator.css?v=1">

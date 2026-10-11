@@ -63,6 +63,18 @@
   ];
   const KEY = 'dm_theme_v1';
   const state = Object.assign({ id: 'nebula', ts: 0, custom: { acc: '#5B7FFF', hi: '#FF4FA3', panel: '#000308' } }, ls.get(KEY) || {});
+  // The centre crosshair: its own colour (null = follow the theme's primary)
+  // and a neon glow 0..1 (0 = none), lit like the skyboard's DART energy
+  // rings. Kept with the theme (same local key, same account themes.json).
+  const CROSS_DEF = { color: null, glow: 0.35, ts: 0 };
+  const CROSS_PRESETS = ['#FFFFFF', '#3FC8FF', '#7CFFD0', '#C4FF5A', '#FFB84D', '#FF4FA3', '#FF3860'];
+  const cleanCross = (c) => {
+    c = c && typeof c === 'object' ? c : {};
+    const g = +c.glow;
+    return { color: c.color ? (hexToRgb(c.color) ? rgbToHex(...hexToRgb(c.color)).toUpperCase() : null) : null,
+      glow: isFinite(g) ? clamp(g, 0, 1) : CROSS_DEF.glow, ts: +c.ts || 0 };
+  };
+  state.cross = cleanCross(Object.assign({}, CROSS_DEF, state.cross || {}));
 
   // The player's own themes: a named list they build from the custom colours.
   // Kept per browser, merged into their account (themes.json in their private
@@ -116,7 +128,22 @@
     r.setProperty('--border2', 'rgba(' + c(acc) + ',0.08)');
     r.setProperty('--glow-sm', '0 0 8px rgba(' + c(acc) + ',0.55)');
     r.setProperty('--glow-md', '0 0 18px rgba(' + c(pur) + ',0.5)');
+    applyCross(acc);
     try { window.dispatchEvent(new CustomEvent('dm:theme', { detail: { id: state.id, colors: t } })); } catch (e) {}
+  }
+  // crosshair colour + glow as CSS variables (#ar-crosshair in dm-hud.css):
+  // a stacked drop-shadow bloom — one cheap compositor filter, no shader
+  function applyCross(acc) {
+    const x = state.cross, rgb = (x.color && hexToRgb(x.color)) || acc || hexToRgb(themeColors().acc) || [91, 127, 255];
+    const g = x.glow, r = document.documentElement.style, c = rgb.map(Math.round).join(',');
+    r.setProperty('--xh-color', rgbToHex(...rgb));
+    r.setProperty('--xh-rgb', c);
+    r.setProperty('--xh-op', (0.7 + 0.3 * g).toFixed(2));
+    r.setProperty('--xh-filter', g > 0.001
+      ? 'drop-shadow(0 0 ' + (1 + 2 * g).toFixed(1) + 'px rgba(' + c + ',' + (0.55 + 0.45 * g).toFixed(2) + ')) drop-shadow(0 0 ' + (3 + 9 * g).toFixed(1) + 'px rgba(' + c + ',' + (0.85 * g).toFixed(2) + '))'
+      : 'none');
+    // the core warms toward white as it glows, like the rings' emissive centre
+    r.setProperty('--xh-core', rgbToHex(...mix(rgb, [255, 255, 255], 0.55 * g)));
   }
   const known = (id) => id === 'custom' || PRESETS.some((p) => p.id === id) || !!findSaved(id);
   const DMTheme = {
@@ -126,6 +153,13 @@
     get saved() { return lib.saved.map((t) => Object.assign({}, t)); },
     maxSaved: MAX_SAVED,
     colors: themeColors,
+    crossPresets: CROSS_PRESETS,
+    get crosshair() { return Object.assign({}, state.cross); },
+    // {color: '#RRGGBB' | null (theme primary), glow: 0..1}
+    setCrosshair(part) {
+      state.cross = cleanCross(Object.assign({}, state.cross, part || {}, { ts: Date.now() }));
+      persist(); apply();
+    },
     use(id) { state.id = known(id) ? id : 'nebula'; state.ts = Date.now(); persist(); apply(); },
     setCustom(part) {
       Object.assign(state.custom, part);
@@ -155,7 +189,8 @@
     // Everything about the player's themes, for their account, save files and export.
     exportData() {
       return { kind: 'dartmeadow-themes', v: 1, active: state.id, activeTs: state.ts || 0,
-        custom: Object.assign({}, state.custom), saved: this.saved, deleted: Object.assign({}, lib.deleted) };
+        custom: Object.assign({}, state.custom), saved: this.saved, deleted: Object.assign({}, lib.deleted),
+        crosshair: Object.assign({}, state.cross) };
     },
     // Merge themes from the account, a save or an imported file. Newer edits
     // win; deletions stick. The active theme follows whichever side chose
@@ -184,6 +219,7 @@
         if (cu) state.custom = { acc: cu.acc, hi: cu.hi, panel: cu.panel };
         if (known(data.active)) { state.id = data.active; state.ts = +data.activeTs; }
       }
+      if (data.crosshair && (source === 'file' || (+data.crosshair.ts || 0) > (state.cross.ts || 0))) state.cross = cleanCross(data.crosshair);
       if (!known(state.id)) state.id = 'custom';
       persist(source || 'import'); apply();
       return n;

@@ -54,6 +54,8 @@
 
   // ── the world's map, sampled into a small working copy ──────────────────
   const TW=512, TH=256;
+  // the real Earth's relief arriving late: redraw from the new map (after the map cache is cleared)
+  window.addEventListener('dm:earth-ready',()=>setTimeout(()=>{ if(G.body&&G.body.name==='Earth') loadBody(G.body); },0));
   function loadBody(b){
     G.tex=null; G.hm=null; G.target=null; G.zoom=1;
     homeView();
@@ -61,10 +63,9 @@
         const c=document.createElement('canvas'); c.width=TW; c.height=TH; const x=c.getContext('2d',{willReadFrequently:true});
         x.drawImage(src,0,0,TW,TH); G.tex=x.getImageData(0,0,TW,TH).data; G.texW=TW; G.texH=TH;
       }catch(e){ console.warn('[globe] texture',e); } };
-    const isEarth=b.name==='Earth';
-    // Earth: the continent chart; everyone else starts on it and switches to the true ground map
-    try{ const t=makeOrbitGlobeTexture(b); if(t&&t.image) take(t.image); }catch(e){}
-    try{ worldMapFor(b,mp=>{ if(G.body!==b) return; G.hm={W:mp.W,H:mp.H,h:mp.heights}; if(!isEarth&&mp.tex&&mp.tex.image) take(mp.tex.image); }); }catch(e){ console.warn('[globe] worldmap',e); }
+    // every world, Earth included: the world's own map — the same texture the
+    // planet you fly past wears and the same heights the ground is built from
+    try{ worldMapFor(b,mp=>{ if(G.body!==b) return; G.hm={W:mp.W,H:mp.H,h:mp.heights}; if(mp.tex&&mp.tex.image) take(mp.tex.image); }); }catch(e){ console.warn('[globe] worldmap',e); }
   }
 
   // how the globe opens: centred on you on a world, else a little north of the equator

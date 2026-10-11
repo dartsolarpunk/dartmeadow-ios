@@ -132,8 +132,10 @@ body:has(#screen-flight.active) #fs-exit,body:has(#screen-flight.active) #fs-ent
   clip-path:polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%);}
 
 /* crosshair follows the theme */
-#screen-flight #ar-crosshair{color:var(--cyan);}
-#screen-flight #ar-crosshair svg{opacity:.75;filter:drop-shadow(0 0 3px rgba(var(--acc-rgb),.7));}
+/* colour + neon glow from Profile → Theme → Crosshair (DMTheme.setCrosshair) */
+#ar-crosshair{color:var(--xh-color,var(--cyan));}
+#ar-crosshair svg{opacity:var(--xh-op,.8);filter:var(--xh-filter,drop-shadow(0 0 3px rgba(var(--acc-rgb),.7)));}
+#ar-crosshair svg .xh-core{fill:var(--xh-core,currentColor);}
 
 /* ── bottom: thumbsticks + pads only, nothing framed around them ─────── */
 #screen-flight .joystick-zone{width:110px;height:110px;}
