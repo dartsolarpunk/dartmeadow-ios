@@ -16870,6 +16870,7 @@ function _pwSpaceStep(dt,first){
   flightCamera.position.copy(sp.pos).addScaledVector(_camRel,sc.fc);
   flightCamera.up.copy(_camUp);
   flightCamera.lookAt(_pwVec(1).copy(sp.pos).addScaledVector(fwd,o.look*sc.fc).addScaledVector(_camUp,0.4*sc.fc));
+  if(charOrbitActive) try{ _charOrbitPlace(flightCamera,_pwVec(2).copy(sp.pos),sc.fc,false); }catch(e){ _animLoopWarn('charOrbit',e); }   // ORBIT view: round her, at this approach's scale
   const fovT=o.fov||62; if(Math.abs(flightCamera.fov-fovT)>0.01){ flightCamera.fov+=(fovT-flightCamera.fov)*Math.min(1,(dt||0)*1.5); flightCamera.updateProjectionMatrix(); }
   // 3. into the world's frame: the focus is the point under the board
   la=_pwsLatLonAlt(b,sp.pos);
@@ -17551,6 +17552,7 @@ async function loadCharacterAssets(){
     console.log('Character material fixed — was defaulting to metalness:1/roughness:1 (near-black with no env map), now metalness:0.08/roughness:0.55.');
   }
   CHAR.mixer = new THREE.AnimationMixer(CHAR.root);
+  _charWrapMixer();   // thumbs, palms and gaze after every clip update
   // Yield so concurrent MC / WebGL work can breathe under Safari + Graphics Low.
   await new Promise(r=>setTimeout(r,0));
 
@@ -17572,7 +17574,7 @@ async function loadCharacterAssets(){
     CHAR.scaleForBoard = _clamp(CHAR_BOARD_TARGET_UNITS / CHAR.rawHeight, 0.02, 5);
     CHAR.scaleForTerrain = _clamp(CHAR_TERRAIN_HEIGHT / CHAR.rawHeight, 0.02, 5);
     CHAR.feetOffset = -_rawBox.min.y;
-    CHAR.mixer = CHAR.mixer || new THREE.AnimationMixer(CHAR.root);
+    CHAR.mixer = CHAR.mixer || new THREE.AnimationMixer(CHAR.root); _charWrapMixer();
     // NEVER leave mesh invisible here — remount may fail if boardFlight
     // is not ready yet (early prefetch); sticky visible=false = pink empty board.
     try{ _forceCharVisible(); }catch(e){ CHAR.root.visible = true; }
@@ -17969,7 +17971,7 @@ function applySkyboardStance(t){
      yawBias  extra radians to look left(+)/right(-) of the nose
      maxYaw   largest correction applied (rad)
      neckShare share of the turn taken by the neck (head takes the rest)  */
-const DART_HEAD = window.DART_HEAD = window.DART_HEAD || { on:true, yawBias:0, maxYaw:1.5, neckShare:0.4, pitchBias:0, level:true, pitch:-0.05, maxPitch:0.6, maxRoll:0.7, rollAmount:1.0 };
+const DART_HEAD = window.DART_HEAD = window.DART_HEAD || { on:true, yawBias:0, maxYaw:1.5, neckShare:0.4, pitchBias:0, level:true, pitch:-0.05, standPitch:0.0, maxPitch:0.6, maxRoll:0.7, rollAmount:1.0 };
 let _hfFwd = null, _hfUp = null, _hfMesh = null;
 let _hfQ, _hfQ2, _hfV, _hfM;
 window.__whenThreeReady(function(){ _hfQ = new THREE.Quaternion(); _hfQ2 = new THREE.Quaternion(); _hfV = new THREE.Vector3(); _hfM = new THREE.Matrix4(); });
@@ -18057,6 +18059,172 @@ function applySkyboardHeadOverride(){
       _hfYawBone(b.Head, re*(b.neck?1-DART_HEAD.neckShare:1), f2.x, f2.y, f2.z);
     }
   }
+}
+
+/* ── HANDS: anatomical thumbs + a grip control ─────────────────────────
+   The Ariel rig's thumb chain is HandThumb1 (CMC, the base at the corner
+   of the palm by the wrist) → HandThumb2 (MCP knuckle) → HandThumb3 (IP
+   knuckle) → HandThumb4 (tip). The clips' thumb tracks bend it back
+   behind the hand (hyperextended), which a thumb can't do. So the thumbs
+   are posed here instead, after the clips, from axes measured off the bind
+   pose (mirror-safe, both hands):
+     CMC  flexes across the palm toward the ring/little-finger base AND
+          abducts away from the index (out to an L for an open hand);
+     MCP, IP  flex toward the palm only (never backward).
+   One number drives each hand: grip 0 = wide-open L, 1 = fist (thumb
+   folded across the palm). By default it follows how far the clip curls
+   her fingers (so it stays with the existing animations); set
+   CHAR.handGrip = {L:0..1, R:0..1} (or one number for both) to take
+   over — e.g. for picking things up later. Tunable live: window.DART_THUMB. */
+const DART_THUMB = window.DART_THUMB = window.DART_THUMB || {
+  on:true,
+  // where the thumb's metacarpal (CMC → MCP) points, in the hand's own frame
+  // [along the hand toward the knuckles, out past the index, out of the palm]
+  dirOpen:[0.18,1.0,0.22],      // wide-open hand: an L with the index
+  dirRelax:[0.80,0.42,0.42],    // relaxed: forward along the index side, a little in front of the palm
+  dirFist:[0.55,-0.30,0.80],    // fist: swung in front of the palm toward the little finger
+  opp:0.35,                     // opposition twist of the metacarpal at full grip (rad; turns the pad toward the fingers)
+  mcpFlex:0.85, ipFlex:1.0,     // knuckle flexion toward the palm at full grip (rad); never backward
+  relax:0.25, relaxFlex:0.18,   // grip of a relaxed hand (clip fingers straight) and how flexed its knuckles are
+  follow:1.0                    // how much the clip's finger curl adds to the grip
+};
+const _thumbRig={};
+function _thumbInit(sm,bones,side){
+  const B=n=>bones[side+'Hand'+n]||null, H=bones[side+'Hand'];
+  const T=[B('Thumb1'),B('Thumb2'),B('Thumb3'),B('Thumb4')], I1=B('Index1'), I2=B('Index2'), M1=B('Middle1'), R1=B('Ring1'), P1=B('Pinky1');
+  if(!H||T.some(b=>!b)||!I1||!I2||!M1||!P1) return null;
+  const sk=sm.skeleton, W=b=>{ const i=sk.bones.indexOf(b); if(i<0) return null; const m=sk.boneInverses[i].clone().invert(); const p=new THREE.Vector3(),q=new THREE.Quaternion(),s=new THREE.Vector3(); m.decompose(p,q,s); return {p,q}; };
+  const w={H:W(H),I1:W(I1),I2:W(I2),M1:W(M1),R1:R1?W(R1):null,P1:W(P1),T:T.map(W)};
+  if(!w.H||!w.I1||!w.M1||!w.P1||w.T.some(x=>!x)) return null;
+  const hAx=w.M1.p.clone().sub(w.H.p).normalize();                 // wrist → knuckles
+  const lat=w.I1.p.clone().sub(w.P1.p).normalize();               // little finger → index (thumb side)
+  const np=new THREE.Vector3().crossVectors(hAx,lat).normalize(); // palm normal, sign fixed below
+  // the palm faces the way the fingers curl: index knuckle → middle joint leans to the palm
+  if(np.dot(w.I2.p.clone().sub(w.I1.p))<0) np.negate();
+  // the fist target: across the palm, by the ring/little-finger knuckles, a little off the palm
+  const rb=(w.R1?w.R1.p:w.P1.p).clone().lerp(w.P1.p,0.3);
+  const goal=rb.lerp(w.H.p,0.35).addScaledVector(np,0.018);
+  const t=k=>w.T[k+1].p.clone().sub(w.T[k].p).normalize();
+  const flexAx=k=>{ const g=goal.clone().sub(w.T[k].p).normalize(); const a=new THREE.Vector3().crossVectors(t(k),g); return a.lengthSq()>1e-8?a.normalize():lat.clone(); };
+  return {side,H,T,I1,I2,M1,hAx,lat,np,t0:t(0),flex:[flexAx(0),flexAx(1),flexAx(2)],Hq:w.H.q,Tq:w.T.map(x=>x.q),I1q:w.I1.q};
+}
+function _thumbCurl(r){
+  // how far the clip curls her index: the index knuckle's live bend relative to its bind bend (0 straight … 1 curled ~85°)
+  if(!r.I2) return 0;
+  const q=new THREE.Quaternion().copy(r.I1.quaternion), q0=r.I1q.clone().premultiply(r.Hq.clone().invert());   // bind local
+  const d=q0.clone().invert().multiply(q); const ang=2*Math.acos(Math.min(1,Math.abs(d.w)));
+  return Math.max(0,Math.min(1,ang/1.45));
+}
+function _thumbPose(r,g){
+  const c=Math.max(0,Math.min(1,g)), D=DART_THUMB;
+  // open L (0) … relaxed (D.relax) … fist (1)
+  const rl=Math.max(0.01,Math.min(0.99,D.relax)), lo=c<rl, u=lo?c/rl:(c-rl)/(1-rl);
+  const hd=a=>new THREE.Vector3().addScaledVector(r.hAx,a[0]).addScaledVector(r.lat,a[1]).addScaledVector(r.np,a[2]).normalize();
+  const dA=hd(lo?D.dirOpen:D.dirRelax), dB=hd(lo?D.dirRelax:D.dirFist);
+  const dir=dA.clone().lerp(dB,u).normalize();
+  const fk=lo?u*D.relaxFlex:D.relaxFlex+(1-D.relaxFlex)*u;   // knuckle flexion 0 … 1
+  // CMC: swing the metacarpal from its bind direction to dir, then the opposition twist
+  let Dq=new THREE.Quaternion().setFromUnitVectors(r.t0,dir);
+  Dq=new THREE.Quaternion().setFromAxisAngle(dir,D.opp*Math.max(0,fk)*(r.side==='Left'?1:-1)).multiply(Dq);
+  const Wq=[Dq.clone().multiply(r.Tq[0])];
+  // MCP, IP: hinge flexion toward the palm only
+  const f=[0, D.mcpFlex*fk, D.ipFlex*Math.min(1,fk*1.15)], ax=new THREE.Vector3(), tmp=new THREE.Quaternion();
+  for(let k=1;k<3;k++){
+    ax.copy(r.flex[k]).applyQuaternion(Dq);
+    tmp.setFromAxisAngle(ax,Math.max(0,f[k])); Dq=tmp.clone().multiply(Dq);
+    Wq.push(Dq.clone().multiply(r.Tq[k]));
+  }
+  // to local: parent^-1 · world (Thumb1's parent is the hand, at its bind rotation in this frame)
+  for(let k=0;k<3;k++){
+    const pW=k===0?r.Hq:Wq[k-1];
+    r.T[k].quaternion.copy(pW.clone().invert().multiply(Wq[k]));
+  }
+}
+function _charHandsPost(sm,bones,grip){
+  if(!DART_THUMB.on||!sm||!bones) return;
+  for(const side of ['Left','Right']){
+    let r=_thumbRig[side];
+    if(!r||r.sm!==sm){ r=_thumbInit(sm,bones,side); if(!r) continue; r.sm=sm; _thumbRig[side]=r; }
+    const o=grip==null?null:(typeof grip==='number'?grip:grip[side[0]]);
+    const g=(o!=null&&isFinite(o))?o:DART_THUMB.relax+(1-DART_THUMB.relax)*DART_THUMB.follow*_thumbCurl(r);
+    _thumbPose(r,g);
+  }
+}
+
+/* Palms toward her thighs when she stands (and walks, which blends from the
+   standing pose): the clips leave the palms ~50° forward of her thighs. Each
+   frame we measure where the palm faces (palm normal from the bind pose,
+   carried by the live hand) against the direction to her midline, about the
+   forearm's own axis, and take DART_PALM.k of that error out — 70% by the
+   forearm (pronation), 30% at the wrist. Ground only; the ride stance is left alone. */
+const DART_PALM = window.DART_PALM = window.DART_PALM || { on:true, k:0.7, max:1.1, foreShare:0.7, states:['idle','walk'] };
+// A held pose (idle) isn't rewritten by the mixer every frame, so a correction
+// would pile up frame on frame. Each corrected bone remembers its pose before
+// and after our touch; if nothing rewrote it since, start again from "before".
+function _poseBase(bone){
+  const u=bone.userData;
+  if(u._dmPost&&bone.quaternion.equals(u._dmPost)) bone.quaternion.copy(u._dmPre);
+  (u._dmPre||(u._dmPre=new THREE.Quaternion())).copy(bone.quaternion);
+}
+function _poseDone(bone){ const u=bone.userData; (u._dmPost||(u._dmPost=new THREE.Quaternion())).copy(bone.quaternion); }
+function _palmTwist(bones,w){
+  for(const side of ['Left','Right']) for(const n of ['ForeArm','Hand']){ const b=bones[side+n]; if(b){ _poseBase(b); b.updateMatrixWorld(true); } }
+  if(!DART_PALM.on||w<=0.001){ for(const side of ['Left','Right']) for(const n of ['ForeArm','Hand']){ const b=bones[side+n]; if(b) _poseDone(b); } return; }
+  const v=new THREE.Vector3(), q=new THREE.Quaternion(), rq=new THREE.Quaternion();
+  CHAR.root.getWorldQuaternion(rq); const rqi=rq.clone().invert();
+  for(const side of ['Left','Right']){
+    const r=_thumbRig[side], H=bones[side+'Hand'], FA=bones[side+'ForeArm']; if(!r||!H||!FA) continue;
+    const hp=new THREE.Vector3(), fp=new THREE.Vector3(); H.getWorldPosition(hp); FA.getWorldPosition(fp);
+    // everything in her own (root) frame: x = her left
+    const fa=hp.clone().sub(fp).applyQuaternion(rqi).normalize();
+    H.getWorldQuaternion(q); const np=r.np.clone().applyQuaternion(r.Hq.clone().invert()).applyQuaternion(rqi.clone().multiply(q));
+    const rootHp=CHAR.root.worldToLocal(hp.clone());
+    const med=v.set(-Math.sign(rootHp.x||(side==='Left'?1:-1)),0,0);
+    const a=np.addScaledVector(fa,-np.dot(fa)), m=med.clone().addScaledVector(fa,-med.dot(fa));
+    if(a.lengthSq()<1e-6||m.lengthSq()<1e-6) continue;
+    a.normalize(); m.normalize();
+    let ang=Math.atan2(fa.dot(new THREE.Vector3().crossVectors(a,m)),a.dot(m));
+    ang=Math.max(-DART_PALM.max,Math.min(DART_PALM.max,ang*DART_PALM.k))*w;
+    // rotate about the forearm axis (given in root space → each bone's parent space)
+    const turn=(bone,an)=>{ if(Math.abs(an)<1e-4) return; const pq=new THREE.Quaternion(); bone.parent.getWorldQuaternion(pq); const ax=fa.clone().applyQuaternion(rq).applyQuaternion(pq.invert()).normalize(); bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(ax,an)); bone.updateMatrixWorld(true); };
+    turn(FA,ang*DART_PALM.foreShare); turn(H,ang*(1-DART_PALM.foreShare));
+  }
+  for(const side of ['Left','Right']) for(const n of ['ForeArm','Hand']){ const b=bones[side+n]; if(b) _poseDone(b); }
+}
+/* Ground gaze: level her head on the ground too (the ride stance has
+   applySkyboardHeadOverride). Only the pitch: if the face is tipped down
+   (or up) from DART_HEAD.standPitch, take it out, neck/head shared. */
+function _standHeadLevel(){
+  const b=CHAR.bones; if(!b.Head) return;
+  const hb=[b.neck,b.Head].filter(Boolean); hb.forEach(_poseBase);
+  try{ _standHeadLevel1(b); } finally { hb.forEach(_poseDone); }
+}
+function _standHeadLevel1(b){
+  if(!DART_HEAD.on||!DART_HEAD.level) return;
+  if(!_hfFwd || _hfMesh!==CHAR.skinnedMesh){ if(!_hfInit()) return; }
+  _hfRootQ(b.Head,_hfQ); const f=_hfFwd.clone().applyQuaternion(_hfQ);
+  const pitchCur=Math.asin(Math.max(-1,Math.min(1,f.y)));
+  const pe=Math.max(-DART_HEAD.maxPitch,Math.min(DART_HEAD.maxPitch,(DART_HEAD.standPitch||0)-pitchCur));
+  if(Math.abs(pe)<0.004) return;
+  const hl=Math.hypot(f.x,f.z)||1, ax=f.z/hl, az=-f.x/hl;
+  if(b.neck) _hfYawBone(b.neck, -pe*DART_HEAD.neckShare, ax, 0, az);
+  _hfYawBone(b.Head, -pe*(b.neck?1-DART_HEAD.neckShare:1), ax, 0, az);
+}
+// After every clip update: thumbs (always), and on the ground the palms and the gaze.
+function _charPosePost(dt){
+  if(!CHAR.loaded||!CHAR.root||!CHAR.skinnedMesh) return;
+  const bones=CHAR.bones;
+  _charHandsPost(CHAR.skinnedMesh,bones,CHAR.handGrip);
+  const want=(!CHAR.mounted&&DART_PALM.states.includes(CHAR.state))?1:0;
+  CHAR._palmW=(CHAR._palmW||0)+(want-(CHAR._palmW||0))*Math.min(1,(dt||0.016)*6);
+  try{ CHAR.root.updateMatrixWorld(true); _palmTwist(bones,CHAR._palmW); }catch(e){}
+  if(!CHAR.mounted) try{ _standHeadLevel(); }catch(e){}
+}
+function _charWrapMixer(){
+  const m=CHAR.mixer; if(!m||m._dmPost) return;
+  const up=m.update.bind(m);
+  m.update=function(dt){ const r=up(dt); try{ _charPosePost(dt); }catch(e){} return r; };
+  m._dmPost=true;
 }
 
 /* ── STATE MACHINE ──────────────────────────────────────────────
@@ -18705,10 +18873,19 @@ let _charOrbitDrag=null, _charOrbitPinch=null, _charOrbitPinchC=null, _charOrbit
 let _charOrbitPan=null; window.__whenThreeReady(function(){ _charOrbitPan=new THREE.Vector3(); });   // world-space truck/pedestal offset of the orbit focus (two-finger / right-drag)
 
 function _charOrbitCanvas(){
-  if(surfaceActive) return $('surface-canvas');
-  if(atmoActive) return $('atmo-canvas');
-  return flightRenderer ? flightRenderer.domElement : null;
+  return flightRenderer ? flightRenderer.domElement : null;   // the one canvas everything draws to (planet worlds too)
 }
+// A drag/pinch on the view itself (not on a stick, button or panel). On a
+// world the sky / ground HUD layer sits over the canvas, so a touch on open
+// view lands on that layer itself.
+function _charOrbitOnView(e){
+  const t=e&&e.target; if(!t) return false;
+  if(t===_charOrbitCanvas()) return true;
+  return (surfaceActive&&(t.id==='surface-overlay'||t.id==='surface-canvas'))||(atmoActive&&(t.id==='atmo-overlay'||t.id==='atmo-canvas'));
+}
+// open space with a world's ground open round the board (PW space mode): the
+// camera works in the scaled frame of that approach
+function _charOrbitPWSpace(){ return typeof PW!=='undefined'&&PW.active&&PW.mode==='space'&&!!PW.sp; }
 
 /* ── ON-SCREEN CHARACTER DEBUG READOUT ───────────────────────────
    Justin's testing on iPhone/Android with no dev console access, so
@@ -18748,17 +18925,22 @@ function updateCharOrbitCamera(){
   else if(atmoActive && atmoBoard){ atmoBoard.getWorldPosition(target); }
   else if(boardFlight){ boardFlight.getWorldPosition(target); }
   else return;
+  _charOrbitPlace(cam,target,1,true);
+}
+// Put the orbit camera round target. k scales every distance (1, or the
+// approach scale near a world); head: may glide in to her face.
+function _charOrbitPlace(cam,target,k,head){
   target.add(_charOrbitPan);   // truck / pedestal offset
   // Zooming in glides the focus up to her face so you can get right up on it.
-  if(charOrbitDist<6 && CHAR.bones && CHAR.bones.Head){
+  if(head && charOrbitDist<6 && CHAR.bones && CHAR.bones.Head){
     const hp=new THREE.Vector3(); CHAR.bones.Head.getWorldPosition(hp);
     const t=Math.max(0,Math.min(1,(6-charOrbitDist)/4.5)), k=(t*t*(3-2*t))*(_charOrbitPan.lengthSq()>1e-6?0:1);
     target.lerp(hp,k);
   }
-  const _nearWant=Math.min(0.1,Math.max(0.03,charOrbitDist*0.08));
+  const _nearWant=Math.min(0.1,Math.max(0.03,charOrbitDist*0.08))*(k<1?k:1);
   if(cam.near!==_nearWant){cam.near=_nearWant;cam.updateProjectionMatrix();}
-  const cy=Math.cos(charOrbitYaw), sy=Math.sin(charOrbitYaw), cp=Math.cos(charOrbitPitch), sp=Math.sin(charOrbitPitch);
-  cam.position.set(target.x+sy*cp*charOrbitDist, target.y+sp*charOrbitDist, target.z+cy*cp*charOrbitDist);
+  const cy=Math.cos(charOrbitYaw), sy=Math.sin(charOrbitYaw), cp=Math.cos(charOrbitPitch), sp=Math.sin(charOrbitPitch), d=charOrbitDist*k;
+  cam.position.set(target.x+sy*cp*d, target.y+sp*d, target.z+cy*cp*d);
   // on the ground the orbit camera can't dip into the terrain either
   if(surfaceActive&&typeof _surfHeight==='function'){
     const g=_surfHeight(cam.position.x,cam.position.z);
@@ -18774,7 +18956,7 @@ function _bindCharOrbitListenersOnce(){
   if(_charOrbitListenersBound) return; _charOrbitListenersBound=true;
   const panBy=(dx,dy)=>{
     const cam = surfaceActive ? surfCamera : (atmoActive ? atmoCamera : flightCamera); if(!cam) return;
-    const k=charOrbitDist*0.0019;
+    const k=charOrbitDist*0.0019*(_charOrbitPWSpace()?PW.sp.fc:1);
     const r=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0), u=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
     _charOrbitPan.addScaledVector(r,-dx*k).addScaledVector(u,dy*k);
     const m=Math.max(2,charOrbitDist*1.5); if(_charOrbitPan.length()>m) _charOrbitPan.setLength(m);
@@ -18787,13 +18969,13 @@ function _bindCharOrbitListenersOnce(){
     charOrbitPitch = Math.max(-1.45, Math.min(1.45, charOrbitPitch+dy*0.006));
     _charOrbitDrag={x,y};
   };
-  window.addEventListener('mousedown', e=>{ if(!charOrbitActive||e.target!==_charOrbitCanvas())return; _charOrbitPanning=(e.button===2||e.button===1||e.shiftKey); _charOrbitDrag={x:e.clientX,y:e.clientY}; });
-  window.addEventListener('contextmenu', e=>{ if(charOrbitActive&&e.target===_charOrbitCanvas()) e.preventDefault(); });
-  window.addEventListener('dblclick', e=>{ if(charOrbitActive&&e.target===_charOrbitCanvas()) _charOrbitPan.set(0,0,0); });
+  window.addEventListener('mousedown', e=>{ if(!charOrbitActive||!_charOrbitOnView(e))return; _charOrbitPanning=(e.button===2||e.button===1||e.shiftKey); _charOrbitDrag={x:e.clientX,y:e.clientY}; });
+  window.addEventListener('contextmenu', e=>{ if(charOrbitActive&&_charOrbitOnView(e)) e.preventDefault(); });
+  window.addEventListener('dblclick', e=>{ if(charOrbitActive&&_charOrbitOnView(e)) _charOrbitPan.set(0,0,0); });
   window.addEventListener('mousemove', e=>{ if(charOrbitActive) move(e.clientX,e.clientY); });
   window.addEventListener('mouseup', ()=>{ _charOrbitDrag=null; _charOrbitPanning=false; });
   window.addEventListener('touchstart', e=>{
-    if(!charOrbitActive||e.target!==_charOrbitCanvas())return;
+    if(!charOrbitActive||!_charOrbitOnView(e))return;
     if(e.touches.length===1) _charOrbitDrag={x:e.touches[0].clientX,y:e.touches[0].clientY};
     else if(e.touches.length===2){ _charOrbitPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); _charOrbitPinchC={x:(e.touches[0].clientX+e.touches[1].clientX)/2,y:(e.touches[0].clientY+e.touches[1].clientY)/2}; _charOrbitDrag=null; }
   },{passive:true});
@@ -18812,7 +18994,7 @@ function _bindCharOrbitListenersOnce(){
   },{passive:false});
   window.addEventListener('touchend', e=>{ if(e.touches.length===0){ _charOrbitDrag=null; _charOrbitPinch=null; _charOrbitPinchC=null; _charOrbitPanning=false; } });
   window.addEventListener('wheel', e=>{
-    if(!charOrbitActive||e.target!==_charOrbitCanvas())return;
+    if(!charOrbitActive||!_charOrbitOnView(e))return;
     e.preventDefault();
     charOrbitDist=Math.max(0.4,Math.min(_charOrbitMax(),charOrbitDist*(1+Math.sign(e.deltaY)*0.08)));
   },{passive:false});
@@ -18834,7 +19016,7 @@ function toggleCharOrbit(){
     charOrbitYaw=0; charOrbitPitch=0.25; _charOrbitPan.set(0,0,0);
     // start pulled back so the whole rider + board is in view: at least where the
     // flight camera already sits, and never closer than a comfortable default
-    let _d0=14; try{ const _t=new THREE.Vector3();
+    let _d0=14; if(!_charOrbitPWSpace()) try{ const _t=new THREE.Vector3();
       if(CHAR.loaded&&CHAR.root) CHAR.root.getWorldPosition(_t); else if(boardFlight) boardFlight.getWorldPosition(_t);
       _d0=Math.max(14,cam.position.distanceTo(_t)*1.25); }catch(e){}
     charOrbitDist=Math.min(_charOrbitMax()*0.9,_d0);

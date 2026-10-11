@@ -1,4 +1,4 @@
-sha=d03887cb22e9d44988df3decaa44d54cf558ce8d
-date=2026-10-11T16:07:44-04:00
-subject=sw v27: flush cached animation GLB from 3671e5a (GLB-only commit after the v26 bump)
+sha=8ef4b0062329e34f64eeeaa2694534b17a46d159
+date=2026-10-11T17:32:42-04:00
+subject=Merge pull request #132 from dartsolarpunk/jots-oct11-orbit-pose
 source=https://github.com/dartsolarpunk/dartmeadow-space.git

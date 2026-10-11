@@ -16,3 +16,4 @@ Filler.txt
 CNAME
 characterassests/_backup_autumn/
 assets/social-share.jpg
+exports/
