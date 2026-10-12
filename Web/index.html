@@ -795,6 +795,30 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 #qt-tabs button{font-family:var(--font-hud);font-size:0.46rem;letter-spacing:0.12em;padding:6px 4px;border-radius:3px;border:1px solid rgba(var(--acc-rgb),0.2);background:rgba(var(--acc-rgb),0.05);color:rgba(150,180,255,0.7);cursor:pointer;}
 #qt-tabs button.active{border-color:var(--cyan);color:#dfe8ff;background:rgba(var(--acc-rgb),0.16);box-shadow:0 0 10px rgba(var(--acc-rgb),0.25);}
 #qt-hint{font-family:var(--font-mono);font-size:0.44rem;color:rgba(var(--acc-rgb),0.4);letter-spacing:0.06em;text-align:center;}
+#ar-dest-title{display:flex;align-items:center;gap:6px;}
+#ar-dest-title>span{flex:1;}
+#qt-map-btn,#qt-close-btn{font-family:var(--font-hud);font-size:0.46rem;letter-spacing:0.12em;padding:6px 9px;min-height:30px;border-radius:3px;border:1px solid rgba(var(--acc-rgb),0.25);background:rgba(var(--acc-rgb),0.05);color:rgba(190,210,255,0.85);cursor:pointer;}
+#qt-map-btn.active{border-color:var(--cyan);color:#dfe8ff;background:rgba(var(--acc-rgb),0.16);}
+#qt-panel{overflow:hidden;}
+#qt-tree{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;flex:1 1 auto;min-height:0;font-family:var(--font-mono);}
+#qt-tree ul.tt-list{list-style:none;margin:0;padding:0;}
+#qt-tree .tt-row{display:flex;align-items:center;gap:6px;min-height:38px;padding:2px 6px 2px 4px;border-radius:3px;cursor:pointer;border:1px solid transparent;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
+#qt-tree .tt-row:hover{background:rgba(var(--acc-rgb),0.08);}
+#qt-tree .tt-row:active{background:rgba(var(--acc-rgb),0.16);}
+#qt-tree .tt-row.gal .tt-name{font-family:var(--font-hud);font-size:0.56rem;letter-spacing:0.12em;}
+#qt-tree .tt-row.sys .tt-name{color:#f2e6b8;}
+#qt-tree .tt-row.here{border-color:var(--cyan);background:rgba(var(--acc-rgb),0.14);box-shadow:0 0 10px rgba(var(--acc-rgb),0.2) inset;}
+#qt-tree .tt-row.dest .tt-go{color:var(--gold);}
+#qt-tree .tt-tog{flex:0 0 30px;height:32px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid rgba(var(--acc-rgb),0.18);border-radius:3px;color:var(--cyan);font-size:0.8rem;cursor:pointer;padding:0;}
+#qt-tree .tt-tog.tt-leaf{border-color:transparent;color:rgba(150,180,255,0.35);}
+#qt-tree .tt-ico{flex:0 0 auto;font-size:0.85rem;}
+#qt-tree .tt-name{flex:0 1 auto;font-size:0.66rem;color:#dfe8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#qt-tree .tt-n{font-size:0.5rem;color:rgba(150,180,255,0.75);border:1px solid rgba(var(--acc-rgb),0.2);border-radius:8px;padding:0 5px;}
+#qt-tree .tt-meta{flex:1 1 auto;min-width:0;text-align:right;font-size:0.52rem;color:rgba(150,180,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#qt-tree .tt-go{flex:0 0 auto;font-size:0.7rem;color:rgba(var(--acc-rgb),0.7);}
+@media (max-width:560px){#qt-panel{top:120px;max-height:calc(100% - 130px);}#qt-tree .tt-row{min-height:42px;}}
+@media (max-height:520px){#qt-panel{top:calc(8px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));max-height:calc(100% - 16px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));}#qt-tree .tt-row{min-height:40px;}}
+@media (pointer:coarse){#qt-tree .tt-row{min-height:44px;}#qt-tree .tt-tog{flex-basis:38px;height:38px;}}
 #dest-scroll{display:grid;grid-template-columns:repeat(2,1fr);gap:0.35rem;max-height:140px;overflow-y:auto;}
 .dest-card{width:auto;padding:0.4rem 0.5rem;background:rgba(var(--acc-rgb),0.05);border:1px solid rgba(var(--acc-rgb),0.14);border-radius:3px;cursor:pointer;transition:var(--trans);font-family:var(--font-mono);}
 .dest-card:hover{border-color:rgba(var(--acc-rgb),0.4);background:rgba(var(--acc-rgb),0.1);}
@@ -1582,15 +1606,17 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
   <button id="ship-jump-btn" style="display:none;position:absolute;bottom:calc(190px + var(--safe-bot));left:200px;pointer-events:auto;width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid #fff;color:#fff;font-family:var(--font-hud);font-size:.6rem;letter-spacing:.08em;cursor:pointer;z-index:31;touch-action:none;">JUMP</button>
   <div id="ar-bottom" onclick="closeQuickTravel()">
     <div id="qt-panel" onclick="event.stopPropagation()">
-      <div id="ar-dest-title">⟶ QUICK TRAVEL · 3D WORLD MAP</div>
-      <div id="qt-tabs">
-        <button data-tab="galaxies" onclick="setQtTab('galaxies')">🌌 GALAXIES</button>
-        <button data-tab="local" class="active" onclick="setQtTab('local')">⭐ LOCAL</button>
-        <button data-tab="discoveries" onclick="setQtTab('discoveries')">✦ DISCOVERIES</button>
+      <div id="ar-dest-title"><span>⟶ TRAVEL</span><button id="qt-map-btn" onclick="toggleQtMap()" title="Show / hide the 3D map">🗺 MAP</button><button id="qt-close-btn" onclick="closeQuickTravel()" aria-label="Close travel">✕</button></div>
+      <div id="qt-mapwrap" style="display:none">
+        <div id="qt-tabs">
+          <button data-tab="galaxies" onclick="setQtTab('galaxies')">🌌 GALAXIES</button>
+          <button data-tab="local" class="active" onclick="setQtTab('local')">⭐ LOCAL</button>
+          <button data-tab="discoveries" onclick="setQtTab('discoveries')">✦ DISCOVERIES</button>
+        </div>
+        <canvas id="qt-canvas" width="400" height="210"></canvas>
+        <div id="qt-hint">DRAG TO ORBIT · TAP A MARKER TO JUMP</div>
       </div>
-      <canvas id="qt-canvas" width="400" height="210"></canvas>
-      <div id="qt-hint">DRAG TO ORBIT · TAP MARKER / CARD TO JUMP</div>
-      <div id="dest-scroll"></div>
+      <div id="qt-tree"></div>
     </div>
   </div>
 </div>
@@ -1829,6 +1855,7 @@ html.immersive #app,html.immersive #loading-screen{height:100dvh;}
 <div id="galaxy-map">
   <div id="gm-header">INTERSTELLAR NAVIGATION CHART</div>
   <button id="gm-close" onclick="closeGalaxyMap()">CLOSE ✕</button>
+  <button id="gm-list" onclick="openTravelFromMap()" style="position:absolute;top:1rem;left:1rem;background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-hud);font-size:0.52rem;padding:5px 12px;cursor:pointer;letter-spacing:0.15em;border-radius:2px;">☰ TRAVEL LIST</button>
   <canvas id="gm-canvas"></canvas>
   <div id="gm-selected"></div>
   <div id="gm-tier" style="position:absolute;top:5.4rem;left:50%;transform:translateX(-50%);font-family:var(--font-hud);font-size:0.62rem;letter-spacing:0.18em;color:var(--cyan);text-shadow:0 0 12px rgba(var(--acc-rgb),0.5);pointer-events:none;text-align:center;">SOLAR SYSTEM</div>
@@ -4989,8 +5016,8 @@ function toggleQuickTravel(e){
   if(open){
     $('hud-logs-panel').classList.remove('open');$('logs-toggle-btn').classList.remove('active');
     try{document.querySelectorAll('#qt-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===qtTab));}catch(err){}
-    try{ensureQtMiniMap();}catch(err){console.warn('qt map:',err);}
-    try{refreshQtJumpCards();}catch(err){}
+    try{openTravelTree();}catch(err){console.warn('travel tree:',err);}
+    try{toggleQtMap(_qtMapWanted());}catch(err){console.warn('qt map:',err);}
   }else{
     try{pauseQtMiniMap();}catch(err){}
   }
@@ -5002,8 +5029,10 @@ function closeQuickTravel(){
 }
 
 function buildDestinationUI(){
-  // Cards are rebuilt when QT opens (refreshQtJumpCards) so they include
-  // live distant systems + galaxies, not only the static Sol list.
+  // The TRAVEL tree is the list now; keep it current and finish any
+  // jump-then-plot that was waiting for this system.
+  try{ if($('ar-bottom')&&$('ar-bottom').classList.contains('open')) renderTravelTree(); }catch(e){}
+  try{ _ttResolvePending(); }catch(e){}
   try{refreshQtJumpCards();}catch(e){
     const sc=$('dest-scroll');if(!sc)return;sc.innerHTML='';
     DESTINATIONS.forEach((d,i)=>{const card=document.createElement('div');card.className='dest-card'+(i===0?' active':'');card.innerHTML=`<div class="dest-icon">${d.icon}</div><div class="dest-name">${d.name}</div><div class="dest-dist">${d.dist}</div><div class="dest-type">${d.type}</div>`;
@@ -5324,6 +5353,240 @@ function refreshQtJumpCards(){
     });
   }
 }
+// ── TRAVEL tree — the one travel list. Galaxy → star systems → star →
+// planets → moons, with dwarf planets / asteroids / comets grouped. Seeded
+// children are generated only when a node is opened (getGalaxySystems /
+// systemChartFromArmCell are deterministic and append-only, so a place you've
+// seen never reshuffles). Hidden (discovery) entries stay out. Selecting a
+// node uses the same travel path as everything else: plotCourse inside the
+// system you're in, fastTravelToSystem / fastTravelToGalaxy beyond it, and
+// a pending destination that plots the course once the new system is built.
+const _ttOpen=new Set();
+let _ttAutoOpened=false;
+function _ttEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);}
+function _ttHereBodyName(){
+  try{ if(typeof PW!=='undefined'&&PW.active&&PW.body&&PW.body.name) return PW.body.name; }catch(e){}
+  try{ if(typeof surfaceActive!=='undefined'&&surfaceActive&&typeof _surfBody!=='undefined'&&_surfBody&&_surfBody.name) return _surfBody.name; }catch(e){}
+  try{ if(_approachBestBody&&_approachBestBody.name) return String(_approachBestBody.name).replace(/^Comet /,''); }catch(e){}
+  return null;
+}
+function _ttInSol(){ return _qtCurGalaxy()==='milkyway'&&!window._curSystem; }
+function _ttCurSysName(){ return window._curSystem?window._curSystem.name:(_qtCurGalaxy()==='milkyway'?'Sol':null); }
+function _ttGalName(key){
+  if(key==='milkyway') return 'Milky Way';
+  const g=(typeof VISITABLE_GALAXIES!=='undefined'?VISITABLE_GALAXIES:[]).find(x=>galaxyKey(x.n)===key);
+  return g?g.n.replace(/\s*\(.+\)/,''):key;
+}
+// Plot to a destination by name in the system you're in.
+function _ttPlotHere(name){
+  if(name==='Sun'||(window._curSystem&&name===window._curSystem.name)){
+    const b=(celestialBodies||[]).find(x=>x.name===name);
+    if(b&&b.mesh&&typeof beginTravel==='function'){ $('hud-dest').textContent=name; beginTravel(b); return true; }
+    return false;
+  }
+  const i=DESTINATIONS.findIndex(d=>d.name===name);
+  if(i<0) return false;
+  STATE.flight.destIdx=i; $('hud-dest').textContent=DESTINATIONS[i].name; plotCourse(i); return true;
+}
+// After a jump: wait for the new system's bodies, then plot to the target.
+let _ttPendTimer=0;
+function _ttResolvePending(){
+  const p=window._ttPending; if(!p) return;
+  clearTimeout(_ttPendTimer);
+  let tries=0;
+  const step=()=>{
+    const q=window._ttPending; if(!q) return;
+    if((_ttCurSysName()||'')!==q.sys){ if(++tries<60) _ttPendTimer=setTimeout(step,500); else window._ttPending=null; return; }
+    const i=DESTINATIONS.findIndex(d=>d.name===q.name);
+    const b=q.name==='Sun'||q.name===q.sys?(celestialBodies||[]).find(x=>x.name===q.name):(i>=0?bodyForDestination(DESTINATIONS[i]):null);
+    if(b&&b.mesh){ window._ttPending=null; _ttPlotHere(q.name); return; }
+    if(++tries<60) _ttPendTimer=setTimeout(step,500); else { window._ttPending=null; if(i>=0) _ttPlotHere(q.name); }
+  };
+  _ttPendTimer=setTimeout(step,900);
+}
+// Go to body `name` in system `sysName` of galaxy `gal` (sys=null → Sol).
+function _ttGoBody(gal,sysName,sys,name,label){
+  window._gsViewAt=null;
+  if(gal===_qtCurGalaxy()&&sysName===_ttCurSysName()&&flightInited){
+    if(_ttPlotHere(name)){ closeQuickTravel(); return; }
+  }
+  const where=sysName==='Sol'?'the Sol system':sysName+(gal!==_qtCurGalaxy()?' in '+_ttGalName(gal):'');
+  openFastTravel('FAST TRAVEL — '+String(label||name).toUpperCase(),'Jump to '+where+' and fly on to '+(label||name)+'?',()=>{
+    window._ttPending={sys:sysName,name};
+    if(gal!==_qtCurGalaxy()) GALAXY_DB.current=gal;
+    fastTravelToSystem(sys,gal);
+  });
+  closeQuickTravel();
+}
+function _ttGoSystem(gal,e){
+  if(gal===_qtCurGalaxy()){ _qtJumpToSystem(e); return; }
+  window._gsViewAt=null;
+  const nm=e.home?'Sol':e.name;
+  openFastTravel('FAST TRAVEL — '+nm.toUpperCase(),'Travel to '+_ttGalName(gal)+' and jump to '+nm+'?',()=>{
+    GALAXY_DB.current=gal; fastTravelToSystem(e.home?null:e.sys,gal);
+  });
+  closeQuickTravel();
+}
+// Sol: every public catalog body, moons nested under their parent.
+function _ttSolKids(gal){
+  const cat=SOL_CATALOG.filter(e=>!(e.hidden&&!_qtUnlocked(e.name)));
+  const node=e=>({id:'sol:'+e.name,icon:e.icon,label:e.name,meta:(e.kind==='moon'?'Moon':e.kind==='dwarf'?'Dwarf planet':e.type)+(e.kind!=='moon'&&_solCatalogDist(e)?' · '+_solCatalogDist(e):''),
+    body:e.name,go:()=>_ttGoBody(gal,'Sol',null,e.name),kids:null});
+  const byParent={};
+  cat.forEach(e=>{ if(e.kind==='moon'){ (byParent[e.parent]=byParent[e.parent]||[]).push(e); } });
+  const withMoons=e=>{
+    const n=node(e), ms=(byParent[e.name]||[]).slice();
+    if(e.name==='Earth'){ const leo=cat.find(x=>x.name==='Low Earth Orbit'); if(leo) ms.unshift(leo); }
+    if(ms.length){ n.kids=()=>ms.map(node); n.count=ms.length; }
+    return n;
+  };
+  const out=[{id:'sol:Sun',icon:'☀️',label:'Sun',meta:'G2V star',body:'Sun',go:()=>_ttGoBody(gal,'Sol',null,'Sun'),kids:null}];
+  cat.filter(e=>e.kind==='planet').forEach(e=>out.push(withMoons(e)));
+  const grp=(id,icon,label,list)=>{ if(list.length) out.push({id:'sol:g:'+id,icon,label,meta:list.length+'',count:list.length,kids:()=>list.map(withMoons)}); };
+  grp('dwarf','⚪','Dwarf planets',cat.filter(e=>e.kind==='dwarf'));
+  grp('ast','🪨','Asteroids',cat.filter(e=>e.kind==='belt'||e.kind==='asteroid'));
+  grp('comet','☄️','Comets',cat.filter(e=>e.kind==='comet'));
+  grp('far','✧','Beyond Sol',cat.filter(e=>e.kind==='star'||e.kind==='galaxy'));
+  return out;
+}
+// A seeded system: its star, then each planet (moon count noted — seeded
+// systems don't build their moons as separate places yet).
+function _ttSeededKids(gal,e){
+  const sys=e.sys||{}, bodies=sys.bodies||[];
+  const out=[{id:'sys:'+gal+':'+e.name+':*',icon:'⭐',label:e.name,meta:(sys.starType||e.star||'Star'),body:e.name,go:()=>_ttGoBody(gal,e.name,sys,e.name),kids:null}];
+  bodies.forEach(bd=>out.push({id:'sys:'+gal+':'+bd.name,icon:bd.landable?'🪐':'🟠',label:bd.name,
+    meta:(bd.type||'Planet')+(bd.moons?' · '+bd.moons+(bd.moons>1?' moons':' moon'):'')+(bd.landable?' · landable':''),
+    body:bd.name,go:()=>_ttGoBody(gal,e.name,sys,bd.name),kids:null}));
+  return out;
+}
+function _ttSystems(gal){
+  let list=[];
+  if(gal===_qtCurGalaxy()) list=_qtLocalSystems();
+  else if(gal==='milkyway'){
+    list=[{name:'Sol',sys:null,star:'G yellow',home:true}];
+    (distantSystems||[]).forEach(s=>{ if(!s) return;
+      const chart=s.rogue?null:(s.systemChart||systemChartFromArmCell(s));
+      list.push({name:s.name,sys:chart||{name:s.name,seed:s.seed,starType:s.starClass,bodies:[]},star:s.starClass,rogue:!!s.rogue,ds:s}); });
+  }else{
+    try{ const g=getGalaxySystems(gal,_ttGalName(gal)); (g.systems||[]).forEach(sys=>list.push({name:sys.name,sys,star:sys.starType})); }catch(e){}
+  }
+  return list.filter(e=>!(e.hidden||(e.ds&&e.ds.hidden)||(e.sys&&e.sys.hidden)));
+}
+function _ttGalaxyKids(gal){
+  const out=[], cur=gal===_qtCurGalaxy();
+  let here=null; try{ if(cur) here=_qtSysOffset(window._curSystem||null); }catch(e){}
+  const sys=_ttSystems(gal).map(e=>{
+    let d=null; try{ if(here&&!e.home) d=_qtSysOffset(e.sys).distanceTo(here); }catch(_){}
+    return {e,d};
+  });
+  sys.sort((a,b)=>(a.e.home?-1:b.e.home?1:0)||((a.d==null?1e12:a.d)-(b.d==null?1e12:b.d)));
+  sys.forEach(({e,d})=>{
+    const nm=e.home?'Sol':e.name, isHere=cur&&nm===_ttCurSysName();
+    const kidsN=e.home?SOL_CATALOG.filter(x=>!(x.hidden&&!_qtUnlocked(x.name))).length:(e.sys&&e.sys.bodies?e.sys.bodies.length:0);
+    out.push({id:'sys:'+gal+':'+nm,icon:e.home?'☀️':e.rogue?'✧':'⭐',label:nm+(e.home?' system':''),
+      meta:(isHere?'You are here':d!=null?(d<10?d.toFixed(1):Math.round(d).toLocaleString())+' ly':'')+((e.home?'G2V':e.rogue?'Rogue star':(e.star||''))?(isHere||d!=null?' · ':'')+(e.home?'Home system':e.rogue?'Rogue star':e.star):''),
+      sysNode:true,here:isHere,count:kidsN||null,
+      go:()=>_ttGoSystem(gal,e),
+      kids:e.rogue?null:(e.home?()=>_ttSolKids(gal):()=>_ttSeededKids(gal,e))});
+  });
+  if(cur){
+    out.push({id:'bh:'+gal,icon:'◉',label:'Black holes',meta:'',kids:()=>{
+      let bhs=[];try{bhs=galSkyBlackHolesNear(9000);}catch(e){}
+      return bhs.filter(e=>e.b.kind==='core'||e.b.real).concat(bhs.filter(e=>e.b.kind!=='core'&&!e.b.real).slice(0,6)).slice(0,14).map((e,i)=>{
+        const L=_bhLabel(e), fmt=e.d<10?e.d.toFixed(1):Math.round(e.d).toLocaleString();
+        return {id:'bh:'+gal+':'+i+':'+L.name,icon:'◉',label:L.name,meta:fmt+' ly · '+L.type,go:()=>{
+          openFastTravel('FAST TRAVEL — '+L.name.toUpperCase(),L.type+'. Hold station beside it and watch it bend the sky?',()=>travelToBlackHole(e));closeQuickTravel();},kids:null};
+      });
+    }});
+  }
+  const disc=(loadDiscoveries()||[]).filter(d=>(d.gal||'milkyway')===gal);
+  if(disc.length) out.push({id:'disc:'+gal,icon:'✦',label:'Discoveries',meta:disc.length+' found',count:disc.length,kids:()=>disc.slice().reverse().map((d,i)=>({
+    id:'disc:'+gal+':'+i+':'+d.name,icon:d.type==='Rogue Planet'?'🌑':d.type==='Comet'?'☄️':'🪨',label:d.name,meta:d.type+' · near '+d.sysName,
+    go:()=>{openFastTravel('RETURN — '+d.name.toUpperCase(),'Fly back to '+d.name+' ('+d.type+') near '+d.sysName+'?',()=>travelToDiscovery(d));closeQuickTravel();},kids:null}))});
+  return out;
+}
+function _ttRoots(){
+  const cur=_qtCurGalaxy();
+  const gs=[{key:'milkyway',name:'Milky Way',dist:'Home galaxy'}];
+  (typeof VISITABLE_GALAXIES!=='undefined'?VISITABLE_GALAXIES:[]).forEach(g=>gs.push({key:galaxyKey(g.n),name:g.n.replace(/\s*\(.+\)/,''),dist:g.dist||''}));
+  return gs.map(g=>({id:'gal:'+g.key,icon:'🌌',label:g.name,meta:g.key===cur?'You are here':g.dist,here:g.key===cur,galNode:true,
+    go:()=>_qtJumpToGalaxy(g.key,g.name,g.dist),kids:()=>_ttGalaxyKids(g.key)}));
+}
+function _ttAutoOpen(){
+  const cur=_qtCurGalaxy(), sn=_ttCurSysName();
+  _ttOpen.add('gal:'+cur);
+  if(sn) _ttOpen.add('sys:'+cur+':'+sn);
+  const hb=_ttHereBodyName();
+  if(sn==='Sol'&&hb){
+    const e=SOL_CATALOG.find(x=>x.name===hb);
+    if(e&&e.kind==='moon'){ const p=SOL_CATALOG.find(x=>x.name===e.parent); if(p&&p.kind==='dwarf') _ttOpen.add('sol:g:dwarf'); _ttOpen.add('sol:'+e.parent); }
+    else if(e&&e.kind==='dwarf') _ttOpen.add('sol:g:dwarf');
+    else if(e&&(e.kind==='asteroid'||e.kind==='belt')) _ttOpen.add('sol:g:ast');
+    else if(e&&e.kind==='comet') _ttOpen.add('sol:g:comet');
+    else if(hb==='Low Earth Orbit') _ttOpen.add('sol:Earth');
+  }
+}
+function renderTravelTree(){
+  const box=$('qt-tree'); if(!box) return;
+  if(!_ttAutoOpened){ _ttAutoOpen(); _ttAutoOpened=true; }
+  const cur=_qtCurGalaxy(), sn=_ttCurSysName(), hb=_ttHereBodyName();
+  const destName=(DESTINATIONS[STATE.flight.destIdx]||{}).name;
+  const keep=box.scrollTop; box.innerHTML='';
+  const ul=document.createElement('ul'); ul.className='tt-list'; ul.setAttribute('role','tree');
+  let hereEl=null;
+  const draw=(nodes,parentUl,depth,inCurSys)=>{
+    nodes.forEach(n=>{
+      const li=document.createElement('li'); li.setAttribute('role','treeitem');
+      const open=!!n.kids&&_ttOpen.has(n.id);
+      if(n.kids) li.setAttribute('aria-expanded',open?'true':'false');
+      const isHere=n.here||(inCurSys&&n.body&&hb&&n.body===hb);
+      const row=document.createElement('div');
+      row.className='tt-row'+(isHere?' here':'')+(inCurSys&&n.body&&n.body===destName?' dest':'')+(n.galNode?' gal':n.sysNode?' sys':'');
+      row.style.paddingLeft=(4+depth*14)+'px';
+      row.innerHTML=(n.kids?`<button class="tt-tog" aria-label="${open?'Collapse':'Expand'} ${_ttEsc(n.label)}">${open?'▾':'▸'}</button>`:'<span class="tt-tog tt-leaf">·</span>')
+        +`<span class="tt-ico">${n.icon||''}</span><span class="tt-name">${_ttEsc(n.label)}</span>`
+        +(n.count&&!open?`<span class="tt-n">${n.count}</span>`:'')
+        +`<span class="tt-meta">${_ttEsc(isHere&&!n.galNode&&!n.sysNode?'You are here':n.meta||'')}</span>`
+        +(n.go?'<span class="tt-go">⟶</span>':'');
+      const tog=()=>{ if(_ttOpen.has(n.id)) _ttOpen.delete(n.id); else _ttOpen.add(n.id); renderTravelTree(); };
+      row.onclick=ev=>{
+        ev.stopPropagation();
+        if(n.kids&&(ev.target.closest('.tt-tog')||!n.go)){ tog(); return; }
+        if(n.go) n.go();
+      };
+      li.appendChild(row);
+      if(isHere&&!hereEl) hereEl=row;
+      if(open){
+        let kids=[]; try{ kids=n.kids()||[]; }catch(e){ console.warn('travel tree:',e); }
+        const sub=document.createElement('ul'); sub.setAttribute('role','group'); sub.className='tt-list';
+        const curSys=n.galNode?false:(n.sysNode?n.here:inCurSys);
+        draw(kids,sub,depth+1,curSys||(n.id&&n.id.startsWith('sol:g:')&&inCurSys));
+        li.appendChild(sub);
+      }
+      parentUl.appendChild(li);
+    });
+  };
+  draw(_ttRoots(),ul,0,false);
+  box.appendChild(ul);
+  box.scrollTop=keep;
+  return hereEl;
+}
+function openTravelTree(){
+  _ttAutoOpened=false;
+  const hereEl=renderTravelTree();
+  // bring "you are here" into view on open
+  try{ const box=$('qt-tree'); const t=hereEl||(box&&box.querySelector('.tt-row.here:last-of-type')); if(t&&box){ const all=box.querySelectorAll('.tt-row.here'); const last=all[all.length-1]||t; box.scrollTop=Math.max(0,last.offsetTop-box.offsetTop-box.clientHeight*0.35); } }catch(e){}
+}
+function toggleQtMap(force){
+  const w=$('qt-mapwrap'); if(!w) return;
+  const on=force!=null?!!force:w.style.display==='none';
+  w.style.display=on?'':'none';
+  const b=$('qt-map-btn'); if(b) b.classList.toggle('active',on);
+  try{ localStorage.setItem('dm_qt_map_v1',on?'1':'0'); }catch(e){}
+  if(on){ try{ ensureQtMiniMap(); }catch(e){} } else { try{ pauseQtMiniMap(); }catch(e){} }
+}
+function _qtMapWanted(){ try{ const v=localStorage.getItem('dm_qt_map_v1'); if(v!=null) return v==='1'; }catch(e){} return false; }   // the list first; 🗺 MAP opens the 3D chart (remembered)
+function openTravelFromMap(){ closeGalaxyMap(); if(!$('ar-bottom').classList.contains('open')) toggleQuickTravel(); }
 function onQtMapClick(e){
   if(!qtRenderer||!qtCamera||!qtScene)return;
   const cv=$('qt-canvas');const rect=cv.getBoundingClientRect();
@@ -17055,6 +17318,10 @@ function _pwSpaceStep(dt,first){
   if(S.out) _pwSpaceOutTick(sp,b,sc,dt);
   S.speed=(sp.pos.distanceTo(p0))*sc.Sx/Math.max(1e-3,dt||1/60);
   try{ updateBoardTransform(0,0); }catch(e){}
+  // the hover bob is a fixed 0.03 in open-space units; near the top of the air the
+  // camera sits only ~0.015 behind her (offsets × sc.fc), so the unscaled bob threw
+  // the board and Ariel clean out of frame with the world open. Scale it with the camera.
+  if(boardFlight&&sc.fc<1) boardFlight.position.y=sp.pos.y+(boardFlight.position.y-sp.pos.y)*sc.fc;
   // the follow camera: the same offsets, scaled
   const o=CAM_OFFSETS[camMode]||CAM_OFFSETS[0], q=spQuat(sp), fwd=_pwVec(0).set(0,0,-1).applyQuaternion(q);
   if(!_followInit){ try{ updateFollowCam(1/60); }catch(e){} }
@@ -20934,8 +21201,18 @@ if(_ws!=='lush') h=DMWorldStyle.shape(_ws,x,z,h,seed,_fbm);
 // solid scene's depth acts as the mask between land, water and the hazy air
 // (the fog still layers over all of it), so they blend instead of fighting.
 // Node shader: WebGPU, and the WebGL2 fallback through the same renderer.
+// Reading the scene's depth in a shader (viewportDepthTexture) binds the
+// framebuffer's depth. With MSAA on real WebGPU (antialias: desktop, iPad in
+// desktop mode) that depth is multisampled and three r185 binds it as a plain
+// depth texture: WebGPU rejects the bind group and drops the WHOLE pass — the
+// planet world's ground, the board and her vanish near any world with air
+// (its atmosphere shell reads depth) as soon as the world opens in space.
+function _viewportDepthOK(){
+  try{ return !(flightRenderer&&typeof _isRealWebGPU==='function'&&_isRealWebGPU(flightRenderer)&&(flightRenderer.samples|0)>1); }catch(e){ return true; }
+}
 function _shoreWaterMaterial(liqColor,opacity,rough){
   const W=window;
+  if(!_viewportDepthOK()) return null;   // multisampled WebGPU: the plain water (see _viewportDepthOK)
   if(!THREE.MeshStandardNodeMaterial||typeof W.viewportDepthTexture!=='function'||typeof W.logarithmicDepthToViewZ!=='function') return null;
   const {float,vec3,color,mix,smoothstep,clamp,positionView,cameraNear,cameraFar,viewportDepthTexture,mx_noise_float,time}=W;
   const m=new THREE.MeshStandardNodeMaterial({transparent:true,depthWrite:false});
@@ -21190,9 +21467,10 @@ function _pwAtmoShell(pal,sky){
     const t0=max(S.b.negate().sub(sh),0.0), t1=S.b.negate().add(sh);
     // the ground (the sea-level sphere) and whatever the scene drew in front
     const G=sphere(ro,rd,C,R), tg=W.select(G.h.greaterThan(0.0).and(G.b.lessThan(0.0)),G.b.negate().sub(sqrt(max(G.h,0.0))),float(1e9));
-    const vz=W.logarithmicDepthToViewZ(viewportDepthTexture(screenUV).r,cameraNear,cameraFar);
-    const vd=cameraViewMatrix.mul(vec4(rd,0.0)).xyz;
-    const ts=W.select(vz.negate().lessThan(cameraFar.mul(0.98)),vz.div(min(vd.z,-1e-4)),float(1e9));
+    // (no scene-depth read on multisampled WebGPU: see _viewportDepthOK — the shell then stops at the ground sphere only)
+    const ts=_viewportDepthOK()?(()=>{ const vz=W.logarithmicDepthToViewZ(viewportDepthTexture(screenUV).r,cameraNear,cameraFar);
+      const vd=cameraViewMatrix.mul(vec4(rd,0.0)).xyz;
+      return W.select(vz.negate().lessThan(cameraFar.mul(0.98)),vz.div(min(vd.z,-1e-4)),float(1e9)); })():float(1e9);
     const t2=min(min(t1,tg),ts), len=max(t2.sub(t0),0.0), dt=len.div(N);
     const tau=float(0).toVar(), acc=vec3(0).toVar();
     Loop(N,({i})=>{
