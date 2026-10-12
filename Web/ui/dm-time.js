@@ -57,6 +57,40 @@
     Uranus:  { e: 0.0457, L0: 313.23810, w: 170.95428, P: 84.016846, tilt: 97.77, day: -0.7183 },
     Neptune: { e: 0.0113, L0: 304.87997, w: 44.96476, P: 164.79132, tilt: 28.32, day: 0.6713 },
     Moon:    { tilt: 1.54, day: 29.530589, follows: 'Earth' },
+    // Moons: tidally locked, so a solar day is about one orbit; seasons follow
+    // the parent's year, leaned like the parent's equator they circle.
+    Phobos:    { tilt: 25.19, day: 0.31891, follows: 'Mars' },
+    Deimos:    { tilt: 25.19, day: 1.26244, follows: 'Mars' },
+    Io:        { tilt: 3.13, day: 1.769138, follows: 'Jupiter' },
+    Europa:    { tilt: 3.13, day: 3.551181, follows: 'Jupiter' },
+    Ganymede:  { tilt: 3.13, day: 7.154553, follows: 'Jupiter' },
+    Callisto:  { tilt: 3.13, day: 16.689017, follows: 'Jupiter' },
+    Mimas:     { tilt: 26.73, day: 0.942422, follows: 'Saturn' },
+    Enceladus: { tilt: 26.73, day: 1.370218, follows: 'Saturn' },
+    Tethys:    { tilt: 26.73, day: 1.887802, follows: 'Saturn' },
+    Dione:     { tilt: 26.73, day: 2.736915, follows: 'Saturn' },
+    Rhea:      { tilt: 26.73, day: 4.518212, follows: 'Saturn' },
+    Titan:     { tilt: 26.73, day: 15.945, follows: 'Saturn' },
+    Iapetus:   { tilt: 26.73, day: 79.3215, follows: 'Saturn' },
+    Miranda:   { tilt: 97.77, day: 1.413479, follows: 'Uranus' },
+    Ariel:     { tilt: 97.77, day: 2.520379, follows: 'Uranus' },
+    Umbriel:   { tilt: 97.77, day: 4.144177, follows: 'Uranus' },
+    Titania:   { tilt: 97.77, day: 8.705872, follows: 'Uranus' },
+    Oberon:    { tilt: 97.77, day: 13.463239, follows: 'Uranus' },
+    Triton:    { tilt: 28.32, day: -5.876854, follows: 'Neptune' },
+    Charon:    { tilt: 122.53, day: 6.3872, follows: 'Pluto' },
+    // (Ceres, Vesta, Pallas, Eros keep the seeded day they always had — not listed here)
+    // Dwarf planets, asteroids, comets: JPL SBDB elements (J2000 mean longitude
+    // L0 and longitude of perihelion w, deg; P years, negative = retrograde)
+    // and their measured spins.
+    Pluto:     { e: 0.2488, L0: 238.797, w: 224.0, P: 247.94, tilt: 122.53, day: -6.3872 },
+    Haumea:    { e: 0.194, L0: 192.367, w: 3.0, P: 282.95, tilt: 0, day: 0.163142 },
+    Makemake:  { e: 0.159, L0: 155.394, w: 16.3, P: 307.93, tilt: 0, day: 0.951108 },
+    Eris:      { e: 0.438, L0: 21.991, w: 187.0, P: 559.51, tilt: 0, day: 1.079167 },
+    Hygiea:    { e: 0.107, L0: 224.758, w: 235.0, P: 5.5907, tilt: 9, day: 0.576167 },
+    Halley:    { e: 0.968, L0: 236.975, w: 171.1, P: -75.732, tilt: 0, day: 2.2 },
+    'Hale-Bopp': { e: 0.995, L0: 53.409, w: 53.0, P: 2354.83, tilt: 0, day: 0.47 },
+    '67P':     { e: 0.641, L0: 269.578, w: 62.9, P: 6.436, tilt: 52, day: 0.531720 },
   };
 
   function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }

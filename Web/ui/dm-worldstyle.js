@@ -39,8 +39,24 @@
     return EARTH_DESERTS.some(([a, b, c, d]) => site.lat >= a && site.lat <= b && site.lon >= c && site.lon <= d);
   }
 
+  // a body can name its own style, and regions of it (lat/lon centre, rad in
+  // degrees of arc) can wear another — Pluto's cratered tholins round its
+  // smooth nitrogen-ice heart. Data on the body; no world is special-cased here.
+  function regionStyle(body, site) {
+    const R = body && body.regions;
+    if (!R || !site || typeof site.lat !== 'number') return null;
+    const D = Math.PI / 180, la = site.lat * D, lo = (site.lon || 0) * D;
+    for (let i = 0; i < R.length; i++) {
+      const r = R[i], rl = r.lat * D;
+      const c = Math.sin(la) * Math.sin(rl) + Math.cos(la) * Math.cos(rl) * Math.cos(lo - r.lon * D);
+      if (Math.acos(Math.max(-1, Math.min(1, c))) < r.rad * D) return r.style;
+    }
+    return null;
+  }
   function styleFor(body, pal, site) {
     const n = body && body.name, t = body && body.type;
+    const rs = regionStyle(body, site); if (rs) return rs;
+    if (body && body.style) return body.style;
     if (n === 'Earth' && earthDesert(site)) return 'dunes';
     if (t === 'Desert') return 'dunes';
     if (n === 'Mars' || n === 'Venus') return 'mesa';

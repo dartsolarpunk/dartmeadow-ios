@@ -142,12 +142,12 @@ if(location.search.indexOf('debug')!==-1){
   // PWA manifest: /manifest.webmanifest (linked in <head>; dark launch screen on Android)
 })();</script>
 <link href="./vendor/fonts/google-fonts.css" rel="stylesheet">
-<script src="ui/dm-time.js?v=95"></script>
+<script src="ui/dm-time.js?v=97"></script>
 <script src="ui/dm-earth.js?v=1"></script>
 <script src="ui/dm-theme.js?v=81"></script>
 <script src="ui/dm-fluid.js?v=80"></script>
 <script src="ui/dm-journal.js?v=98"></script>
-<script src="ui/dm-worldstyle.js?v=93"></script>
+<script src="ui/dm-worldstyle.js?v=94"></script>
 <script src="ui/dm-sky.js?v=96"></script>
 <script src="ui/dm-dust.js?v=95"></script>
 <script type="importmap">
@@ -4851,6 +4851,94 @@ const DESTINATIONS=[];
 // Joystick state
 const JOY={Lx:0,Ly:0,Rx:0,Ry:0};
 
+// ── SOL CATALOG — every public body of the solar system, in Quick Travel order.
+// Planets are built by buildSolarSystem from its own table; everything else
+// here is built by _buildSolCatalogBodies on its real orbit, at its real size
+// (the planets' size rule, continued below its floor so small bodies keep
+// their order), with its surface as data — LAND and the ground read the same
+// fields every world does (type, gravity, surface, style, regions).
+// Spins and the heliocentric orbits live in ui/dm-time.js (DMTime.SOL).
+//   r   radius in Earth radii          a  moon's orbit (km), P its period (days, − = retrograde)
+//   g   surface gravity (Earth g)      inc orbit tilt off the ecliptic (deg, look only)
+//   land: walkable world               atm: atmosphere name (_ATMO_LOOK), none = airless
+//   adopt: an existing seeded body (sol:landables) the catalog lists but never rebuilds
+//   hidden:true keeps an entry out of Quick Travel until unlocked (dm_qt_unlocked_v1)
+//   — the hook for secret spots.
+const SOL_RADIUS_KM={Earth:6371,Mars:3389.5,Jupiter:69911,Saturn:58232,Uranus:25362,Neptune:24622,Pluto:1188.3};
+const _AIRLESS={sky:[0x000000,0x000000],fog:0x000000,atmos:false};
+const SOL_CATALOG=[
+  {name:'Low Earth Orbit',kind:'orbit',icon:'🌍',type:'Orbit',dist:'400 km'},
+  {name:'Mercury',kind:'planet',icon:'☿️',type:'Planet'},
+  {name:'Venus',kind:'planet',icon:'🟡',type:'Planet'},
+  {name:'Earth',kind:'planet',icon:'🌍',type:'Planet'},
+  {name:'Moon',kind:'moon',parent:'Earth',icon:'🌕',r:0.2727,a:384400,P:27.321661,inc:5.1,col:0x9a9894,type:'Barren Moon',g:0.165,temp:'250 K',land:true},
+  {name:'Mars',kind:'planet',icon:'🔴',type:'Planet'},
+  {name:'Phobos',kind:'moon',parent:'Mars',icon:'🌑',r:0.00176,a:9376,P:0.31891,inc:1.1,col:0x5e554c,type:'Barren Moon',g:0.0006,temp:'233 K',lumpy:true},
+  {name:'Deimos',kind:'moon',parent:'Mars',icon:'🌑',r:0.00098,a:23463,P:1.26244,inc:1.8,col:0x7a6e60,type:'Barren Moon',g:0.0003,temp:'233 K',lumpy:true},
+  {name:'Asteroid Belt',kind:'belt',icon:'🪨',type:'Belt',dist:'2.2–3.3 AU'},
+  {name:'Ceres',kind:'dwarf',dist:'2.77 AU',adopt:true,icon:'⚪',r:0.0737,col:0x77716a,type:'Barren Moon',g:0.029,temp:'168 K',land:true,
+    surface:{ground:0x6e6860,ground2:0x4c4842,rock:0x8e887e}},
+  {name:'Vesta',kind:'asteroid',dist:'2.36 AU',adopt:true,icon:'🪨',r:0.041,col:0x8e8578,type:'Asteroid',g:0.025,temp:'~180 K',land:true},
+  {name:'Pallas',kind:'asteroid',dist:'2.77 AU',adopt:true,icon:'🪨',r:0.0402,col:0x7d7a76,type:'Asteroid',g:0.022,temp:'~165 K',land:true},
+  {name:'Hygiea',kind:'asteroid',icon:'🪨',r:0.032,col:0x5e5a56,type:'Asteroid',g:0.009,temp:'~160 K',land:true},
+  {name:'Eros',kind:'asteroid',dist:'1.46 AU',adopt:true,icon:'🪨',r:0.00132,col:0x8a7a68,type:'Asteroid',g:0.0006,temp:'~230 K',land:true},
+  {name:'Jupiter',kind:'planet',icon:'🟠',type:'Gas Giant'},
+  {name:'Io',kind:'moon',parent:'Jupiter',icon:'🟡',r:0.2859,a:421700,P:1.769138,inc:0.05,col:0xd6bf52,type:'Volcanic',g:0.183,temp:'110 K',land:true,
+    surface:Object.assign({ground:0xd8c050,ground2:0xa08a28,rock:0xb06a30,glow:0xff6a20},_AIRLESS)},
+  {name:'Europa',kind:'moon',parent:'Jupiter',icon:'⚪',r:0.2450,a:671034,P:3.551181,inc:0.47,col:0xd9cdb8,type:'Ice',g:0.134,temp:'102 K',land:true,
+    surface:Object.assign({ground:0xeae4d6,ground2:0xb89a7a,rock:0xa0705a},_AIRLESS)},
+  {name:'Ganymede',kind:'moon',parent:'Jupiter',icon:'🌑',r:0.4135,a:1070412,P:7.154553,inc:0.2,col:0x8c8478,type:'Barren Moon',g:0.146,temp:'110 K',land:true,
+    surface:{ground:0x8a8274,ground2:0x5e564a,rock:0xa8a090}},
+  {name:'Callisto',kind:'moon',parent:'Jupiter',icon:'🌑',r:0.3783,a:1882709,P:16.689017,inc:0.19,col:0x5e554b,type:'Barren Moon',g:0.126,temp:'134 K',land:true,
+    surface:{ground:0x5c5248,ground2:0x3e362e,rock:0x8a8070}},
+  {name:'Saturn',kind:'planet',icon:'🪐',type:'Gas Giant'},
+  {name:'Mimas',kind:'moon',parent:'Saturn',icon:'⚪',r:0.0311,a:185539,P:0.942422,inc:1.6,col:0xb8b4ae,type:'Ice',g:0.0065,temp:'64 K'},
+  {name:'Enceladus',kind:'moon',parent:'Saturn',icon:'⚪',r:0.0396,a:237948,P:1.370218,inc:0.01,col:0xf2f6fa,type:'Ice',g:0.0115,temp:'75 K',land:true,
+    surface:Object.assign({ground:0xf4f8fc,ground2:0xd4e2ee,rock:0xc6d6e4},_AIRLESS)},
+  {name:'Tethys',kind:'moon',parent:'Saturn',icon:'⚪',r:0.0834,a:294619,P:1.887802,inc:1.1,col:0xdedad2,type:'Ice',g:0.015,temp:'86 K'},
+  {name:'Dione',kind:'moon',parent:'Saturn',icon:'⚪',r:0.0881,a:377396,P:2.736915,inc:0.02,col:0xc8c4bc,type:'Ice',g:0.024,temp:'87 K'},
+  {name:'Rhea',kind:'moon',parent:'Saturn',icon:'⚪',r:0.1199,a:527108,P:4.518212,inc:0.35,col:0xc2bdb4,type:'Ice',g:0.027,temp:'76 K'},
+  {name:'Titan',kind:'moon',parent:'Saturn',icon:'🟠',r:0.4041,a:1221870,P:15.945,inc:0.35,col:0xd49a48,type:'Methane',g:0.138,temp:'94 K',land:true,atm:'titan'},
+  {name:'Iapetus',kind:'moon',parent:'Saturn',icon:'🌗',r:0.1153,a:3560820,P:79.3215,inc:15.5,col:0x8a7e6c,type:'Ice',g:0.023,temp:'110 K'},
+  {name:'Uranus',kind:'planet',icon:'🔵',type:'Ice Giant'},
+  {name:'Miranda',kind:'moon',parent:'Uranus',icon:'⚪',r:0.0185,a:129390,P:1.413479,inc:4.2,col:0xa8a6a2,type:'Ice',g:0.0081,temp:'60 K'},
+  {name:'Ariel',kind:'moon',parent:'Uranus',icon:'⚪',r:0.0908,a:191020,P:2.520379,inc:0.3,col:0xb4b0aa,type:'Ice',g:0.027,temp:'60 K'},
+  {name:'Umbriel',kind:'moon',parent:'Uranus',icon:'🌑',r:0.0918,a:266000,P:4.144177,inc:0.1,col:0x6e6c68,type:'Ice',g:0.024,temp:'75 K'},
+  {name:'Titania',kind:'moon',parent:'Uranus',icon:'⚪',r:0.1235,a:435910,P:8.705872,inc:0.1,col:0xa49c94,type:'Ice',g:0.039,temp:'70 K'},
+  {name:'Oberon',kind:'moon',parent:'Uranus',icon:'⚪',r:0.1194,a:583520,P:13.463239,inc:0.1,col:0x948a82,type:'Ice',g:0.035,temp:'75 K'},
+  {name:'Neptune',kind:'planet',icon:'🔵',type:'Ice Giant'},
+  {name:'Triton',kind:'moon',parent:'Neptune',icon:'⚪',r:0.2122,a:354759,P:-5.876854,inc:23,col:0xd6c8be,type:'Ice',g:0.08,temp:'38 K'},
+  {name:'Pluto',kind:'dwarf',icon:'🤍',r:0.1868,col:0xc4a084,type:'Ice',g:0.063,temp:'44 K',land:true,
+    // cratered reddish tholins, and the smooth white nitrogen-ice heart (Sputnik Planitia)
+    style:'crater',regions:[{lat:20,lon:177,rad:14,style:'ice'}],
+    surface:Object.assign({ground:0xb58a6a,ground2:0x7a4a32,rock:0xe6dccf},_AIRLESS)},
+  {name:'Charon',kind:'moon',parent:'Pluto',icon:'🌑',r:0.0948,a:19591,P:6.3872,inc:0.1,col:0x8e8680,type:'Ice',g:0.029,temp:'53 K'},
+  {name:'Haumea',kind:'dwarf',icon:'🥚',r:0.1281,col:0xd8d4ce,type:'Ice',g:0.045,temp:'50 K',shape:[1,0.52,0.78]},
+  {name:'Makemake',kind:'dwarf',icon:'⚪',r:0.1123,col:0xc49a78,type:'Ice',g:0.05,temp:'40 K'},
+  {name:'Eris',kind:'dwarf',icon:'⚪',r:0.1825,col:0xe4e2de,type:'Ice',g:0.084,temp:'42 K'},
+  {name:'Halley',kind:'comet',icon:'☄️',r:0.00086,col:0x3c3632,type:'Comet',temp:'~200 K'},
+  {name:'Hale-Bopp',kind:'comet',icon:'☄️',r:0.0047,col:0x3c3632,type:'Comet',temp:'~40 K'},
+  {name:'67P',kind:'comet',icon:'☄️',r:0.00016,col:0x3a3430,type:'Comet',temp:'~200 K',lumpy:true},
+  {name:'Proxima Cen.',kind:'star',icon:'⭐',type:'Star',dist:'4.24 ly'},
+  {name:'Andromeda',kind:'galaxy',icon:'🌌',type:'Galaxy',dist:'2.5M ly'},
+];
+// size rule: the planets' visR below 2 R⊕ (exact ratio, floored at 0.28),
+// carried under the floor as √ so a moon or a rock keeps its place in the order
+function _solSmallR(ratio){
+  return ratio>=0.28 ? ratio*PLANET_VIS_SCALE : 0.28*PLANET_VIS_SCALE*Math.sqrt(Math.max(1e-6,ratio)/0.28);
+}
+function _qtUnlocked(name){ try{ return (JSON.parse(localStorage.getItem('dm_qt_unlocked_v1')||'[]')||[]).includes(name); }catch(e){ return false; } }
+function _fmtKm(km){ return km>=1e6?(km/1e6).toFixed(2)+'M km':km>=1e3?Math.round(km/1e3)+'k km':Math.round(km)+' km'; }
+function _solCatalogDist(e){
+  if(e.dist) return e.dist;
+  if(e.kind==='moon') return _fmtKm(e.a)+' · '+e.parent;
+  const el=window.DMTime&&DMTime.SOL[e.name];
+  return el&&el.P?Math.pow(Math.abs(el.P),2/3).toFixed(2)+' AU':'';
+}
+
+// Quick Travel's Sol list: the catalog, each entry's pos read live from its
+// body (bodies move on the world clock), a fixed spot only for places with
+// no body (LEO, Proxima, Andromeda).
 function buildDestinations(){
   DESTINATIONS.length=0;
   // AU_UNITS / PLANET_VIS_SCALE are file-scope (SOL SCALE HARD).
@@ -4858,19 +4946,26 @@ function buildDestinations(){
   // Earth angle is applied live via placeSolLeoOffset at spawn).
   const AU=AU_UNITS;
   const leoClear=PLANET_VIS_SCALE*LEO_ALT_FRAC;
-  const defs=[
-    {name:'Low Earth Orbit',icon:'🌍',type:'Orbit',dist:'400 km',pos:new THREE.Vector3(AU*1.0+PLANET_VIS_SCALE+leoClear,PLANET_VIS_SCALE*0.12,PLANET_VIS_SCALE*0.35)},
-    {name:'Moon',icon:'🌕',type:'Moon',dist:'384k km',pos:new THREE.Vector3(AU*1.0+PLANET_VIS_SCALE*3.5,0,PLANET_VIS_SCALE*0.4)},
-    {name:'Mars',icon:'🔴',type:'Planet',dist:'78M km',pos:new THREE.Vector3(AU*1.524,2,AU*0.05)},
-    {name:'Asteroid Belt',icon:'🪨',type:'Belt',dist:'325M km',pos:new THREE.Vector3(AU*2.7,0,AU*0.3)},
-    {name:'Jupiter',icon:'🟠',type:'Gas Giant',dist:'629M km',pos:new THREE.Vector3(AU*5.203,4,-AU*0.5)},
-    {name:'Saturn',icon:'🪐',type:'Gas Giant',dist:'1.2B km',pos:new THREE.Vector3(AU*9.537,5,AU*0.8)},
-    {name:'Uranus',icon:'🔵',type:'Ice Giant',dist:'2.7B km',pos:new THREE.Vector3(AU*19.191,6,-AU*1.2)},
+  const fixed={
+    'Low Earth Orbit':new THREE.Vector3(AU*1.0+PLANET_VIS_SCALE+leoClear,PLANET_VIS_SCALE*0.12,PLANET_VIS_SCALE*0.35),
+    'Asteroid Belt':new THREE.Vector3(AU*2.7,0,AU*0.3),
     // Beyond Neptune (AU·30.069); keep outside Sol footprint after scale-up
-    {name:'Proxima Cen.',icon:'⭐',type:'Star',dist:'4.24 ly',pos:new THREE.Vector3(AU*55,AU*2,AU*8)},
-    {name:'Andromeda',icon:'🌌',type:'Galaxy',dist:'2.5M ly',pos:new THREE.Vector3(AU*120,AU*8,-AU*20)},
-  ];
-  defs.forEach(d=>DESTINATIONS.push(d));
+    'Proxima Cen.':new THREE.Vector3(AU*55,AU*2,AU*8),
+    'Andromeda':new THREE.Vector3(AU*120,AU*8,-AU*20),
+  };
+  SOL_CATALOG.forEach(e=>{
+    if(e.hidden&&!_qtUnlocked(e.name)) return;
+    const d={name:e.name,icon:e.icon,type:e.kind==='moon'?'Moon of '+e.parent:e.kind==='dwarf'?'Dwarf planet':e.type,
+      dist:_solCatalogDist(e),landable:!!e.land||e.kind==='planet'&&!/Giant/.test(e.type),catalog:e};
+    const fb=fixed[e.name]||new THREE.Vector3();
+    if(fixed[e.name]) d.pos=fb;
+    else Object.defineProperty(d,'pos',{enumerable:true,get(){
+      const b=(typeof celestialBodies!=='undefined'&&celestialBodies||[]).find(x=>x.name===e.name)
+        ||(typeof flightFlybys!=='undefined'&&flightFlybys||[]).find(x=>x.name==='Comet '+e.name);
+      return (b&&b.mesh&&b.mesh.position)||fb;
+    }});
+    DESTINATIONS.push(d);
+  });
 }
 
 // ── HUD Logs toggle — one merged panel (nav/board/nearest-body/flight/
@@ -6212,6 +6307,17 @@ function _buildJotsDustyRingGroup(planetR, opts){
   return ringGroup;
 }
 
+// How each world's air looks from space, by kind (the body name, or the
+// catalog's atm name): shell size (× the build half-extent), scattering
+// strength, optional colour coefficients (Titan's orange haze instead of
+// Rayleigh blue), opacity; gl = the WebGL2 fallback shell.
+const _ATMO_LOOK={
+  earth:{mul:1.18,scatter:3.8,op:0.85,gl:{tint:0x3366ff,mul:1.16,scatter:3.4,fb:0.18,op:0.72}},
+  mars: {mul:1.06,scatter:1.55,op:0.6,gl:{tint:0xc07040,mul:1.06,scatter:1.4,fb:0.10,op:0.55}},
+  venus:{mul:1.16,scatter:2.6,op:0.6},
+  titan:{mul:1.22,scatter:2.4,op:0.75,coeff:[0.9,0.5,0.14],gl:{tint:0xd08a3a,mul:1.14,scatter:2.0,fb:0.2,op:0.7}},
+  other:{mul:1.10,scatter:2.2,op:0.6,gl:{tint:0x6688cc,mul:1.09,scatter:1.8,fb:0.14,op:0.55}},
+};
 function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kind, bodyName){
   // Every world: a canvas albedo until its whole-planet map is ready, then the
   // map itself (_applyWorldMapToFlightBody) — the same map the globe widget,
@@ -6245,12 +6351,11 @@ function buildWebGLRichPlanetGroup(radius, seedVal, colorHex, hasAtmosphere, kin
   // lights by the world clock and the ground is laid out in
   group.add(mesh);
   if(hasAtmosphere){
-    const tint = isMars ? 0xc07040 : (isEarth ? 0x3366ff : 0x6688cc);
-    const atmoMul = isMars ? 1.06 : (isEarth ? 1.16 : 1.09);
+    const gl=(_ATMO_LOOK[isEarth?'earth':isMars?'mars':k]||_ATMO_LOOK.other).gl||_ATMO_LOOK.other.gl;
+    const tint=gl.tint, atmoMul=gl.mul;
     try{
       const dusty=_buildJotsDustyAtmoShell(radius, {
-        atmoMul, scatterMul: isEarth?3.4:isMars?1.4:1.8, tint,
-        fallbackOpacity: isMars?0.10:(isEarth?0.18:0.14), opacityScale: isEarth?0.72:0.55
+        atmoMul, scatterMul:gl.scatter, tint, fallbackOpacity:gl.fb, opacityScale:gl.op
       });
       group.add(dusty);
     }catch(e){
@@ -6511,9 +6616,10 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
     // surface-radius clamp (sandbox depth cue without full RT pre-pass).
     const atmoMat=new THREE.MeshBasicNodeMaterial({transparent:true,side:THREE.BackSide,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending});
     // Earth: deepen Rayleigh toward sandbox (soft blue limb glow). No Sol corona.
-    const atmoMul = (kind==='earth') ? 1.18 : (kind==='mars') ? 1.06 : (kind==='venus') ? 1.16 : 1.10;
-    const scatterMul = (kind==='earth') ? 3.8 : (kind==='mars') ? 1.55 : (kind==='venus') ? 2.6 : 2.2;
-    const scatterCoeffs=uniform(new THREE.Vector3(Math.pow(400/700,4),Math.pow(400/530,4),Math.pow(400/440,4)).multiplyScalar(scatterMul));
+    const look=_ATMO_LOOK[kind]||_ATMO_LOOK.other;
+    const atmoMul=look.mul, scatterMul=look.scatter;
+    const sc=look.coeff||[Math.pow(400/700,4),Math.pow(400/530,4),Math.pow(400/440,4)];   // Rayleigh (400/λ)⁴ unless the air is coloured otherwise
+    const scatterCoeffs=uniform(new THREE.Vector3(sc[0],sc[1],sc[2]).multiplyScalar(scatterMul));
     const sunDirU=uniform(new THREE.Vector3(1,0.3,0.2).normalize());
     const planetCenterU=uniform(new THREE.Vector3(0,0,0));
     const ATMO_R=HALF*atmoMul;
@@ -6577,7 +6683,7 @@ async function buildProceduralPlanetMesh(radius, seedVal, colorHex, hasAtmospher
     });
     const inS=atmoFn();
     atmoMat.colorNode=inS;
-    const atmoOpScale=(kind==='earth')?0.85:0.6;
+    const atmoOpScale=look.op;
     atmoMat.opacityNode=clamp(inS.r.add(inS.g).add(inS.b).mul(atmoOpScale),0.0,1.0);
     const atmoMesh=new THREE.Mesh(new THREE.SphereGeometry(ATMO_R,32,24),atmoMat);
     atmoMesh.name='JOTS_PlanetAtmo';
@@ -6648,6 +6754,116 @@ function buildGasGiantMesh(radius, palette, hasStorm){
   try{ _attachJotsNearFill(group, radius, (palette&&palette[1])||0xc9a36a); }catch(e){}
   return group;
 }
+// ── The catalog's moons, dwarf planets, asteroids and comets (SOL_CATALOG).
+// Cheap until you come close: a plain sphere (a lumpy one for rocks) — only
+// a landable world you approach is rebuilt with terrain, by the same
+// distance LOD the planets use (upgradePlanetLOD / upgradeWebGLPlanetLOD),
+// and dressed in its map (worldMapFor) like any planet. Moons ride their
+// parent on the world clock (updateBodies, orbitParent); the rest follow
+// their real heliocentric orbits from DMTime.SOL.
+function _solLumpyRock(r,seed,col){
+  const geo=new THREE.SphereGeometry(r,22,16), p=geo.attributes.position, v=new THREE.Vector3();
+  for(let i=0;i<p.count;i++){
+    v.fromBufferAttribute(p,i).normalize();
+    const n=_fbm(v.x*1.6+seed*0.013,v.z*1.6+v.y*0.9,seed%997,4), c=_fbm(v.y*3.1+7,v.x*3.1-v.z*2.3,(seed+31)%997,3);
+    v.multiplyScalar(r*(0.72+n*0.5-Math.max(0,c-0.62)*0.6));
+    p.setXYZ(i,v.x,v.y,v.z);
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:col,roughness:0.97,metalness:0.02}));
+}
+// a moon's distance from its parent: outside the parent's world (PWS_CLOSE)
+// plus its own, then the real spacing compressed, never inside the moon before it
+function _solMoonDistances(byName){
+  const out={}, last={};
+  SOL_CATALOG.forEach(e=>{
+    if(e.kind!=='moon') return;
+    const p=byName[e.parent]; if(!p) return;
+    const Rp=p.collisionRadius, Rm=_solSmallR(e.r);
+    let d=12*Rp+12*Rm+2.4*Math.pow(e.a/SOL_RADIUS_KM[e.parent],0.6);
+    const l=last[e.parent]; if(l) d=Math.max(d,l.d+11.5*(l.Rm+Rm));
+    last[e.parent]={d,Rm}; out[e.name]=d;
+  });
+  return out;
+}
+// the far-away look: a plain sphere (a lumpy one for rocks), one draw, no terrain
+function _solCheapGroup(e,r,seed,rock){
+  const mesh=rock?_solLumpyRock(r,seed,e.col)
+    :new THREE.Mesh(new THREE.SphereGeometry(r,28,18),new THREE.MeshStandardMaterial({color:e.col,roughness:0.95,metalness:0.02}));
+  mesh.name='JOTS_SolBody';
+  if(e.shape) mesh.scale.set(e.shape[0],e.shape[1],e.shape[2]);
+  const group=new THREE.Group(); group.add(mesh);
+  return group;
+}
+// Low-end budget: the planet LOD only ever steps up, which is fine for eight
+// planets but not for a dozen landable moons visited in one session. A catalog
+// world left far behind (> SOL_LOD_DROP radii, not the world you're in) goes
+// back to its cheap sphere, still wearing its map — one body per call.
+const SOL_LOD_DROP=40;
+let _solLodI=0;
+function _solCatalogLODDown(){
+  const n=celestialBodies.length; if(!n||!STATE.flight||!STATE.flight.pos) return;
+  for(let k=0;k<n;k++){
+    const b=celestialBodies[(_solLodI++)%n];
+    if(!b||!b.catalog||!b.isProcedural||!b.mesh) continue;
+    if(b.mcTier==='low'&&!b._webglSeg) continue;
+    if(typeof PW!=='undefined'&&PW.body===b) continue;
+    if(b.mesh.position.distanceTo(STATE.flight.pos)<b.mcRadius*SOL_LOD_DROP) continue;
+    const old=b.mesh, g=_solCheapGroup(b.catalog,b.mcRadius,b.mcSeed,false);
+    g.position.copy(old.position); g.quaternion.copy(old.quaternion);
+    old.children.filter(c=>c.isPlanetExtra).forEach(c=>g.add(c));
+    flightScene.add(g); flightScene.remove(old); try{ _disposeObject3D(old); }catch(e){}
+    b.mesh=g; b.mcTier='low'; b.mcRes=_mcTierResTable().low; b._webglSeg=0; b._mcLodT=performance.now();
+    if(b._wm) try{ _applyWorldMapToFlightBody(b,b._wm); }catch(e){}
+    return;
+  }
+}
+function _buildSolCatalogBodies(){
+  const byName={}; celestialBodies.forEach(b=>{ byName[b.name]=b; });
+  let dist=null;
+  const lowRes=(typeof _mcTierResTable==='function'?_mcTierResTable().low:10);
+  SOL_CATALOG.forEach(e=>{
+    if(!e.r) return;                          // places, the belt, planets: no body of their own here
+    // already in the world (the seeded landables): adopt it as it is — its seed, look and orbit stay
+    if(byName[e.name]){ byName[e.name].catalog=e; return; }
+    // an existing seeded comet (flyby 'Comet <name>'): Quick Travel goes to it; no second one
+    if(e.kind==='comet'&&(flightFlybys||[]).some(f=>f.name==='Comet '+e.name)) return;
+    if(e.kind==='moon'){ if(!byName[e.parent]) return; dist=_solMoonDistances(byName); }
+    const r=_solSmallR(e.r), seed=hashStr('sol:'+e.name);
+    // a landable body is a world (sphere → terrain by LOD), the rest of the small fry are rocks
+    const rock=!e.land&&(e.kind==='asteroid'||e.kind==='comet'||e.lumpy);
+    const group=_solCheapGroup(e,r,seed,rock);
+    const world=!!e.land;                     // a walkable world (same pipeline as every planet)
+    const b={mesh:group,name:e.name,type:e.type,temp:e.temp,collisionRadius:r,gravity:e.g,
+      landable:!!e.land,hasTerrain:!!e.land,catalog:e,
+      // airless unless the catalog names an atmosphere (its type's palette may assume air)
+      surface:Object.assign({},e.atm?null:_AIRLESS,e.surface||null),style:e.style,regions:e.regions,
+      isProcedural:world,mcRadius:r,mcSeed:seed,mcColor:e.col,mcHasAtm:!!e.atm,mcKind:e.atm||e.name,mcRes:lowRes,mcTier:'low'};
+    if(rock&&e.kind!=='moon'){ b.isAsteroid=e.kind==='asteroid'; b.isComet=e.kind==='comet'; }
+    if(e.kind==='moon'){
+      const p=byName[e.parent];
+      b.orbitParent=p; b.orbitDist=dist[e.name]; b.orbitDays=e.P; b.orbitInc=(e.inc||0)*Math.PI/180;
+      b.orbitPhase=(seed%3600)/3600*Math.PI*2;
+      b.moons=0; p.moons=(p.moons|0)+1;
+    } else {
+      const el=window.DMTime&&DMTime.SOL[e.name];
+      b.semiMajor=b.orbitR=Math.pow(Math.abs(el.P),2/3)*AU_UNITS; b.ecc=el.e;
+    }
+    if(e.kind==='comet'){
+      // the tail: dust streaming away from the Sun, longer the closer it comes (updateBodies)
+      const N=56, tp=new Float32Array(N*3), cr=seedRand(seed);
+      for(let j=0;j<N;j++){ const t=j/N; tp[j*3]=t; tp[j*3+1]=(cr()-0.5)*0.06*(0.2+t); tp[j*3+2]=(cr()-0.5)*0.06*(0.2+t); }
+      const tg=new THREE.BufferGeometry(); tg.setAttribute('position',new THREE.BufferAttribute(tp,3));
+      const tail=new THREE.Points(tg,new THREE.PointsMaterial({size:0.12,color:0xa8c8ff,transparent:true,opacity:0.55,depthWrite:false}));
+      tail.name='JOTS_CometTail'; tail.frustumCulled=false;
+      flightScene.add(tail); if(typeof _trackSystemExtra==='function')_trackSystemExtra(tail);
+      b.tail=tail;
+    }
+    flightScene.add(group);
+    celestialBodies.push(b); byName[e.name]=b;
+  });
+  try{ updateBodies(0); }catch(e){}            // everyone in place before the first frame
+}
 async function buildSolarSystem(){
   // the real Earth's relief map is small and loads at start; give it a moment so the planet is built from it
   try{ if(window.DMEarth&&!DMEarth.ready) await DMEarth.whenReady(6000); }catch(e){}
@@ -6686,7 +6902,7 @@ async function buildSolarSystem(){
   const planets=[
     {name:'Mercury',rRatio:0.383,col:0x9c8a7a,oR:AU*0.387,  period:0.2408, ecc:0.2056, lon0Deg:221, type:'Rocky',    temp:'440 K'},
     {name:'Venus',  rRatio:0.949,col:0xddaa44,oR:AU*0.723,  period:0.6152, ecc:0.0068, lon0Deg:48,  type:'Rocky',    temp:'737 K',hasAtm:true},
-    {name:'Earth',  rRatio:1.000,col:0x2244cc,oR:AU*1.0,    period:1.0000, ecc:0.0167, lon0Deg:185, type:'Habitable',temp:'288 K',hasMoon:true,hasAtm:true,useShader:true},
+    {name:'Earth',  rRatio:1.000,col:0x2244cc,oR:AU*1.0,    period:1.0000, ecc:0.0167, lon0Deg:185, type:'Habitable',temp:'288 K',hasAtm:true,useShader:true},
     {name:'Mars',   rRatio:0.532,col:0xcc4411,oR:AU*1.524,  period:1.8808, ecc:0.0934, lon0Deg:35,  type:'Rocky',    temp:'210 K',hasAtm:true},
     {name:'Jupiter',rRatio:11.21,col:0xcc9944,oR:AU*5.203,  period:11.862, ecc:0.0489, lon0Deg:65,  type:'Gas Giant',temp:'165 K'},
     {name:'Saturn', rRatio:9.45, col:0xddcc88,oR:AU*9.537,  period:29.457, ecc:0.0565, lon0Deg:340, type:'Gas Giant',temp:'134 K',hasRings:true},
@@ -6783,16 +6999,6 @@ async function buildSolarSystem(){
       mesh.add(ringGroup); // parented to planet, orbits together
     }
 
-    // Moon — parented to planet mesh so it orbits with Earth
-    if(p.hasMoon){
-      // Real Moon rRatio≈0.273; distance compressed (~3.5 R vs real 60 R) for playability
-      const moonR=Math.max(0.15, 0.273*PLANET_VIS_SCALE);
-      const mm=new THREE.Mesh(new THREE.SphereGeometry(moonR,12,12),new THREE.MeshStandardMaterial({color:0xaaaaaa,roughness:.9}));
-      mm.position.set(p.r*3.5,0,0);
-      mm.isPlanetExtra=true; // preserved across an LOD mesh swap (see upgradePlanetLOD)
-      mesh.add(mm); // parented to planet
-    }
-
     // Atmosphere is already built INSIDE buildProceduralPlanetMesh (the
     // sandbox's real ray-marched Rayleigh scattering, not the old fixed-
     // opacity sphere this replaced) when p.hasAtm is true - nothing more
@@ -6838,6 +7044,9 @@ async function buildSolarSystem(){
   const beltPts=new THREE.Points(ag,new THREE.PointsMaterial({size:.5,color:0x886644,sizeAttenuation:true}));
   flightScene.add(beltPts);if(typeof _trackSystemExtra==='function')_trackSystemExtra(beltPts);
 
+  // Places already visited never reshuffle: the seeded landables and comets
+  // below are exactly as they were (same seeds, same generation, same orbits);
+  // the Sol catalog adopts them by name instead of building its own.
   // Seeded landable asteroids WITH terrain — random SUBSET only (not every
   // belt particle). Particles above stay visual debris with no LAND prompt;
   // these few enter celestialBodies with landable+hasTerrain so proximity
@@ -6884,14 +7093,18 @@ async function buildSolarSystem(){
   for(let i=0;i<6;i++){
     const cg=new THREE.Group();
     cg.add(new THREE.Mesh(new THREE.SphereGeometry(.22,8,8),new THREE.MeshStandardMaterial({color:0xeeeeff,emissive:0x8888ff,emissiveIntensity:1.5})));
-    const tp=new Float32Array(180*3);
-    for(let j=0;j<180;j++){tp[j*3]=j*-.08+(cometRand()-0.5)*0.08;tp[j*3+1]=(cometRand()-0.5)*0.04;tp[j*3+2]=(cometRand()-0.5)*0.08;}
+    // tail: every 3rd of the original 180 points (60) — the seeded stream is
+    // still drawn for all 180 so each comet keeps its old place
+    const tp=new Float32Array(60*3);
+    for(let j=0;j<180;j++){const x=j*-.08+(cometRand()-0.5)*0.08, y=(cometRand()-0.5)*0.04, z=(cometRand()-0.5)*0.08; if(j%3===0){const k=j/3; tp[k*3]=x;tp[k*3+1]=y;tp[k*3+2]=z;}}
     const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.BufferAttribute(tp,3));
     cg.add(new THREE.Points(tg,new THREE.PointsMaterial({size:.1,color:0x8888ff,transparent:true,opacity:.55})));
     cg.position.set((cometRand()-0.5)*AU*20,(cometRand()-0.5)*40,(cometRand()-0.5)*AU*20);
     flightScene.add(cg);if(typeof _trackSystemExtra==='function')_trackSystemExtra(cg);
     flightFlybys.push({name:'Comet '+COMET_NAMES[i],mesh:cg,labelRange:AU*0.25});
   }
+  // Moons, dwarf planets and the genuinely new asteroids/comets (SOL_CATALOG)
+  _buildSolCatalogBodies();
   // Asteroid belt as a single flyby label target (belt centroid)
   flightFlybys.push({name:'Asteroid Belt',mesh:{position:new THREE.Vector3(AU*2.7,0,AU*0.3)},labelRange:AU*0.4});
 
@@ -9629,9 +9842,10 @@ function bodyForDestination(d){
   // direct name match (Earth/Mars/Jupiter/etc.)
   let b=celestialBodies.find(x=>x.name.toLowerCase()===d.name.toLowerCase());
   if(b)return b;
-  // "Low Earth Orbit" / "Moon" → Earth; belts/stars → nearest match
+  // "Low Earth Orbit" → Earth; the belt → its flyby marker; stars → nearest match
   if(/earth|leo|low earth/i.test(d.name))b=celestialBodies.find(x=>x.name==='Earth');
-  else if(/moon/i.test(d.name))b=celestialBodies.find(x=>x.name==='Earth');
+  else if(/belt/i.test(d.name))b=(typeof flightFlybys!=='undefined'&&flightFlybys||[]).find(x=>x.name===d.name);
+  else if(d.catalog&&d.catalog.kind==='comet')b=(typeof flightFlybys!=='undefined'&&flightFlybys||[]).find(x=>x.name==='Comet '+d.name);   // an old seeded comet
   else if(/proxima|centauri/i.test(d.name))b=distantSystems&&distantSystems.find(s=>/centauri|proxima/i.test(s.name));
   return b||null;
 }
@@ -9643,7 +9857,7 @@ function beginTravel(body){
   ASSIST.target=body;
   ASSIST.orbitOffset=null;ASSIST.homeOffset=null;ASSIST.lockOffset=null;
   // arrive when within ~6× the body's radius (or a sane minimum)
-  const r=(body.renderMesh||body.mesh)?.geometry?.parameters?.radius||2;
+  const r=body.collisionRadius||(body.renderMesh||body.mesh)?.geometry?.parameters?.radius||2;
   ASSIST.arriveDist=Math.max(r*6, 8);
   // engage full DART (white) automatically for fastest transit
   dartSpeedMode=3; updateDartButton();
@@ -10493,20 +10707,23 @@ function solKeplerAnomaly(M, e){
   let m = M % (Math.PI*2);
   if(m>Math.PI) m-=Math.PI*2;
   if(m<-Math.PI) m+=Math.PI*2;
-  let E = m;
-  for(let i=0;i<6;i++){
+  // start near the answer for any e (Danby), so comets (e≈0.99) converge too
+  let E = e<0.8 ? m : m + 0.85*e*(m<0?-1:1);
+  for(let i=0;i<30;i++){
     const denom = 1 - e*Math.cos(E);
     if(Math.abs(denom)<1e-12) break;
-    E -= (E - e*Math.sin(E) - m) / denom;
+    const dE=(E - e*Math.sin(E) - m) / denom;
+    E -= dE;
+    if(Math.abs(dE)<1e-10) break;
   }
   const cosE=Math.cos(E), sinE=Math.sin(E);
   const nu=Math.atan2(Math.sqrt(Math.max(0,1-e*e))*sinE, cosE-e);
   const rFactor=(1-e*e)/(1+e*Math.cos(nu));
   return {E, nu, rFactor};
 }
-let _spinQ=null, _tiltQ=null, _spinY=null, _spinAx=null;   // made on first use (THREE arrives with the module)
+let _spinQ=null, _tiltQ=null, _spinY=null, _spinAx=null, _tailX=null;   // made on first use (THREE arrives with the module)
 function updateBodies(dt){
-  if(!_spinQ){ _spinQ=new THREE.Quaternion(); _tiltQ=new THREE.Quaternion(); _spinY=new THREE.Vector3(0,1,0); _spinAx=new THREE.Vector3(); }
+  if(!_spinQ){ _spinQ=new THREE.Quaternion(); _tiltQ=new THREE.Quaternion(); _spinY=new THREE.Vector3(0,1,0); _spinAx=new THREE.Vector3(); _tailX=new THREE.Vector3(1,0,0); }
   // inside the ship the hull doesn't cast shadows: keep the star off the cabin walls
   if(_sunLight) _sunLight.intensity=SUN_LIGHT_I*(SHIP_WALK.active?0.25:1);
   _approachBestDist=Infinity;_approachBestBody=null;
@@ -10520,7 +10737,15 @@ function updateBodies(dt){
   for(let _bi=0;_bi<celestialBodies.length;_bi++){
     const b=celestialBodies[_bi];
     if(!b._frameDelta)b._frameDelta=new THREE.Vector3();
-    if(b.orbitR>0){
+    if(b.orbitParent){
+      // a moon rides its parent (updated earlier in this loop), round it on the
+      // world clock at its real period — ui/dm-time.js days(), like the planets
+      const P=b.orbitParent.mesh.position, m=b.mesh.position, px=m.x, py=m.y, pz=m.z;
+      const days=window.DMTime?DMTime.days():worldSeconds()*30/86400;
+      const ang=b.orbitPhase+Math.PI*2*days/b.orbitDays, c=Math.cos(ang)*b.orbitDist, sn=Math.sin(ang)*b.orbitDist;
+      m.set(P.x+c, P.y+sn*Math.sin(b.orbitInc), P.z+sn*Math.cos(b.orbitInc));
+      b._frameDelta.set(m.x-px,m.y-py,m.z-pz);
+    } else if(b.orbitR>0){
       const px=b.mesh.position.x, pz=b.mesh.position.z;
       // Elliptical Sol planets (ecc/semiMajor set); else circular path
       // (asteroids, comets, procedural systems).
@@ -10553,7 +10778,13 @@ function updateBodies(dt){
     // on the ground (lon = atan2(−z,x) in the body's frame) — and leaned so
     // the star stands over latitude = the sun's declination (the season the
     // ground sky shows): the lit hemisphere is exactly DMTime.sunDir's day.
-    if(b.orbitR>0 && window.DMTime && !b.isAsteroid){
+    if(b.tail){
+      // comet tail: points away from the star, grows inside ~5 AU
+      const m=b.mesh.position, rAU=Math.max(0.05,m.length()/AU_UNITS), L=Math.min(60,240/(rAU*rAU))*(rAU<6?1:0);
+      b.tail.visible=L>0.5;
+      if(b.tail.visible){ b.tail.position.copy(m); _spinAx.copy(m).normalize(); b.tail.quaternion.setFromUnitVectors(_tailX,_spinAx); b.tail.scale.set(L,Math.sqrt(L)*2,Math.sqrt(L)*2); }
+    }
+    if((b.orbitR>0||b.orbitParent) && window.DMTime && !b.isAsteroid && !b.isComet){
       const alpha=Math.atan2(b.mesh.position.z,b.mesh.position.x);
       _spinQ.setFromAxisAngle(_spinY,-DMTime.subsolarLon(b)*Math.PI/180-alpha-Math.PI);
       // tilt about the horizontal axis square to the star line (s × up), by −declination
@@ -10794,6 +11025,7 @@ async function upgradeWebGLPlanetLOD(){
 async function upgradePlanetLOD(dt){
   if(_lodPlanetBusy)return; // one rebuild in flight at a time — avoid GPU contention
   if(!STATE.flight||!STATE.flight.pos)return;
+  _solCatalogLODDown();     // far catalog worlds back to plain spheres (low-end budget)
   // WebGPU-first: High/Med/Low share GPU MC + distance LOD (budgeted N).
   // WebGL/Safari ONLY when !_isRealWebGPU — rich canvas spheres, not a dual forever-GL default.
   if(!_isRealWebGPU(flightRenderer)){
@@ -11234,7 +11466,7 @@ function buildGalaxySolarTier(){
     const ang=Math.random()*Math.PI*2;
     const m=new THREE.Mesh(new THREE.SphereGeometry(p.s,16,16),new THREE.MeshBasicMaterial({color:p.c}));
     m.position.set(Math.cos(ang)*p.r,0,Math.sin(ang)*p.r);
-    m.userData={destIdx:p.idx};grp.add(m);
+    m.userData={destIdx:p.idx,destName:p.name};grp.add(m);   // resolved by name on tap: the Quick Travel list is the whole Sol catalog
     if(p.ring){const rg=new THREE.Mesh(new THREE.RingGeometry(p.s*1.5,p.s*2.4,32),new THREE.MeshBasicMaterial({color:0xccbb99,side:THREE.DoubleSide,transparent:true,opacity:0.6}));rg.rotation.x=-Math.PI/2.2;m.add(rg);}
     const lbl=addGmLabel(grp,p.name,m.position.clone().add(new THREE.Vector3(0,p.s+5,0)),'rgba(91,127,255,0.9)');
     gmSolarPlanets.push({mesh:m,r:p.r,ang,spd:0.0016/(p.idx*0.4+1),name:p.name,destIdx:p.idx,labelSprite:lbl,size:p.s,lblBaseW:lbl.userData.baseW,lblBaseH:lbl.userData.baseH});
@@ -11870,11 +12102,11 @@ function onGalaxyMapClick(e){
   // Solar tier: tap a destination → plot course
   const meshes=[];gmDestGroup&&gmDestGroup.traverse(o=>{if(o.isMesh&&o.userData.destIdx!==undefined)meshes.push(o);});
   const hits=gmRaycaster.intersectObjects(meshes);
-  if(hits.length){const di=hits[0].object.userData.destIdx;STATE.flight.destIdx=di;
+  if(hits.length){const hit=hits[0].object, dn=hit.userData.destName, dj=dn?DESTINATIONS.findIndex(d=>d.name===dn):-1, di=dj>=0?dj:hit.userData.destIdx;STATE.flight.destIdx=di;
     $('gm-selected').textContent='→ '+(DESTINATIONS[di]?DESTINATIONS[di].name.toUpperCase():'TARGET')+' SELECTED';
     document.querySelectorAll('.dest-card').forEach((c,ci)=>c.classList.toggle('active',ci===di));
     if(flightInited&&DESTINATIONS[di])plotCourse(di);
-    meshes.forEach(m=>m.material&&m.userData.destIdx!==undefined&&m.material.color.set(m.userData.destIdx===di?0xf5c400:0x00f5ff));}
+    meshes.forEach(m=>m.material&&m.userData.destIdx!==undefined&&m.material.color.set(m===hit?0xf5c400:0x00f5ff));}
 }
 
 // Smoothly fly the map camera from the galaxy view down into the solar system.
@@ -15742,7 +15974,7 @@ function getSurfacePalette(body){
   const P={
     Earth:{ground:0x3a7d34,ground2:0x2a5d24,rock:0x6b5d4f,sky:[0x88bbff,0x3a6ea5],fog:0x9ec4e8,water:true,liquidColor:0x1a4a7a,liquidName:'water',grav:1.0,atmos:true},
     Mars:{ground:0xa0461e,ground2:0x7a3416,rock:0x8a4020,sky:[0xd9a066,0x9a5a3a],fog:0xc97f4a,grav:0.38,atmos:true},
-    Moon:{ground:0x888888,ground2:0x666666,rock:0x999999,sky:[0x000000,0x000000],fog:0x000000,grav:0.17,atmos:false},
+    Moon:{ground:0x888888,ground2:0x666666,rock:0x999999,sky:[0x000000,0x000000],fog:0x000000,grav:0.165,atmos:false},
     Mercury:{ground:0x999088,ground2:0x77706a,rock:0xaaa098,sky:[0x000000,0x000000],fog:0x000000,grav:0.38,atmos:false},
     Venus:{ground:0xb08a3a,ground2:0x806220,rock:0xc09a4a,sky:[0xe0b050,0xa07820],fog:0xc89840,grav:0.9,atmos:true},
   };
@@ -15766,7 +15998,8 @@ function getSurfacePalette(body){
     'Barren Moon':{ground:0x888888,ground2:0x666666,rock:0x999999,sky:[0x000000,0x000000],fog:0x000000,atmos:false},
   };
   const base=byType[body.type]||{ground:0x556644,ground2:0x445533,rock:0x778866,sky:[0x223344,0x112233],fog:0x334455,atmos:true};
-  return Object.assign({grav:g},base);
+  // a catalog body's own colours/air over its type's (SOL_CATALOG surface)
+  return Object.assign({grav:g},base,body.surface||null);
 }
 // ════════════════════════════════════════════════════════════════════
 //  ✦ WORLD GLOBE TEXTURES — the landing globe (ui/dm-globe.js) wears these
@@ -18998,8 +19231,18 @@ function dismountSkyboard(targetScene, worldPos){
 // stepped off the board — the world stays, her feet take over.
 // Otherwise (from space, the landing globe, a Journal waypoint) the world is
 // built round opts.spawn and fades in.
+let _enterSurfaceWaiting=false;
 async function enterSurface(body,site,opts){
-  if(surfaceActive||PW.opening) return;
+  if(surfaceActive) return;
+  if(PW.opening){
+    // LAND tapped while the world round her is still opening (the globe is up
+    // already): wait for it rather than drop the tap
+    if(_enterSurfaceWaiting) return;
+    _enterSurfaceWaiting=true;
+    try{ for(let i=0;i<300&&PW.opening;i++) await new Promise(r=>setTimeout(r,100)); }
+    finally{ _enterSurfaceWaiting=false; }
+    if(PW.opening||surfaceActive) return;
+  }
   opts=opts||{};
   try{ _clearLandPrompt(); }catch(e){}
   if(opts.inPlace&&PW.active&&atmoActive&&PW.body===body){ _pwBeginWalk(opts); return; }
@@ -20873,7 +21116,7 @@ function _pwBuildGround(pal,fx,fz,mode){
         if(!TERRAIN._climbRay){ TERRAIN._climbRay=new THREE.Raycaster(); TERRAIN._climbRay.far=3.2; }
         const origin=new THREE.Vector3(x,y,z);
         for(let i=0;i<8;i++){
-          const a=i*Math.PI/4; TERRAIN._climbRay.set(origin,new THREE.Vector3(Math.cos(a),0,Math.sin(a)));
+          const a=i*Math.PI/4; TERRAIN._climbRay.set(origin,new THREE.Vector3(Math.cos(a),0,Math.sin(a))); TERRAIN._climbRay.camera=PW.camera;   // sprites in the scene need it
           const hits=TERRAIN._climbRay.intersectObjects(PW.scene.children,true);
           for(const h of hits){
             let climb=false; for(let cur=h.object;cur;cur=cur.parent){ const u=cur.userData; if(u&&(u.climbable||u.cliff||u.rope)){ climb=true; break; } }
@@ -21922,7 +22165,7 @@ function atmoStepOff(){
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_installKiteBoardButtons); else _installKiteBoardButtons();
 // worlds people have actually studied; anything else reads UNEXPLORED in its kite
-const STUDIED_WORLDS=new Set(['Sun','Mercury','Venus','Earth','Moon','Mars','Jupiter','Saturn','Uranus','Neptune','Ceres','Vesta','Pallas','Eros']);
+const STUDIED_WORLDS=new Set(['Sun'].concat(SOL_CATALOG.filter(e=>e.kind!=='orbit'&&e.kind!=='belt').map(e=>e.name)));
 function _kiteExplored(spanTitle,mode,body){
   try{ const kite=spanTitle&&spanTitle.closest('.mini-kite'); const m=kite&&kite.querySelector('.mk-mode'); if(!m) return;
     const known=body&&STUDIED_WORLDS.has(body.name);
