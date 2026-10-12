@@ -134,6 +134,8 @@ body:has(#screen-flight.active) #fs-exit,body:has(#screen-flight.active) #fs-ent
 /* crosshair follows the theme */
 /* colour + neon glow from Profile → Theme → Crosshair (DMTheme.setCrosshair) */
 #ar-crosshair{color:var(--xh-color,var(--cyan));}
+/* Profile → Theme → Crosshair Off */
+html.xh-off #ar-crosshair{display:none !important;}
 #ar-crosshair svg{opacity:var(--xh-op,.8);filter:var(--xh-filter,drop-shadow(0 0 3px rgba(var(--acc-rgb),.7)));}
 #ar-crosshair svg .xh-core{fill:var(--xh-core,currentColor);}
 

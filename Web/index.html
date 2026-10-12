@@ -1973,9 +1973,75 @@ function _saveWhere(){
       const r=(typeof _bodyVisRadius==='function'?_bodyVisRadius(b):1)||1;
       if(d<Math.max(r*60,150)&&d<bd){bd=d;best=b;}
     }
-    if(best){ const o=sp.pos.clone().sub(best.mesh.position); w.near={name:best.name,off:[o.x,o.y,o.z]}; }
+    if(best){
+      const o=sp.pos.clone().sub(best.mesh.position), bq=best.mesh.quaternion;
+      // offL: the offset in the body's own (spinning) frame, so the same spot over the world comes back
+      const ol=o.clone().applyQuaternion(bq.clone().invert());
+      w.near={name:best.name,off:[o.x,o.y,o.z],offL:[ol.x,ol.y,ol.z],bq:[bq.x,bq.y,bq.z,bq.w]};
+    }
+    // Anchoring is the player's choice: remembered exactly as it was, never added.
+    try{ const at=ANCHOR_STATE.active&&ANCHOR_STATE.target; if(at) w.anchor=at.isBirdTemple?{asset:'bird-temple'}:{name:at.name}; }catch(e){}
+    // Which way she's travelling: on foot, in a world's sky, on a visitable asset's deck, or in space.
+    try{ _saveWhereMode(w); }catch(e){ console.warn('[save] mode',e); }
     return w;
   }catch(e){ return null; }
+}
+// ── Visitable assets (Bird Temple, ships, temples, comets…) ─────────────
+// Treated like worlds for save/load: an id plus the position (and facing)
+// in the asset's own frame, so wherever it has wandered to since, you come
+// back on/beside it. Add new visitable things here.
+function _visitableAssets(){
+  const out=[];
+  try{ if(BIRD_TEMPLE.group&&BIRD_TEMPLE.spawned) out.push({id:'bird-temple',name:'Bird Temple',obj:BIRD_TEMPLE.group,deck:true}); }catch(e){}
+  try{ (typeof flightFlybys!=='undefined'?flightFlybys:[]).forEach(f=>{ if(f&&f.mesh&&f.mesh.isObject3D&&f.name) out.push({id:'flyby:'+f.name,name:f.name,obj:f.mesh}); }); }catch(e){}
+  return out;
+}
+function _assetById(id){ return _visitableAssets().find(a=>a.id===id)||null; }
+function _assetLocal(a,worldPos,worldQ){
+  a.obj.updateMatrixWorld(true);
+  const l=a.obj.worldToLocal(worldPos.clone()), r={id:a.id,local:[l.x,l.y,l.z]};
+  if(worldQ){ const q=a.obj.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(worldQ); r.q=[q.x,q.y,q.z,q.w]; }
+  return r;
+}
+function _assetWorld(a,ref){
+  a.obj.updateMatrixWorld(true);
+  const p=a.obj.localToWorld(new THREE.Vector3(ref.local[0],ref.local[1],ref.local[2]));
+  const q=ref.q?a.obj.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion(ref.q[0],ref.q[1],ref.q[2],ref.q[3])):null;
+  return {p,q};
+}
+function _saveWhereMode(w){
+  const sp=STATE.flight;
+  if(typeof surfaceActive!=='undefined'&&surfaceActive&&surfPlayer&&_surfBody){
+    w.mode='surface';
+    w.ground={body:_surfBody.name,site:_surfSite&&typeof _surfSite.lat==='number'?{lat:_surfSite.lat,lon:_surfSite.lon}:null,
+      x:surfPlayer.pos.x,y:surfPlayer.pos.y,z:surfPlayer.pos.z,yaw:surfPlayer.yaw,fp:!!surfFirstPerson};
+    return;
+  }
+  if(typeof atmoActive!=='undefined'&&atmoActive&&atmoState&&_atmoBody){
+    const q=atmoState.quat;
+    w.mode='atmo';
+    w.sky={body:_atmoBody.name,site:_atmoSite&&typeof _atmoSite.lat==='number'?{lat:_atmoSite.lat,lon:_atmoSite.lon}:null,
+      x:atmoState.pos.x,y:atmoState.pos.y,z:atmoState.pos.z,yaw:atmoState.yaw,pitch:atmoState.pitch,
+      quat:q?[q.x,q.y,q.z,q.w]:null,throttle:typeof atmoThrottle!=='undefined'?atmoThrottle:0,idle:!!(typeof atmoIdle!=='undefined'&&atmoIdle)};
+    return;
+  }
+  if(SHIP_WALK.active&&SHIP_WALK.localPos&&BIRD_TEMPLE.group){
+    w.mode='deck';
+    w.deck={id:'bird-temple',local:[SHIP_WALK.localPos.x,SHIP_WALK.localPos.y,SHIP_WALK.localPos.z],yaw:SHIP_WALK.yaw,pitch:SHIP_WALK.pitch,
+      faceRel:(SHIP_WALK.faceYaw||0)-BIRD_TEMPLE.group.rotation.y};
+    return;
+  }
+  w.mode='space';
+  // beside (or anchored to) a visitable asset: remember where in its frame
+  let best=null,bd=Infinity;
+  const anc=ANCHOR_STATE.active&&ANCHOR_STATE.target;
+  for(const a of _visitableAssets()){
+    const anchored=anc&&((anc.isBirdTemple&&a.id==='bird-temple')||(anc.name===a.name&&anc.isFlyby));
+    const d=a.obj.getWorldPosition(new THREE.Vector3()).distanceTo(sp.pos);
+    const near=anchored?-1:(d<(a.deck?400:150)?d:Infinity);
+    if(near<bd){ bd=near; best=a; }
+  }
+  if(best){ let q=null; try{ q=spQuat(sp).clone(); }catch(e){} w.asset=_assetLocal(best,sp.pos,q); }
 }
 function loadSaveData(data){
   if(!data||data.v!==SAVE_VERSION){toast('Invalid profile file','warn');return false;}
@@ -2296,13 +2362,26 @@ function _systemFromRef(gal,ref){
 function resumeJourney(data){
   if(!data||!loadSaveData(data)) return;
   try{ syncSlidersToBoardConfig(); }catch(e){}
+  const w=data.where;
+  // While a resume is putting her back, the near-world watcher must not open
+  // the world the start position happens to be beside (it used to open
+  // Earth's sky round the launch spot and swallow the real restore).
+  if(w) _resumeHold(true);
   launchFlight();
-  const w=data.where; if(!w) return;
+  if(!w) return;
   const gal=w.gal||'milkyway', want=(w.sys&&w.sys.name)||'Sol';
   let travelled=false, t0=Date.now();
-  (function wait(){
-    if(Date.now()-t0>45000) return;
-    const ready=typeof flightInited!=='undefined'&&flightInited&&boardFlight&&celestialBodies&&celestialBodies.length;
+  // one self-rescheduling waiter (every retry below calls wait()); gives up after 150 s
+  function wait(){
+    if(Date.now()-t0>150000){ _resumeHold(false); return; }
+    try{ _resumeWait(); }catch(e){ console.warn('[resume]',e); _resumeHold(false); }
+  }
+  wait();
+  function _resumeWait(){
+    if(PW._resumeHold) _resumeHold(true);   // still on the way (slow cross-system travel): keep the ~10 s safety timer fresh
+    const ready=typeof flightInited!=='undefined'&&flightInited&&boardFlight&&celestialBodies&&celestialBodies.length&&!PW.opening
+      // ground / sky / deck: only once launch has finished putting her on the space board, or that late mount steals her back off the ground
+      &&(!w.mode||w.mode==='space'||(CHAR.loaded&&CHAR.mounted&&!CHAR._transitioning));
     if(!ready){ setTimeout(wait,300); return; }
     const cur=(window._curSystem&&window._curSystem.name)||'Sol';
     if(!travelled&&(cur!==want||((GALAXY_DB.current||'milkyway')!==gal))){
@@ -2310,16 +2389,25 @@ function resumeJourney(data){
       setTimeout(wait,1800); return;
     }
     if(cur!==want){ setTimeout(wait,400); return; }
+    // On foot, in the sky or on a deck: back through the same entry the game uses (_restoreWhereMode).
+    if(PW.active){ try{ _pwCloseToSpace(); }catch(e){} }
+    if(w.mode&&w.mode!=='space'){
+      if(!_restoreWhereMode(w,data,t0)) _resumeHold(false);
+      return;
+    }
+    // the worlds settle onto the live clock over the first frames after launch:
+    // put her back on the same body/asset-relative spot again once they have
+    const _again=()=>{ try{ _restoreSpacePos(w); if(sp.vel) sp.vel.set(0,0,0); if(boardFlight) boardFlight.position.copy(sp.pos); _followInit=false; if(ANCHOR_STATE.active) ANCHOR_STATE._lastPos=null; }catch(e){} };
+    setTimeout(_again,500); setTimeout(()=>{ _again(); _resumeHold(false); },1600);
     const sp=STATE.flight;
-    const b=w.near&&celestialBodies.find(x=>x&&x.name===w.near.name&&x.mesh);
-    if(b) sp.pos.set(b.mesh.position.x+w.near.off[0],b.mesh.position.y+w.near.off[1],b.mesh.position.z+w.near.off[2]);
-    else if(w.pos) sp.pos.set(w.pos[0],w.pos[1],w.pos[2]);
+    const b=_restoreSpacePos(w);
     if(sp.vel) sp.vel.set(0,0,0);
-    if(w.quat) sp.quat=new THREE.Quaternion(w.quat[0],w.quat[1],w.quat[2],w.quat[3]);
-    if(boardFlight) boardFlight.position.copy(sp.pos);
+    if(boardFlight){ boardFlight.position.copy(sp.pos); try{ if(sp.quat) boardFlight.quaternion.copy(sp.quat).multiply(_BOARD_ALIGN); }catch(e){} }
     _followInit=false;
-    // Stay beside it while it carries on round its orbit (⚓ to let go).
-    if(b&&typeof ANCHOR_STATE!=='undefined'){ ANCHOR_STATE.active=true;ANCHOR_STATE.target=b;ANCHOR_STATE._lastPos=b.mesh.position.clone();try{updateAnchorButton();}catch(e){} }
+    // Anchors come back exactly as they were. (Saves from before modes were
+    // stored: stay beside the world as before.)
+    if(w.mode){ _restoreAnchor(w); }
+    else if(b&&typeof ANCHOR_STATE!=='undefined'){ ANCHOR_STATE.active=true;ANCHOR_STATE.target=b;ANCHOR_STATE._lastPos=b.mesh.position.clone();try{updateAnchorButton();}catch(e){} }
     // how long they were away on the shared world clock (the world kept going)
     let away='';
     try{
@@ -2330,7 +2418,83 @@ function resumeJourney(data){
       }
     }catch(e){}
     toast('▶ Back where you left off'+(b?' — beside '+b.name:'')+(want!=='Sol'?' · '+want:'')+away,away?6000:3600);
-  })();
+  }
+}
+// Space position from a save: beside a visitable asset (its frame), else the
+// same spot in the nearest world's own frame, else the raw world position.
+function _restoreSpacePos(w){
+  const sp=STATE.flight;
+  const b=w.near&&celestialBodies.find(x=>x&&x.name===w.near.name&&x.mesh);
+  let q=w.quat?new THREE.Quaternion(w.quat[0],w.quat[1],w.quat[2],w.quat[3]):null;
+  const a=w.asset&&_assetById(w.asset.id);
+  if(a){
+    const r=_assetWorld(a,w.asset); sp.pos.copy(r.p); if(r.q) q=r.q;
+  } else if(b&&w.near.offL){
+    const bq=b.mesh.quaternion, o=new THREE.Vector3(w.near.offL[0],w.near.offL[1],w.near.offL[2]).applyQuaternion(bq);
+    sp.pos.copy(b.mesh.position).add(o);
+    if(q&&w.near.bq){ const d=bq.clone().multiply(new THREE.Quaternion(w.near.bq[0],w.near.bq[1],w.near.bq[2],w.near.bq[3]).invert()); q=d.multiply(q); }
+  } else if(b) sp.pos.set(b.mesh.position.x+w.near.off[0],b.mesh.position.y+w.near.off[1],b.mesh.position.z+w.near.off[2]);
+  else if(w.pos) sp.pos.set(w.pos[0],w.pos[1],w.pos[2]);
+  if(q){ sp.quat=q; try{ spSyncLegacy(sp); }catch(e){} }
+  return b;
+}
+let _resumeHoldT=null;
+function _resumeHold(on){ clearTimeout(_resumeHoldT); PW._resumeHold=!!on; if(on) _resumeHoldT=setTimeout(()=>{ PW._resumeHold=false; },10000); }   // safety: never holds the world watcher longer than ~10 s
+function _restoreAnchor(w){
+  if(typeof ANCHOR_STATE==='undefined') return;
+  const an=w.anchor; let t=null;
+  if(an&&an.asset==='bird-temple'&&BIRD_TEMPLE.group&&BIRD_TEMPLE.spawned) t={name:'Bird Temple',mesh:{position:BIRD_TEMPLE.group.position},isBirdTemple:true};
+  else if(an&&an.name){ const b=celestialBodies.find(x=>x&&x.name===an.name&&x.mesh); if(b) t=b; }
+  ANCHOR_STATE.active=!!t; ANCHOR_STATE.target=t; ANCHOR_STATE._lastPos=null;
+  try{ updateAnchorButton(); }catch(e){}
+}
+// Ground / sky / deck: through the game's own seamless entries (the world is
+// built round the spot while the current view runs, then takes over; she is
+// mounted or set down by the same code as a normal landing / boarding).
+function _restoreWhereMode(w,data,t0){
+  const sp=STATE.flight;
+  if(w.mode==='deck'){
+    const d=w.deck||{};
+    (function waitTemple(){
+      const a=_assetById(d.id||'bird-temple');
+      if(!a||!CHAR.loaded){ if(Date.now()-t0<60000) setTimeout(waitTemple,300); else { _resumeHold(false); toast('⚠ The Bird Temple is not here yet','','warn'); } return; }
+      const r=_assetWorld(a,{local:d.local});
+      sp.pos.copy(r.p); sp.pos.y+=0.04; if(sp.vel) sp.vel.set(0,0,0);
+      if(boardFlight) boardFlight.position.copy(sp.pos);
+      _followInit=false;
+      _restoreAnchor(w);
+      try{ enterShipWalk(); }catch(e){ console.warn('[resume] deck',e); _resumeHold(false); return; }
+      // exactly where she stood, facing the same way on the (moving) deck
+      SHIP_WALK.localPos.set(d.local[0],d.local[1],d.local[2]);
+      if(isFinite(d.yaw)) SHIP_WALK.yaw=d.yaw;
+      if(isFinite(d.pitch)) SHIP_WALK.pitch=d.pitch;
+      if(isFinite(d.faceRel)) SHIP_WALK.faceYaw=d.faceRel+BIRD_TEMPLE.group.rotation.y;
+      _resumeHold(false);
+      toast('▶ Back where you left off — on the Bird Temple deck',3600);
+    })();
+    return true;
+  }
+  const g=w.mode==='surface'?w.ground:w.sky; if(!g) return false;
+  const body=celestialBodies.find(x=>x&&x.name===g.body&&x.mesh);
+  if(!body){ toast('⚠ '+(g.body||'That world')+' is not here any more','','warn'); return false; }
+  // the space board waits in this world's orbit (where leaving it puts you)
+  try{
+    const r=(_bodyVisRadius(body)||6), d=w.near&&w.near.name===body.name?new THREE.Vector3(w.near.off[0],w.near.off[1],w.near.off[2]):sp.pos.clone().sub(body.mesh.position);
+    if(d.lengthSq()<1e-6) d.set(0,0,1);
+    sp.pos.copy(body.mesh.position).addScaledVector(d.normalize(),r*3.2); if(sp.vel) sp.vel.set(0,0,0);
+    if(boardFlight) boardFlight.position.copy(sp.pos);
+  }catch(e){}
+  _followInit=false;
+  if(ANCHOR_STATE.active){ ANCHOR_STATE.active=false; ANCHOR_STATE.target=null; try{ updateAnchorButton(); }catch(e){} }
+  const site=g.site?{lat:g.site.lat,lon:g.site.lon}:null;
+  const done=()=>_resumeHold(false);
+  try{
+  if(w.mode==='surface') Promise.resolve(enterSurface(body,site,{spawn:{x:g.x,z:g.z},yaw:g.yaw})).finally(done);
+  else Promise.resolve(enterAtmosphericFlight(body,site,{x:g.x,z:g.z,yaw:g.yaw,pitch:g.pitch,alt:g.y,exact:true,journal:true,
+    quat:g.quat?new THREE.Quaternion(g.quat[0],g.quat[1],g.quat[2],g.quat[3]):null})).finally(done);
+  }catch(e){ console.warn('[resume] enter',e); done(); return false; }
+  toast('▶ Back where you left off — '+(w.mode==='surface'?'on ':'in the sky of ')+body.name,3600);
+  return true;
 }
 window.quickSave=quickSave;window.resumeJourney=resumeJourney;
 
@@ -13000,6 +13164,7 @@ function _pfEnsure(){
     '<div class="pf-sec">THEME</div>'+
     '<div class="pf-themes" id="pf-themes"></div>'+
     '<div class="pf-xh-box" id="pf-xh-box">'+
+      '<div class="pf-row" style="margin-bottom:8px;"><div><div class="pf-row-t">Crosshair</div><div class="pf-row-d">Show or hide the aiming mark. Kept with your theme and synced to your account.</div></div><button class="pf-sw" id="pf-sw-xh" role="switch" aria-label="Crosshair on or off"></button></div>'+
       '<div class="pf-row-t">Crosshair color</div><div class="pf-row-d">The aiming mark in the middle of the screen. T follows the theme; the last swatch picks any colour.</div>'+
       '<div class="pf-xh" id="pf-xh"></div>'+
       '<div class="pf-row-t" style="margin-top:10px;">Crosshair glow</div>'+
@@ -13115,6 +13280,7 @@ function _pfRenderCross(){
     window.DMColorPicker.open({color:before||T.colors().acc,title:'Crosshair colour',
       onChange:h=>T.setCrosshair({color:h}), onDone:()=>_pfRenderCross(), onCancel:()=>{ T.setCrosshair({color:before}); _pfRenderCross(); }});
   }); cb.textContent='+';
+  const xs=$('pf-sw-xh'); if(xs){ xs.setAttribute('aria-checked',x.on!==false?'true':'false'); xs.onclick=()=>{ T.setCrosshair({on:T.crosshair.on===false}); _pfRenderCross(); }; }
   gl.value=Math.round(x.glow*100); $('pf-xh-gn').textContent=Math.round(x.glow*100)+'%';
   gl.oninput=()=>{ T.setCrosshair({glow:gl.value/100}); $('pf-xh-gn').textContent=gl.value+'%'; };
   const pv=$('pf-xh-prev'); if(pv&&!pv.firstChild){ const ch=$('ar-crosshair'); if(ch&&ch.firstElementChild){ const c=ch.firstElementChild.cloneNode(true); c.setAttribute('width','30'); c.setAttribute('height','30'); pv.appendChild(c); } }
@@ -16887,7 +17053,8 @@ function _pwBeginFly(start,opts){
   } else if(start){
     const sx=start.x, sz=start.z, gh=H(sx,sz);
     atmoState={pos:new THREE.Vector3(sx,isFinite(start.y)?Math.max(gh+1,start.y):gh+4.5,sz),vel:new THREE.Vector3(),yaw:start.yaw||0,pitch:isFinite(start.pitch)?start.pitch:0,roll:0,takeoff:ATMO_TAKEOFF_S};
-    if(isFinite(start.alt)){ atmoState.pos.y=Math.max(gh+6,start.alt); atmoState.takeoff=0; }   // a Journal waypoint: straight back to the height it was marked at
+    if(isFinite(start.alt)){ atmoState.pos.y=Math.max(gh+(start.exact?1:6),start.alt); atmoState.takeoff=0; }   // (exact: a resumed save, the very height it was saved at)
+    if(start.quat&&start.quat.isQuaternion) atmoState.quat=start.quat.clone();   // a Journal waypoint: straight back to the height it was marked at
   } else atmoState={pos:new THREE.Vector3(0,H(0,0)+ATMO_DEFAULT_AGL,0),vel:new THREE.Vector3(),yaw:0,pitch:0,roll:0,takeoff:0};
   if(!atmoState.quat) atmoState.quat=_atmoAimQ(atmoState.yaw,atmoState.pitch).clone();
   _atmoYP(atmoState);
@@ -17225,7 +17392,7 @@ function _atmoTouchdown(){
 // camera (_pwSpaceToFly); over PWS_UP it carries on back out here. Past
 // PWS_CLOSE radii the world closes and space carries on with the same board.
 function _pwSpaceWatch(){
-  if(PW.active||PW.opening||window.DM_FLAT_WORLD) return;
+  if(PW.active||PW.opening||PW._resumeHold||window.DM_FLAT_WORLD) return;
   if(typeof flightInited==='undefined'||!flightInited||STATE.screen!=='flight'||SHIP_WALK.active||!boardFlight||!STATE.flight||!STATE.flight.pos) return;
   if(PW._spaceCool&&performance.now()<PW._spaceCool) return;
   let best=null,bd=Infinity;
@@ -19412,6 +19579,10 @@ window.rebuildFlightBoardIfBroken = rebuildFlightBoardIfBroken;
 
 function remountSkyboard(boardObj){
   if(_charOnTempleDeck()) return false;   // walking the Bird Temple: exitShipWalk puts her back on
+  // on foot on a world (a resumed save lands her before her late full load
+  // finishes): the space board isn't hers right now — LIFTOFF / leaving the
+  // world puts her back on it (_pwRestoreSpace runs after surfaceActive clears)
+  if(typeof surfaceActive!=='undefined'&&surfaceActive&&typeof boardFlight!=='undefined'&&boardObj===boardFlight) return false;
   stripCharacterMount();
   if(!CHAR.loaded || !CHAR.root || !boardObj) return false;
   // If scale missing (mesh-first race before calibration), compute quick box scale.
@@ -19447,6 +19618,7 @@ async function ensureAutumnOnBoard(reason){
 
   for(let attempt=1; attempt<=8; attempt++){
     if(_charOnTempleDeck()) return true;   // she's standing on the Bird Temple deck, not riding
+    if(typeof surfaceActive!=='undefined'&&surfaceActive) return true;   // on foot on a world (e.g. a resumed save): not riding the space board
     if(CHAR._transitioning&&CHAR.loaded&&CHAR.root){ if(attempt<8) await _sleep(300); continue; }   // mid step-on/step-off: let it finish
     try{
       if(CHAR._loadPromise){

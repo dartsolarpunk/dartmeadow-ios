@@ -66,13 +66,13 @@
   // The centre crosshair: its own colour (null = follow the theme's primary)
   // and a neon glow 0..1 (0 = none), lit like the skyboard's DART energy
   // rings. Kept with the theme (same local key, same account themes.json).
-  const CROSS_DEF = { color: null, glow: 0.35, ts: 0 };
+  const CROSS_DEF = { color: null, glow: 0.35, on: true, ts: 0 };   // on: false hides the crosshair entirely
   const CROSS_PRESETS = ['#FFFFFF', '#3FC8FF', '#7CFFD0', '#C4FF5A', '#FFB84D', '#FF4FA3', '#FF3860'];
   const cleanCross = (c) => {
     c = c && typeof c === 'object' ? c : {};
     const g = +c.glow;
     return { color: c.color ? (hexToRgb(c.color) ? rgbToHex(...hexToRgb(c.color)).toUpperCase() : null) : null,
-      glow: isFinite(g) ? clamp(g, 0, 1) : CROSS_DEF.glow, ts: +c.ts || 0 };
+      glow: isFinite(g) ? clamp(g, 0, 1) : CROSS_DEF.glow, on: c.on !== false, ts: +c.ts || 0 };
   };
   state.cross = cleanCross(Object.assign({}, CROSS_DEF, state.cross || {}));
 
@@ -143,6 +143,8 @@
       ? 'drop-shadow(0 0 ' + (1 + 2 * g).toFixed(1) + 'px rgba(' + c + ',' + (0.55 + 0.45 * g).toFixed(2) + ')) drop-shadow(0 0 ' + (3 + 9 * g).toFixed(1) + 'px rgba(' + c + ',' + (0.85 * g).toFixed(2) + '))'
       : 'none');
     // the core warms toward white as it glows, like the rings' emissive centre
+    // Crosshair On/Off (Profile → Theme): html.xh-off hides #ar-crosshair (dm-hud.css)
+    document.documentElement.classList.toggle('xh-off', x.on === false);
     r.setProperty('--xh-core', rgbToHex(...mix(rgb, [255, 255, 255], 0.55 * g)));
   }
   const known = (id) => id === 'custom' || PRESETS.some((p) => p.id === id) || !!findSaved(id);
@@ -155,7 +157,7 @@
     colors: themeColors,
     crossPresets: CROSS_PRESETS,
     get crosshair() { return Object.assign({}, state.cross); },
-    // {color: '#RRGGBB' | null (theme primary), glow: 0..1}
+    // {color: '#RRGGBB' | null (theme primary), glow: 0..1, on: boolean}
     setCrosshair(part) {
       state.cross = cleanCross(Object.assign({}, state.cross, part || {}, { ts: Date.now() }));
       persist(); apply();
