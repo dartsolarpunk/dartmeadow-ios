@@ -5797,7 +5797,7 @@ function _startFlightLoop(){
     try{ updateCharOrbitCamera(); }catch(e){_animLoopWarn('charOrbit',e);}
     try{ _dynRes(flightRenderer); }catch(e){}
     try{ CHAR.mixer && CHAR.mixer.update(dt); _updateCharDebugHUD(); }catch(e){_animLoopWarn('charMixer',e);}
-    try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){_animLoopWarn('headOverride',e);}
+    try{ applySkyboardHeadOverride(); }catch(e){_animLoopWarn('headOverride',e);}   // (fades with the stance)
     try{updateBirdTemple(dt);}catch(e){_animLoopWarn('birdTemple',e);}
     try{ if(SHIP_WALK.active) _shipWalkCarry(); }catch(e){_animLoopWarn('shipCarry',e);}
     try{_anchorPostUpdate();}catch(e){_animLoopWarn('anchor',e);}
@@ -5834,7 +5834,7 @@ function _startFlightLoop(){
     // exists; remount then no-ops and she stays unparented/invisible.
     try{
       // (not while she's walking the Bird Temple deck: she's meant to be off the board there)
-      if(boardFlight && CHAR.loaded && CHAR.root && !_charOnTempleDeck() && (!CHAR.mounted || CHAR.root.parent!==boardFlight || !CHAR.root.visible)){
+      if(boardFlight && CHAR.loaded && CHAR.root && !_charOnTempleDeck() && !CHAR._transitioning && (!CHAR.mounted || CHAR.root.parent!==boardFlight || !CHAR.root.visible)){
         if(_flightFrameCounter % 30 === 0){
           try{ remountSkyboard(boardFlight); _forceCharVisible(); }catch(er){}
         }
@@ -8101,6 +8101,29 @@ function _shipCharOn(feetWorld){
     return true;
   }catch(e){console.warn('[ShipWalk] dismount:',e);return false;}
 }
+// Landing on the deck: she steps off the board like on a planet — ride stance
+// → step-off → standing, easing from her riding size to her deck size — never
+// a snap. (Not loaded / not riding: placed directly, as before.)
+function _shipCharStepOff(feet){
+  SHIP_WALK.charOn=false;
+  if(!(CHAR&&CHAR.loaded&&CHAR.root&&CHAR.mounted&&CHAR.actions&&CHAR.actions.idle&&typeof boardDismountSequence==='function')){ SHIP_WALK.charOn=_shipCharOn(feet); return; }
+  const s=SHIP_CHAR_H/Math.max(0.001,CHAR.rawHeight||1);
+  SHIP_WALK.charPending=true;
+  boardDismountSequence(flightScene, feet.y+(CHAR.feetOffset||0)*s, ()=>{
+    SHIP_WALK.charPending=false;
+    if(!SHIP_WALK.active) return;   // lifted off again mid-step
+    CHAR._shipScale=s; CHAR.scene=flightScene; CHAR.stanceMode='stand'; CHAR._footIKWeight=0;
+    SHIP_WALK.faceYaw=CHAR.root.rotation.y;
+    SHIP_WALK.charOn=true;
+    try{ _forceCharVisible(); }catch(e){ CHAR.root.visible=true; }
+  },{endSize:s, endYaw:SHIP_WALK.faceYaw});
+}
+// Lifting off: the board settles at her feet, she steps up onto it (easing to
+// her riding size), then it climbs away from the deck.
+function _shipLiftOff(sp,h){
+  let done=0; const t0=performance.now();
+  (function up(){ const k=Math.min(1,(performance.now()-t0)/800), d=h*k*k*(3-2*k)-done; sp.pos.y+=d; done+=d; if(k<1) requestAnimationFrame(up); })();
+}
 function enterShipWalk(){
   const bt=BIRD_TEMPLE,sp=STATE.flight;
   if(!bt.group||!sp)return;
@@ -8118,8 +8141,8 @@ function enterShipWalk(){
   SHIP_WALK.pitch=0.25;SHIP_WALK.velY=0;SHIP_WALK.grounded=true;SHIP_WALK.climb=null;
   SHIP_WALK.active=true;
   _boardCallReset(); document.body.classList.add('ship-walk');
-  SHIP_WALK.charOn=_shipCharOn(feet);
   SHIP_WALK.faceYaw=camYaw+Math.PI;                  // her facing, world (model faces +Z)
+  _shipCharStepOff(feet);
   if(boardFlight)boardFlight.visible=true;
   $('ship-liftoff-btn').style.display='block';
   $('ship-jump-btn').style.display='block';
@@ -8145,13 +8168,19 @@ document.addEventListener('DOMContentLoaded',_wireShipJumpButton);
 function exitShipWalk(){
   const bt=BIRD_TEMPLE,sp=STATE.flight;
   const world=bt.group.localToWorld(SHIP_WALK.localPos.clone());
-  sp.pos.copy(world);sp.pos.y+=1.5; // lift off a bit above the deck
+  const stepOn=!!(SHIP_WALK.charOn&&boardFlight&&CHAR.loaded&&CHAR.root&&!CHAR.mounted&&!CHAR._transitioning&&CHAR.actions&&CHAR.actions.skyboard);
+  sp.pos.copy(world);sp.pos.y+=stepOn?0.04:1.5; // (stepping on: the board settles at her feet first, then climbs)
   sp.vel.set(0,0,0);
-  SHIP_WALK.active=false;SHIP_WALK.climb=null;
+  SHIP_WALK.active=false;SHIP_WALK.climb=null;SHIP_WALK.charPending=false;
   _boardCallReset(); document.body.classList.remove('ship-walk');
   if(boardFlight){boardFlight.visible=true;try{boardFlight.position.copy(sp.pos);}catch(e){}}
   // Back on the board for flight.
-  if(SHIP_WALK.charOn&&boardFlight){try{remountSkyboard(boardFlight);}catch(e){console.warn('[ShipWalk] remount:',e);}}
+  if(stepOn){
+    try{
+      const ride=CHAR.scaleForBoard*Math.abs(boardFlight.getWorldScale(new THREE.Vector3()).x);
+      boardMountSequence(boardFlight, flightScene, ()=>_shipLiftOff(sp,1.5), {endSize:ride});
+    }catch(e){ console.warn('[ShipWalk] step-on:',e); try{remountSkyboard(boardFlight);}catch(_){} }
+  } else if(SHIP_WALK.charOn&&boardFlight){try{remountSkyboard(boardFlight);}catch(e){console.warn('[ShipWalk] remount:',e);}}
   SHIP_WALK.charOn=false;
   $('ship-liftoff-btn').style.display='none';
   $('ship-jump-btn').style.display='none';
@@ -8243,7 +8272,7 @@ function updateShipWalk(dt){
   const F=bt.group.localToWorld(SHIP_WALK.localPos.clone());
   SHIP_WALK._F=F.clone();   // where the deck had her this step (see _shipWalkCarry)
   // She loaded after landing, or something else took her: stand her on the deck.
-  if(CHAR.loaded&&CHAR.root&&(!SHIP_WALK.charOn||CHAR.mounted||CHAR.root.parent!==flightScene)){
+  if(CHAR.loaded&&CHAR.root&&!SHIP_WALK.charPending&&!CHAR._transitioning&&(!SHIP_WALK.charOn||CHAR.mounted||CHAR.root.parent!==flightScene)){
     SHIP_WALK.charOn=_shipCharOn(F);
   }
   // ── Her: on her feet, facing where she walks, animated.
@@ -16337,7 +16366,7 @@ function _pwFrame(dt){
   try{ if(CHAR.mounted) applySkyboardStance(now/1000); }catch(e){}
   if(PW.mode!=='walk'){
     try{ CHAR.mixer&&CHAR.mixer.update(dt); }catch(e){ _animLoopWarn('charMixer',e); }
-    try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){ _animLoopWarn('headOverride',e); }
+    try{ applySkyboardHeadOverride(); }catch(e){ _animLoopWarn('headOverride',e); }   // (fades with the stance)
   } else {
     try{ updateCaustics(dt); }catch(e){ _animLoopWarn('caustics',e); }
     try{ _surfFluidTick(dt); }catch(e){ _animLoopWarn('fluid',e); }
@@ -17506,7 +17535,7 @@ const CHAR_FILES = {
 //   3. Grab_Bar_and_Swing_Forward          → cliff
 //   4. Regular_Jump                        → jump
 //   5. Running                             → run
-//   6. Step_Right_for_Exercise             → skyboard (crop 1.25–1.5, LoopPingPong, SKYBOARD_ANIM_SPEED)
+//   6. (skyboard: no clip — hand-authored stance, see BOARD_STANCE)
 //   7. Swim_Forward                        → swim
 //   8. Swing_on_Rope_to_Ground             → rope
 //   9. Walking                             → walk
@@ -17517,7 +17546,7 @@ const CHAR_CLIP_NAMES = {
   run: 'Running',
   jump: 'Regular_Jump',       // complete natural arc — LoopOnce
   climbLoop: 'climbing_up_wall', // complete climb-to-top arc — LoopOnce
-  skyboard: 'Step_Right_for_Exercise', // crop 1.25–1.5 + LoopPingPong + SKYBOARD_ANIM_SPEED
+  // skyboard: hand-authored stance + procedural sway (_boardStanceClip / _boardStanceFrame), no clip
   swim: 'Swim_Forward',
   crouch: 'Crouch_Walk_Right_with_Torch_inplace',
   prone: 'Crawl_Backward_inplace',
@@ -17677,6 +17706,8 @@ async function loadCharacterAssets(){
     if(o.isBone || o.type==='Bone' || (_fbxBoneMap().includes(o.name) && o.isObject3D)) CHAR.bones[o.name]=o;
     if(o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=true; CHAR.skinnedMesh=o; }
   });
+  // her bound rest pose (the board stance is solved relative to it)
+  CHAR.restPose={}; Object.keys(CHAR.bones).forEach(n=>{ const b=CHAR.bones[n]; CHAR.restPose[n]={p:b.position.clone(),q:b.quaternion.clone(),s:b.scale.clone()}; });
   const boneCount = Object.keys(CHAR.bones).length;
   if(boneCount===0){
     console.error('Character load: mesh loaded but ZERO bones were found in the traversal — the procedural skyboard stance and animations will silently do nothing. Check that the GLB actually contains a skeleton, not just a static mesh.');
@@ -17729,13 +17760,15 @@ async function loadCharacterAssets(){
   // Mesh-first: mark loaded + remount BEFORE anim GLB (~8MB).
   // Android smoke: pink board only when anim hang left CHAR.loaded false / visible=false.
   try{
-    const _rawBox = new THREE.Box3().setFromObject(CHAR.root);
+    const _rawBox = _charMeasureRaw();
     const _rawHeight = _rawBox.max.y - _rawBox.min.y;
     CHAR.rawHeight = _rawHeight>0.001 ? _rawHeight : 1;
     const _clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
     CHAR.scaleForBoard = _clamp(CHAR_BOARD_TARGET_UNITS / CHAR.rawHeight, 0.02, 5);
     CHAR.scaleForTerrain = _clamp(CHAR_TERRAIN_HEIGHT / CHAR.rawHeight, 0.02, 5);
     CHAR.feetOffset = -_rawBox.min.y;
+    // bind pose at game scale: if she is ever shown before a mount/landing sizes her, it is her riding size
+    if(!CHAR.root.parent) CHAR.root.scale.setScalar(CHAR.scaleForBoard);
     CHAR.mixer = CHAR.mixer || new THREE.AnimationMixer(CHAR.root); _charWrapMixer();
     // NEVER leave mesh invisible here — remount may fail if boardFlight
     // is not ready yet (early prefetch); sticky visible=false = pink empty board.
@@ -17769,10 +17802,8 @@ async function loadCharacterAssets(){
     if(!foundByKey[k]) console.warn('Animation clip not found in merged GLB for state "'+k+'" (expected name "'+CHAR_CLIP_NAMES[k]+'") — check CHAR_CLIP_NAMES against the actual clip names in the file.');
   });
   const walkClip = foundByKey.walk;
-  const skyboardSrcClip = foundByKey.skyboard;
 
   mappedKeys.forEach(k=>{
-    if(k==='skyboard') return; // cropped below
     CHAR.clips[k] = foundByKey[k];
   });
   // Regular_Jump / climbing_up_wall are complete one-shot arcs — see CHAR_CLIP_NAMES.
@@ -17784,18 +17815,11 @@ async function loadCharacterAssets(){
   // pose is — a T-pose. That's the "default pose when standing still" bug.
   // Synthesize a real held pose instead: a single-keyframe "clip" sampled
   // from Walking's very first frame (a natural mid-stride contact
-  // pose, not a T-pose), narrow enough that _cropClip only captures that
-  // one keyframe per track.
+  // pose, not a T-pose), baked to one keyframe per track by _staticPoseClip.
   CHAR.clips.idle = walkClip ? _staticPoseClip(walkClip, 0, 'idle_held_pose') : null;
-  // The source clip ("Step_Right_for_Exercise") is ~2.53s long and only
-  // reads as a surfboard-riding stance for a short window in the middle —
-  // the rest of it is the walk-up/walk-away part of the exercise move.
-  // Cropped to [1.25,1.5] and set to ping-pong so it plays forward then
-  // backward continuously — a natural back-and-forth sway rather than a
-  // hard loop-reset snap. Speed via SKYBOARD_ANIM_SPEED.
-  if(skyboardSrcClip){
-    CHAR.clips.skyboard = _cropClip(skyboardSrcClip, 1.25, 1.5, 'skyboard_stance_crop');
-  }
+  // Ride stance: hand-authored pose solved on her rig (one-key clip, so the mixer
+  // crossfades it like any state); the balance sway is layered in _charPosePost.
+  try{ CHAR.clips.skyboard = _boardStanceClip(CHAR.clips.idle); }catch(e){ console.warn('[stance] build failed',e); CHAR.clips.skyboard=null; }
 
   Object.keys(CHAR.clips).forEach(name=>{
     const clip = CHAR.clips[name];
@@ -17805,20 +17829,21 @@ async function loadCharacterAssets(){
     action.enabled = true;
     CHAR.actions[name] = action;
   });
-  // Loop policy: LoopRepeat for locomotion cycles; LoopOnce for one-shots;
-  // skyboard uses LoopPingPong on the cropped window.
+  // Loop policy: LoopRepeat for locomotion cycles; LoopOnce for one-shots
+  // (clamped on their last frame, see _charXfInit); skyboard is a held one-key pose.
   ['idle','walk','run','crouch','prone','swim'].forEach(k=>{
     if(CHAR.actions[k]) CHAR.actions[k].setLoop(THREE.LoopRepeat, Infinity);
   });
   ['jump','climbLoop','rope','cliff'].forEach(k=>{
     if(CHAR.actions[k]) CHAR.actions[k].setLoop(THREE.LoopOnce, 1);
   });
-  if(CHAR.actions.skyboard){
-    CHAR.actions.skyboard.setLoop(THREE.LoopPingPong, Infinity);
-    CHAR.actions.skyboard.timeScale = SKYBOARD_ANIM_SPEED; // real fix is in setCharState('skyboard',...) passing speed explicitly — see applySkyboardStance below; this line alone was being silently overwritten every mount
-  } else {
-    console.warn('Skyboard stance clip missing — falling back to the static procedural pose in applySkyboardStance().');
-  }
+  if(CHAR.actions.skyboard) CHAR.actions.skyboard.setLoop(THREE.LoopRepeat, Infinity);
+  else console.warn('Skyboard stance clip missing — applySkyboardStance() holds the pose procedurally.');
+  // pin the mixer's fallback pose to a natural stance before anything plays (POSE CONTINUITY)
+  try{ _charXfInit(); }catch(e){ console.warn('[xf] init',e); }
+  // whatever she is doing right now (e.g. riding since the mesh-first mount) continues from the clips
+  try{ const st=CHAR.mounted?'skyboard':(CHAR.state||'idle'); CHAR.state=null; setCharState(CHAR.actions[st]?st:'idle',{fade:0.3,force:true}); }catch(e){}
+
   const _loadedKeys = Object.keys(CHAR.actions).filter(k=>!!CHAR.actions[k]);
   console.log('Character actions loaded:', _loadedKeys.join(', ')||'(none)');
   try{
@@ -17845,7 +17870,7 @@ async function loadCharacterAssets(){
   //    height is conventionally ~92% of standing height, so a 6ft person
   //    standing there should measure roughly 3.0/0.92 ≈ 3.26 units tall.
   try{
-    const _rawBox = new THREE.Box3().setFromObject(CHAR.root);
+    const _rawBox = _charMeasureRaw();   // own units — she may already be riding (mesh-first mount)
     const _rawHeight = _rawBox.max.y - _rawBox.min.y;
     if(_rawHeight>0.001){
       CHAR.rawHeight = _rawHeight;
@@ -17964,47 +17989,10 @@ function _optimizeCharClipTracks(clip, posTol, quatTolRad, scaleTol){
     track.values = newValues;
   });
 }
-/* ── CROP AN ANIMATION CLIP TO A TIME WINDOW ─────────────────────
-   three.js r128 doesn't ship THREE.AnimationUtils.subclip (that landed
-   in a later release), so this is a hand-rolled equivalent: for each
-   track, keep only the keyframes inside [t0,t1], shift their times back
-   to start at 0, and build a new clip from the result. Good enough for
-   a densely-keyframed baked animation like this one (no need for exact
-   boundary interpolation — there are plenty of samples either side of
-   the cut points). */
-function _cropClip(clip, t0, t1, newName){
-  const tracks = clip.tracks.map(track=>{
-    const stride = track.getValueSize();
-    const times = track.times, values = track.values;
-    const keepIdx = [];
-    for(let i=0;i<times.length;i++){ if(times[i]>=t0-1e-4 && times[i]<=t1+1e-4) keepIdx.push(i); }
-    if(keepIdx.length<2){
-      // fallback so a track with no samples in range doesn't break the clip
-      keepIdx.length=0;
-      for(let i=0;i<times.length;i++) keepIdx.push(i);
-    }
-    const newTimes = new Float32Array(keepIdx.length);
-    const newValues = new (values.constructor)(keepIdx.length*stride);
-    keepIdx.forEach((idx,j)=>{
-      newTimes[j]=Math.max(0, times[idx]-t0);
-      for(let k=0;k<stride;k++) newValues[j*stride+k]=values[idx*stride+k];
-    });
-    const TrackCtor = track.constructor;
-    return new TrackCtor(track.name, newTimes, newValues, track.getInterpolation());
-  });
-  return new THREE.AnimationClip(newName||(clip.name+'_crop'), t1-t0, tracks);
-}
 
 /* ── SINGLE-FRAME STATIC POSE FROM A CLIP ────────────────────────
-   Real bug avoided here: _cropClip's "too few keyframes in range"
-   fallback keeps the WHOLE original clip rather than break — correct
-   for its normal use (a crop that's meant to have a real duration),
-   but wrong for building a true single-frame held pose (idle), where
-   ending up with only 1 keyframe in range is the intended outcome, not
-   an error case. This samples the clip's actual interpolated pose at
-   time t (via a throwaway mixer) and bakes ONE keyframe per track, so
-   playing it just holds that exact pose forever — no motion, no
-   fallback-to-full-clip risk. */
+   Samples the clip's interpolated pose at time t and bakes ONE keyframe
+   per track, so playing it just holds that exact pose forever (idle). */
 function _staticPoseClip(clip, t, newName){
   const tracks = clip.tracks.map(track=>{
     const stride = track.getValueSize();
@@ -18039,79 +18027,204 @@ function _reversedClipPreservingRoot(clip){
   return rev;
 }
 
-/* ── PROCEDURAL SKYBOARD-RIDING STANCE ─────────────────────────
-   Not a Meshy preset — built by hand from direct bone rotations,
-   matching the specified stance: LEFT foot forward (toward the front
-   of the board), RIGHT foot back, knees bent, hips dropped, spine
-   leaned forward, arms counterbalanced out to the sides. Parametrized
-   so it can be tuned live instead of needing a re-export from Meshy.
-   The previous version of these values was never actually rendered —
-   it was tuned by eye against reference art but never checked against
-   the real rig, and the leg formula compounded stanceWidth*2.2 with a
-   full crouch term, producing roughly -56° of hip flexion on the
-   front leg. That's what was reading as a "diving/reaching" pose in
-   the game instead of a stance. This version was verified by actually
-   loading the character GLB into a real three.js scene offline,
-   applying these exact rotations, and rendering it from multiple
-   angles before deploying — the leg formula in particular is toned
-   down to a believable ~15-20° range instead of the old ~56°. */
-const SKYBOARD_STANCE = {
-  stanceWidth: 0.22,   // radians of hip rotation splitting front/back foot
-  lean: 0.42,           // forward spine lean
-  crouch: 0.3,           // hip/knee bend — was 0.5, combined with the old leg formula this was the main source of the broken pose
-  armSpread: 0.65,       // counterbalance arm angle — was 0.85, slightly toned down alongside the leg fix
-  swayAmp: 0.035, swaySpeed: 1.4,  // subtle idle sway on top of the base pose
+/* ── SKYBOARD STANCE — hand-authored ride pose + procedural balance sway ──
+   Replaces the cropped Mixamo "Step_Right_for_Exercise" window, which popped
+   at every ping-pong reset, snapped her head (the clip turns it 42° inside the
+   window) and flipped the right arm (223 tracks had no keys in the window).
+   Everything is solved in her ROOT space (pre-mount: +y up, she faces +z, her
+   left is +x; mounted, the board's nose is +z and its top is y≈0), relative
+   to her bound rest pose (CHAR.restPose, captured at load):
+     • hips placed low between the feet, yawed to face the toe edge, slight lean
+     • spine/chest/neck/head as root-space rotations (head level, toward the nose;
+       DART_HEAD then finishes the gaze after the mixer)
+     • arms aimed by direction with the elbow hinge aligned to her rest bend
+       (no twist flips), legs by two-bone IK to fixed ankle targets with the
+       knee toward the toe edge, feet held flat in root space (glued)
+   _boardStanceClip() bakes the still pose into a one-key clip at load (so the
+   mixer crossfades terrain ⇄ board like any state); _boardStanceFrame() then
+   re-solves it every frame with a slow sway built from incommensurate sines
+   (no loop, no reset), weighted by the stance action's blend weight. It runs in
+   the mixer post step, before thumbs/palms/gaze and before the hair step, and
+   allocates nothing per frame. */
+const BOARD_STANCE = window.BOARD_STANCE = window.BOARD_STANCE || {
+  hips:[0.0,0.77,-0.04],                          // root-space hips (m): low, deep relaxed knees
+  // root space: +z = board nose (travel), +x = toe edge. Bone "Left*" reads as her
+  // visual right (the mount mirrors her), so bone RightFoot is the front (nose) foot.
+  ankleL:[0.07,0.128,-0.37], ankleR:[-0.04,0.128,0.28],   // wide stance
+  yawHips:80, pitchHips:10,                      // deg from the nose: sideways, slightly open
+  yawChest:-15, pitchChest:6,                    // small twist toward travel, slight forward lean
+  yawHead:-45, pitchHead:-4,                     // look ahead along the board (DART_HEAD finishes it)
+  footYawL:95, footYawR:45, kneeOut:0.25,        // back foot across the board, front foot angled forward
+  // arm directions in her body frame (x = bone-left, y = up, z = facing); elbows soft
+  upL:[0.40,-0.84,-0.38], foreL:[0.40,-0.78,-0.48],   // visual right arm: low, behind and out
+  upR:[-0.5,-0.82,0.3], foreR:[-0.45,-0.7,0.45],      // visual left arm: reaching down and out to the nose
+  fingerOpen:0.7,                                // 1 = rest (open, spread) hand, 0 = idle curl
+  sway:{ shift:0.020, side:0.010, bob:0.010, roll:2.6, yaw:2.0, chest:0.75, arm:5.0, periods:[4.3,5.9,3.7,6.6] },
+  fade:0.4, on:true
 };
-// Real bug found: every earlier attempt to slow this animation down via
-// CHAR.actions.skyboard.timeScale was silently wiped out — setCharState()
-// always overwrites an action's timeScale with (opts.speed||1) whenever
-// it's (re)entered, and applySkyboardStance()'s setCharState('skyboard',...)
-// call never passed a speed, so she was really playing at full/original
-// speed (1.0) this entire time regardless of what was set at load time.
-// This constant is now passed explicitly into that setCharState call
-// instead, so it can't be silently reset again. 0.15 = ~15% of true
-// original speed, per direct feedback.
-const SKYBOARD_ANIM_SPEED = 0.15;
-function _applySkyboardStanceProcedural(t){
-  const b = CHAR.bones;
-  if(!b.Hips) return;
-  const sway = Math.sin((t||0)*SKYBOARD_STANCE.swaySpeed)*SKYBOARD_STANCE.swayAmp;
-  b.Hips.rotation.set(SKYBOARD_STANCE.crouch*0.55, 0, sway*0.5);
-  b.Spine && b.Spine.rotation.set(SKYBOARD_STANCE.lean, 0, -sway*0.3);
-  b.Spine01 && b.Spine01.rotation.set(SKYBOARD_STANCE.lean*0.6, 0, 0);
-  b.Spine02 && b.Spine02.rotation.set(SKYBOARD_STANCE.lean*0.3, 0, 0);
-  // Left foot forward, front knee bent — leading leg absorbing the ride
-  // like a real surf/skate stance. Real bug found here: the old formula
-  // was -(stanceWidth*2.2 + crouch), which came out to roughly -56° of
-  // hip flexion — that's what was throwing the leg up into a kick/dive
-  // look instead of a forward stance. This is a much smaller, verified
-  // rotation.
-  b.LeftUpLeg && b.LeftUpLeg.rotation.set(-SKYBOARD_STANCE.stanceWidth*0.9 - SKYBOARD_STANCE.crouch*0.5, 0.1, 0.08);
-  b.LeftLeg   && b.LeftLeg.rotation.set(SKYBOARD_STANCE.crouch*1.1, 0, 0);
-  b.LeftFoot  && b.LeftFoot.rotation.set(-0.1, 0.06, 0);
-  // Right foot back, rear leg straighter but still braced
-  b.RightUpLeg && b.RightUpLeg.rotation.set(SKYBOARD_STANCE.stanceWidth*0.9 - SKYBOARD_STANCE.crouch*0.3, -0.1, -0.08);
-  b.RightLeg   && b.RightLeg.rotation.set(SKYBOARD_STANCE.crouch*0.7, 0, 0);
-  b.RightFoot  && b.RightFoot.rotation.set(-0.08, -0.06, 0);
-  // Counterbalanced arms swept wide, like leaning into the wind
-  b.LeftShoulder && b.LeftShoulder.rotation.set(0, 0, SKYBOARD_STANCE.armSpread*0.35);
-  b.LeftArm      && b.LeftArm.rotation.set(0.15+sway*0.4, -0.1, SKYBOARD_STANCE.armSpread);
-  b.RightShoulder&& b.RightShoulder.rotation.set(0, 0, -SKYBOARD_STANCE.armSpread*0.35);
-  b.RightArm     && b.RightArm.rotation.set(0.15-sway*0.4, 0.1, -SKYBOARD_STANCE.armSpread);
+// Legacy name still read by the Ariel Rig Viewer's kernel (radicaldeepscale.com/ariel-rig-viewer.html
+// returns it from the blocks it runs); the stance plays no clip, so it is a plain 1.
+const SKYBOARD_ANIM_SPEED = 1;
+const _BS_SOLVE=['Hips','Spine02','Spine01','Spine','neck','Head','LeftArm','LeftForeArm','RightArm','RightForeArm','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'];
+let _bs=null;
+function _bsInit(){
+  if(_bs) return _bs;
+  const V=()=>new THREE.Vector3(), Q=()=>new THREE.Quaternion();
+  _bs={ e:new THREE.Euler(0,0,0,'YZX'), q:[Q(),Q(),Q(),Q(),Q(),Q()], v:[V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V()], rq:{}, limb:{}, t:0, ok:false, ax:V() };
+  return _bs;
 }
-
-/* ── SKYBOARD STANCE — now driven by the real cropped animation clip
-   (CHAR.clips.skyboard, see loadCharacterAssets/_cropClip) instead of
-   hand-set bone rotations, per the actual mocap-style reference: her
-   own "Step_Right_for_Exercise" export scrubbed down to the ~0.5s
-   window that reads as a wide, crouched, arms-out board-riding stance,
-   ping-ponging forward/backward continuously. Falls back to the old
-   procedural pose only if that clip failed to load for some reason. */
+// rotation of a bone in CHAR.root space (product of local quaternions below the root)
+function _bsRQ(b,out){ out.copy(b.quaternion); let o=b.parent; while(o&&o!==CHAR.root){ out.premultiply(o.quaternion); o=o.parent; } return out; }
+function _bsRP(b,out){ out.set(0,0,0); let o=b; while(o&&o!==CHAR.root){ out.multiply(o.scale).applyQuaternion(o.quaternion).add(o.position); o=o.parent; } return out; }
+// rest-pose data for one limb (upper U -> lower L -> end E), from CHAR.restPose
+function _bsLimbRest(U,L,E,hinge){
+  const R=CHAR.restPose, S=_bs;
+  const u0=new THREE.Quaternion(), q=new THREE.Quaternion();
+  // rest root-space rotation of U: walk the rest locals of its ancestors
+  u0.copy(R[U.name].q); let o=U.parent; while(o&&o!==CHAR.root){ u0.premultiply(R[o.name]?R[o.name].q:o.quaternion); o=o.parent; }
+  const lRel=R[L.name].q.clone();
+  const du0=R[L.name].p.clone().multiply(R[U.name].s).normalize().applyQuaternion(u0);
+  q.copy(u0).multiply(lRel);
+  const dl0=R[E.name].p.clone().multiply(R[L.name].s).normalize().applyQuaternion(q);
+  const h0=hinge?hinge.clone():new THREE.Vector3().crossVectors(du0,dl0).normalize();
+  return {U,L,E,u0,lRel,du0,dl0,h0,l1:R[L.name].p.length()*R[U.name].s.x,l2:R[E.name].p.length()*R[L.name].s.x};
+}
+// set a bone so its root-space rotation is `target` (parent's current pose), blended by w
+function _bsSetRQ(b,target,w){
+  const S=_bs, p=S.q[5]; _bsRQ(b.parent,p); p.invert().multiply(target);
+  if(w>=0.999) b.quaternion.copy(p); else b.quaternion.slerp(p,w);
+}
+// aim limb: upper along du, lower along dl (root space, unit), elbow/knee hinge kept anatomical
+function _bsLimb(Lb,du,dl,w){
+  const S=_bs, q1=S.q[0], qt=S.q[1], ur=S.q[2], lr=S.q[3], tmp=S.q[4];
+  const h1=S.v[0], hd=S.v[1], dlc=S.v[2];
+  q1.setFromUnitVectors(Lb.du0,du);
+  h1.copy(Lb.h0).applyQuaternion(q1); h1.addScaledVector(du,-h1.dot(du));
+  hd.crossVectors(du,dl); hd.addScaledVector(du,-hd.dot(du));
+  qt.identity();
+  if(hd.lengthSq()>1e-8&&h1.lengthSq()>1e-8){ h1.normalize(); hd.normalize();
+    const ang=Math.atan2(S.ax.crossVectors(h1,hd).dot(du),h1.dot(hd)); qt.setFromAxisAngle(du,ang); }
+  ur.copy(qt).multiply(q1).multiply(Lb.u0);                 // upper root-space rotation
+  _bsSetRQ(Lb.U,ur,w);
+  _bsRQ(Lb.U,ur);                                            // as actually set (blend)
+  lr.copy(ur).multiply(Lb.lRel);
+  dlc.copy(Lb.dl0).applyQuaternion(tmp.copy(ur).multiply(S.q[5].copy(Lb.u0).invert()));
+  tmp.setFromUnitVectors(dlc.normalize(),dl);
+  lr.premultiply(tmp);
+  _bsSetRQ(Lb.L,lr,w);
+}
+// root-space rotation = Ry(yaw)·Rz(roll)·Rx(pitch)·rest   (degrees)
+function _bsRot(name,yaw,pitch,roll,w){
+  const S=_bs, b=CHAR.bones[name], R=CHAR.restPose; if(!b||!R[name]) return;
+  S.e.set(pitch*Math.PI/180,yaw*Math.PI/180,roll*Math.PI/180,'YZX');
+  const t=S.q[4].setFromEuler(S.e);
+  // rest root-space rotation of this bone
+  const r=S.q[3].copy(R[name].q); let o=b.parent; while(o&&o!==CHAR.root){ r.premultiply(R[o.name]?R[o.name].q:o.quaternion); o=o.parent; }
+  t.multiply(r); _bsSetRQ(b,t,w);
+}
+// body-frame direction -> root space (yaw only), normalised
+function _bsDir(out,a,yaw,roll){ out.set(a[0],a[1],a[2]); if(roll) out.applyAxisAngle(_BS_Z,roll*Math.PI/180); return out.applyAxisAngle(_BS_Y,yaw*Math.PI/180).normalize(); }
+let _BS_Y=null,_BS_Z=null,_BS_FWD=[0,0,1];
+function _bsReady(){
+  if(_bs&&_bs.ok) return true;
+  const b=CHAR.bones, R=CHAR.restPose;
+  if(!R||!_BS_SOLVE.every(n=>b[n]&&R[n])||!b.LeftHand||!b.RightHand) return false;
+  _bsInit(); _BS_Y=new THREE.Vector3(0,1,0); _BS_Z=new THREE.Vector3(0,0,1);
+  const lat=new THREE.Vector3(1,0,0);   // knee flexion axis at rest (her left), legs are straight in the bind pose
+  _bs.limb.armL=_bsLimbRest(b.LeftArm,b.LeftForeArm,b.LeftHand);
+  _bs.limb.armR=_bsLimbRest(b.RightArm,b.RightForeArm,b.RightHand);
+  _bs.limb.legL=_bsLimbRest(b.LeftUpLeg,b.LeftLeg,b.LeftFoot,lat);
+  _bs.limb.legR=_bsLimbRest(b.RightUpLeg,b.RightLeg,b.RightFoot,lat);
+  _bs.ok=true; return true;
+}
+// two-bone IK: hip joint -> ankle target T, knee toward pole; returns via _bsLimb
+function _bsLeg(Lb,T,pole,w){
+  const S=_bs, H=S.v[8], n=S.v[9], m=S.v[10], K=S.v[11], du=S.v[12], dl=S.v[13];
+  _bsRP(Lb.U,H);
+  n.subVectors(T,H); let d=n.length(); n.multiplyScalar(1/(d||1));
+  const L=Lb.l1+Lb.l2; d=Math.max(L*0.55,Math.min(L*0.985,d));          // reach clamp (no hyper-extension / over-fold)
+  const a=(Lb.l1*Lb.l1-Lb.l2*Lb.l2+d*d)/(2*d), h=Math.sqrt(Math.max(0,Lb.l1*Lb.l1-a*a));
+  m.copy(pole).addScaledVector(n,-pole.dot(n)).normalize();
+  K.copy(H).addScaledVector(n,a).addScaledVector(m,h);
+  du.subVectors(K,H).normalize();
+  dl.copy(H).addScaledVector(n,d).sub(K).normalize();
+  _bsLimb(Lb,du,dl,w);
+}
+function _bsFoot(name,yaw,w){ _bsRot(name,yaw,0,0,w); }
+// the whole stance; sw = sway signals [s1..s4] (zeros = the still pose)
+function _boardStancePose(s1,s2,s3,s4,w){
+  if(!_bsReady()) return false;
+  const P=BOARD_STANCE, W=P.sway, b=CHAR.bones, S=_bs;
+  const roll=W.roll*s1, yaw=W.yaw*s4;
+  // hips: low, between the feet, weight drifting front/back and toe/heel
+  const hp=S.v[3].set(P.hips[0]+W.side*s2, P.hips[1]-W.bob*(0.5+0.5*s3), P.hips[2]+W.shift*s1);
+  if(b.Hips.parent===CHAR.root||!b.Hips.parent||b.Hips.parent.parent===CHAR.root){
+    if(w>=0.999) b.Hips.position.copy(hp); else b.Hips.position.lerp(hp,w);
+  }
+  const yH=P.yawHips+yaw;
+  _bsRot('Hips',yH,P.pitchHips,roll,w);
+  // chest counter-rotates the hip roll/yaw, keeping the shoulders over the feet
+  const cr=-roll*W.chest, cy=-yaw*W.chest;
+  _bsRot('Spine02',yH+cy/3+P.yawChest/3,P.pitchHips+P.pitchChest/3,roll+cr/3,w);
+  _bsRot('Spine01',yH+cy*2/3+P.yawChest*2/3,P.pitchHips+P.pitchChest*2/3,roll+cr*2/3,w);
+  _bsRot('Spine',yH+cy+P.yawChest,P.pitchHips+P.pitchChest,roll+cr,w);
+  // head stabilised: level and toward the nose whatever the body does
+  const yC=P.yawHips+P.yawChest;
+  _bsRot('neck',yC+P.yawHead*0.4,(P.pitchHips+P.pitchChest)*0.3+P.pitchHead*0.4,0,w);
+  _bsRot('Head',yC+P.yawHead,P.pitchHead,0,w);
+  // arms: relaxed, a little out; counter-balance the roll, slight fore/aft drift
+  const ya=yH+cy+P.yawChest, ar=-roll*W.arm/W.roll*0.5, sw2=W.arm*0.4*s2;
+  _bsLimb(S.limb.armL,_bsDir(S.v[3],P.upL,ya+sw2,ar),_bsDir(S.v[4],P.foreL,ya+sw2,ar),w);
+  _bsLimb(S.limb.armR,_bsDir(S.v[3],P.upR,ya+sw2,ar),_bsDir(S.v[4],P.foreR,ya+sw2,ar),w);
+  // legs: IK to the planted ankles, knees toward the toe edge; feet flat and glued
+  const pole=_bsDir(S.v[14],_BS_FWD,P.yawHips,0);
+  pole.z-=P.kneeOut; _bsLeg(S.limb.legL,S.v[15].set(P.ankleL[0],P.ankleL[1],P.ankleL[2]),pole,w);
+  _bsFoot('LeftFoot',P.footYawL,w);
+  pole.z+=2*P.kneeOut; _bsLeg(S.limb.legR,S.v[15].set(P.ankleR[0],P.ankleR[1],P.ankleR[2]),pole,w);
+  _bsFoot('RightFoot',P.footYawR,w);
+  return true;
+}
+// per-frame sway, called from the mixer post step with the stance blend weight
+function _boardStanceFrame(dt,w){
+  if(!BOARD_STANCE.on||!_bsReady()) return;
+  const S=_bs, Pd=BOARD_STANCE.sway.periods, T2=Math.PI*2;
+  S.t+=Math.min(dt||0,0.1);
+  const t=S.t;
+  _boardStancePose(Math.sin(T2*t/Pd[0]),Math.sin(T2*t/Pd[1]+1.3),Math.sin(T2*t/Pd[2]+0.4),Math.sin(T2*t/Pd[3]+2.1),w);
+}
+// one-key clip of the still pose; non-solved bones (fingers, toes, face, hair) come from `template` (idle)
+function _boardStanceClip(template){
+  if(!_bsReady()) return null;
+  const b=CHAR.bones, saved={};
+  Object.keys(b).forEach(n=>{ saved[n]=[b[n].position.clone(),b[n].quaternion.clone(),b[n].scale.clone()]; });
+  const R=CHAR.restPose;
+  Object.keys(b).forEach(n=>{ if(R[n]){ b[n].position.copy(R[n].p); b[n].quaternion.copy(R[n].q); b[n].scale.copy(R[n].s); } });
+  const tracks=[], seen={};
+  if(template) template.tracks.forEach(tr=>{
+    const dot=tr.name.lastIndexOf('.'), bn=tr.name.slice(0,dot), prop=tr.name.slice(dot+1), bone=b[bn];
+    if(!bone||_BS_SOLVE.includes(bn)) return;
+    const v=tr.createInterpolant().evaluate(0);
+    if(prop==='quaternion'){ bone.quaternion.fromArray(v);
+      // fingers loosely open and spread: mostly the rest (open) hand, a little of the idle curl
+      if(/Hand(Index|Middle|Ring|Pinky)/.test(bn)&&R[bn]) bone.quaternion.slerp(R[bn].q,BOARD_STANCE.fingerOpen); }
+    else if(prop==='position') bone.position.fromArray(v); else if(prop==='scale') bone.scale.fromArray(v);
+  });
+  _boardStancePose(0,0,0,0,1);
+  const add=(n,prop)=>{ const bone=b[n]; const k=n+'.'+prop; if(seen[k]) return; seen[k]=1;
+    if(prop==='quaternion') tracks.push(new THREE.QuaternionKeyframeTrack(k,[0],bone.quaternion.toArray()));
+    else tracks.push(new THREE.VectorKeyframeTrack(k,[0],bone[prop].toArray())); };
+  if(template) template.tracks.forEach(tr=>{ const dot=tr.name.lastIndexOf('.'), bn=tr.name.slice(0,dot), prop=tr.name.slice(dot+1); if(b[bn]&&(prop==='quaternion'||prop==='position'||prop==='scale')) add(bn,prop); });
+  _BS_SOLVE.forEach(n=>add(n,'quaternion')); add('Hips','position');
+  Object.keys(b).forEach(n=>{ b[n].position.copy(saved[n][0]); b[n].quaternion.copy(saved[n][1]); b[n].scale.copy(saved[n][2]); });
+  return new THREE.AnimationClip('skyboard_stance', 1/30, tracks);
+}
+// mount: crossfade to the stance (the sway layer follows its blend weight)
 function applySkyboardStance(t){
   if(CHAR.actions && CHAR.actions.skyboard){
-    if(CHAR.state!=='skyboard') setCharState('skyboard',{fade:0.3, speed:SKYBOARD_ANIM_SPEED});
-  } else {
-    _applySkyboardStanceProcedural(t);
+    if(CHAR.state!=='skyboard') setCharState('skyboard',{fade:BOARD_STANCE.fade});
+  } else if(CHAR.restPose){
+    // no clips loaded (mesh-only mount): hold the pose procedurally
+    const dt=(CHAR._bsT!=null&&t>CHAR._bsT)?t-CHAR._bsT:0; CHAR._bsT=t; _boardStanceFrame(dt,1);
   }
 }
 
@@ -18191,7 +18304,33 @@ function _hfFront(){
   }catch(e){}
   return _hfFrontSign;
 }
+// The gaze override fades with the ride stance (POSE CONTINUITY): riding, it is
+// solved every frame and its offset from the clip is remembered; stepping on or
+// off, that offset is blended by the stance's crossfade weight instead of the
+// head snapping ~20° in one frame when CHAR.mounted flips.
+let _hoHold=null;
 function applySkyboardHeadOverride(){
+  const b=CHAR.bones; if(!b||!b.Head) return;
+  const a=CHAR.actions&&CHAR.actions.skyboard, live=!!(a&&a.isScheduled());
+  const w=live?Math.min(1,a.getEffectiveWeight()):(CHAR.mounted?1:0);
+  if(w<=0.001) return;
+  const H=_hoHold||(_hoHold={n:new THREE.Quaternion(),h:new THREE.Quaternion(),cn:new THREE.Quaternion(),ch:new THREE.Quaternion(),t:new THREE.Quaternion(),ok:false});
+  if(b.neck) H.cn.copy(b.neck.quaternion); H.ch.copy(b.Head.quaternion);
+  if(CHAR.mounted){
+    _applySkyboardHeadOverride1();
+    if(b.neck) H.n.copy(H.cn).invert().multiply(b.neck.quaternion);
+    H.h.copy(H.ch).invert().multiply(b.Head.quaternion); H.ok=true;
+  } else if(H.ok){
+    if(b.neck) b.neck.quaternion.copy(H.cn).multiply(H.n);
+    b.Head.quaternion.copy(H.ch).multiply(H.h);
+  } else return;
+  if(w<1){
+    if(b.neck){ H.t.copy(b.neck.quaternion); b.neck.quaternion.slerpQuaternions(H.cn,H.t,w); }
+    H.t.copy(b.Head.quaternion); b.Head.quaternion.slerpQuaternions(H.ch,H.t,w);
+  }
+  if(b.neck) b.neck.updateMatrixWorld(true); else b.Head.updateMatrixWorld(true);
+}
+function _applySkyboardHeadOverride1(){
   const b = CHAR.bones;
   if(!DART_HEAD.on || !b.Head) return;
   if(!_hfFwd || _hfMesh!==CHAR.skinnedMesh){ if(!_hfInit()) return; }
@@ -18383,19 +18522,97 @@ function _standHeadLevel1(b){
   _hfYawBone(b.Head, -pe*(b.neck?1-DART_HEAD.neckShare:1), ax, 0, az);
 }
 // After every clip update: thumbs (always), and on the ground the palms and the gaze.
+function _charPreAnimStand(){
+  if(!_bsReady()) return;
+  const S=_bs, du=S.v[5], dl=S.v[6];
+  _bsLimb(S.limb.armL,du.set(0.12,-0.99,0.02).normalize(),dl.set(0.08,-0.97,0.2).normalize(),1);
+  _bsLimb(S.limb.armR,du.set(-0.12,-0.99,0.02).normalize(),dl.set(-0.08,-0.97,0.2).normalize(),1);
+}
 function _charPosePost(dt){
   if(!CHAR.loaded||!CHAR.root||!CHAR.skinnedMesh) return;
   const bones=CHAR.bones;
+  // clips not loaded yet and not riding: arms relaxed down instead of the bind pose's raised hands
+  if(!CHAR.actions.idle&&!CHAR.mounted) try{ _charPreAnimStand(); }catch(e){}
+  // ride stance + balance sway first (before thumbs, palms, gaze and the hair step)
+  // (layer weight = blend weight squared: the clip already carries the still pose at w, so the sway layer
+  //  fades in/out with it and leaves no step when the stance action stops at the end of a crossfade)
+  { const a=CHAR.actions&&CHAR.actions.skyboard; const w=(a&&a.isRunning())?a.getEffectiveWeight():0; if(w>0.001) try{ _boardStanceFrame(dt,Math.min(1,w*w)); }catch(e){ if(!CHAR._bsWarn){ CHAR._bsWarn=1; console.warn('[stance]',e); } } }
   _charHandsPost(CHAR.skinnedMesh,bones,CHAR.handGrip);
   const want=(!CHAR.mounted&&DART_PALM.states.includes(CHAR.state))?1:0;
   CHAR._palmW=(CHAR._palmW||0)+(want-(CHAR._palmW||0))*Math.min(1,(dt||0.016)*6);
   try{ CHAR.root.updateMatrixWorld(true); _palmTwist(bones,CHAR._palmW); }catch(e){}
   if(!CHAR.mounted&&DART_PALM.states.includes(CHAR.state)) try{ _standHeadLevel(); }catch(e){}   // standing / walking only (not prone, swim, climb, rope, crouch)
 }
+/* ── POSE CONTINUITY — never through the bind pose ─────────────────
+   three's mixer blends each bone toward its saved "original" value whenever
+   the active weights sum to < 1, and writes that original back when the last
+   action using it stops. The original was her bind pose, so every
+   reset().fadeIn() from nothing, stopAllAction(), forced same-state restart or
+   one-shot that ended unclamped flashed the rest pose. Now:
+   • a permanent zero-weight anchor action pins every binding, captured while
+     she holds the idle pose, so the mixer's fallback IS a natural standing
+     pose and is never written back to the bones;
+   • setCharState is a sequenced crossfade: whatever is showing fades out from
+     its current weight and the incoming action takes exactly the remainder, so
+     the weights always sum to 1 (interrupting a fade just starts a new one
+     from the current mix);
+   • a live looping action is never reset (it just keeps running); restarting
+     a one-shot that is still on screen crossfades into its twin action;
+   • one-shots clamp on their last frame instead of switching off;
+   • a state with no clip holds the current pose instead of fading to nothing. */
+const CHAR_XF={cur:null,w0:0,out:new Map(),p:1,dur:0.25};
+function _charXfAll(){ const s=new Set(); Object.values(CHAR.actions||{}).forEach(a=>{ if(a) s.add(a); }); Object.values(CHAR._xfTwin||{}).forEach(a=>{ if(a) s.add(a); }); return s; }
+function _charXfLive(a){ return !!(a&&a.isScheduled()&&a.weight>1e-4); }
+function _charXfTwin(name){
+  CHAR._xfTwin=CHAR._xfTwin||{};
+  if(!CHAR._xfTwin[name]){ const a=CHAR.actions[name]; if(!a) return null;
+    const c=a.getClip().clone(); c.name=a.getClip().name+'#twin';
+    const t=CHAR.mixer.clipAction(c); t.setLoop(a.loop,a.repetitions); t.clampWhenFinished=a.clampWhenFinished; t.weight=0; CHAR._xfTwin[name]=t; }
+  return CHAR._xfTwin[name];
+}
+// Called once when the clips are ready: clamp one-shots, then pin every binding
+// with the anchor while the bones hold her current pose (ride stance if mounted, else idle).
+function _charXfInit(){
+  const A=CHAR.actions, m=CHAR.mixer; if(!m||!A||!A.idle||CHAR._xfAnchor) return;
+  ['jump','climbLoop','rope','cliff'].forEach(k=>{ if(A[k]) A[k].clampWhenFinished=true; });
+  const clip=((CHAR.mounted&&A.skyboard)?A.skyboard:A.idle).getClip();   // the pose she is in right now
+  clip.tracks.forEach(tr=>{ const dot=tr.name.lastIndexOf('.'), bone=CHAR.bones[tr.name.slice(0,dot)], prop=tr.name.slice(dot+1); if(!bone) return;
+    const v=tr.createInterpolant().evaluate(0);
+    if(prop==='quaternion') bone.quaternion.fromArray(v); else if(prop==='position') bone.position.fromArray(v); else if(prop==='scale') bone.scale.fromArray(v); });
+  const c=clip.clone(); c.name='pose_anchor';
+  const anc=m.clipAction(c); anc.setLoop(THREE.LoopRepeat,Infinity); anc.weight=0; anc.play();   // saves every binding's original = this pose
+  CHAR._xfAnchor=anc;
+}
+// Runs before every mixer update (see _charWrapMixer).
+function _charXfStep(dt){
+  const X=CHAR_XF; if(!X.cur) return;
+  if(X.p<1) X.p=Math.min(1,X.p+Math.max(0,dt||0)/Math.max(1e-3,X.dur));
+  const p=X.p;
+  X.out.forEach((w0,a)=>{ a.weight=w0*(1-p); });
+  X.cur.weight=X.w0+(1-X.w0)*p;
+  if(p>=1&&X.out.size){ X.out.forEach((w0,a)=>{ a.weight=0; if(a!==CHAR._xfAnchor) a.stop(); }); X.out.clear(); }
+}
+// Her bind-pose bounding box in her OWN units: root transform and parents
+// factored out, so the calibration is identical whether or not she is already
+// riding a scaled board (the post-anims re-measure used to run after the
+// mesh-first mount and read her world size — 0.33 instead of 1.72 — which
+// inflated scaleForBoard/scaleForTerrain to the 5x clamp: a 1.74x size pop on
+// the board, 2.6x on the ground).
+function _charMeasureRaw(){ return _localBox(CHAR.root); }
+// Bounding box of an object in its own frame (its transform and parents factored out).
+function _localBox(r){
+  const par=r.parent, p=r.position.clone(), q=r.quaternion.clone(), sc=r.scale.clone();
+  if(par) par.remove(r);
+  r.position.set(0,0,0); r.quaternion.identity(); r.scale.set(1,1,1); r.updateMatrixWorld(true);
+  let box;
+  try{ box=new THREE.Box3().setFromObject(r); }
+  finally{ r.position.copy(p); r.quaternion.copy(q); r.scale.copy(sc); if(par) par.add(r); r.updateMatrixWorld(true); }
+  return box;
+}
 function _charWrapMixer(){
   const m=CHAR.mixer; if(!m||m._dmPost) return;
   const up=m.update.bind(m);
-  m.update=function(dt){ const r=up(dt); try{ _charPosePost(dt); }catch(e){} return r; };
+  m.update=function(dt){ try{ _charXfStep(dt); }catch(e){} const r=up(dt); try{ _charPosePost(dt); }catch(e){} return r; };
   m._dmPost=true;
 }
 
@@ -18404,19 +18621,28 @@ function _charWrapMixer(){
    prone, rope, cliff (slide intentionally unwired). Forward/backward
    handled via timeScale sign on in-place cycles. jump/climbLoop/rope/
    cliff are LoopOnce arcs; walk/run/crouch/prone/swim LoopRepeat;
-   skyboard LoopPingPong on cropped window. Optional locomotion flags
+   skyboard is the held ride-stance pose (+ sway layer). Optional locomotion flags
    (swim/rope/cliff/prone/crouch) via updateCharacterLocomotion's last
    arg — existing call sites stay compatible. */
 function setCharState(next, opts){
   opts = opts||{};
   if(CHAR.state===next && !opts.force) return;
-  const prevAction = CHAR.actions[CHAR.state];
-  const nextAction = CHAR.actions[next];
-  if(prevAction) prevAction.fadeOut(opts.fade!==undefined?opts.fade:0.25);
-  if(nextAction){
-    nextAction.reset().fadeIn(opts.fade!==undefined?opts.fade:0.25).play();
-    nextAction.timeScale = (opts.reverse ? -1 : 1) * (opts.speed||1);
+  let a=CHAR.actions[next];
+  if(!a||!CHAR.mixer){ CHAR.state=next; return; }   // no clip for it: hold the current pose (never fade to nothing)
+  if(!CHAR._xfAnchor) try{ _charXfInit(); }catch(e){}
+  if(a.loop===THREE.LoopOnce&&_charXfLive(a)){   // replaying a one-shot that's still showing: its twin starts fresh
+    const t=_charXfTwin(next); if(t&&!_charXfLive(t)) a=t; else if(t&&t.weight<a.weight) a=t;
+    opts=Object.assign({},opts,{fade:Math.max(0.25,opts.fade!==undefined?opts.fade:0.25)});   // mid-air → start of the clip: never faster than 0.25 s
   }
+  if(!_charXfLive(a)){ a.reset(); a.weight=0; a.play(); }
+  else if(a.loop===THREE.LoopOnce){ a.paused=false; }
+  const fade=opts.fade!==undefined?opts.fade:0.25;
+  a.stopFading(); a.stopWarping(); a.enabled=true;
+  a.timeScale = (opts.reverse ? -1 : 1) * (opts.speed||1);
+  const X=CHAR_XF; X.out=new Map();
+  _charXfAll().forEach(x=>{ if(x!==a&&x!==CHAR._xfAnchor&&_charXfLive(x)){ x.stopFading(); x.stopWarping(); X.out.set(x,x.weight); } });
+  X.cur=a; X.w0=a.weight; X.p=fade>0?0:1; X.dur=fade;
+  _charXfStep(0);
   CHAR.state = next;
 }
 // Console/test helpers only — NOT wired to HUD. Stance feeds the optional
@@ -18516,7 +18742,7 @@ function updateCharacterLocomotion(dt, moving, running, dirSign, jumping, climbi
   // crouch(+move); run/walk; idle.
   flags = flags || {};
   if(!CHAR.loaded) return;
-  if(CHAR.mounted){ applySkyboardStance(surfTime||0); CHAR.mixer && CHAR.mixer.update(dt); return; }
+  if(CHAR.mounted){ applySkyboardStance(surfTime||0); CHAR.mixer && CHAR.mixer.update(dt); try{ applySkyboardHeadOverride(); }catch(e){} return; }
   const wantRope = !!(flags.rope);
   const wantCliff = !!(flags.cliff);
   const wantSwim = !!(flags.swim);
@@ -18621,18 +18847,16 @@ function _deriveBoardScale(boardObj){
   let lenUnits = BOARD_FALLBACK_GAME_LEN;
   try{
     if(boardObj){
-      const size = new THREE.Box3().setFromObject(boardObj).getSize(new THREE.Vector3());
+      // measured in the board's own frame: a world AABB grows/shrinks as the
+      // board banks and turns, which resized her on every remount/heal
+      const size = _localBox(boardObj).getSize(new THREE.Vector3());
       let longest = Math.max(size.x, size.y, size.z);
       // Worlds FLIGHT_BOARD_WORLD_SCALE shrinks the flight parent in WORLD
       // space. setFromObject sees that shrink — if we bake it into
       // CHAR.scaleForBoard AND parent her under the scaled board, she
       // double-shrinks (invisible speck / wrong stance). Measure bake
       // length in local units so parent scale alone owns the Sol speck.
-      try{
-        const ws=boardObj.getWorldScale(new THREE.Vector3());
-        const sMax=Math.max(Math.abs(ws.x),Math.abs(ws.y),Math.abs(ws.z));
-        if(isFinite(sMax)&&sMax>1e-8) longest/=sMax;
-      }catch(e){}
+      // (already in local units — no world-scale division needed)
       if(isFinite(longest) && longest > 0.0001) lenUnits = longest;
     }
   }catch(e){ /* fall back to the measured default above */ }
@@ -18672,18 +18896,26 @@ const _ease=(t)=>t*t*(3-2*t);
 // rises — ending exactly in the riding pose, so mountSkyboard() takes over
 // without a snap. She keeps her size throughout. The board holds still
 // while she does it (updateSurface waits on CHAR._transitioning).
-function boardMountSequence(targetBoard, hostScene, onComplete){
+// Board transitions (POSE CONTINUITY): every mount/dismount is a sequenced
+// crossfade — terrain stance → step-up ('jump' clip, ~0.6 s) → ride stance, and
+// back. opts.style picks the transition: only 'step' exists today; 'run' (run
+// and jump onto the board) and 'jumpOff' are reserved hooks for later gameplay
+// and fall back to 'step' until they are filled in here.
+const CHAR_BOARD_TRANSITIONS={ step:{clip:'jump', dur:0.62, fade:0.25}, run:null, jumpOn:null, jumpOff:null };
+function _boardTransition(opts){ return (opts&&opts.style&&CHAR_BOARD_TRANSITIONS[opts.style])||CHAR_BOARD_TRANSITIONS.step; }
+// opts.endSize: her world size once riding (eased during the step-up) — default: keep her size.
+function boardMountSequence(targetBoard, hostScene, onComplete, opts){
   if(!CHAR.loaded || !CHAR.root || !targetBoard || !hostScene){ onComplete&&onComplete(); return; }
   // a board parked far off is called over first
   if(typeof BOARD_CALL!=='undefined'&&BOARD_CALL.parked&&typeof surfBoard!=='undefined'&&targetBoard===surfBoard&&typeof summonSkyboard==='function'){
     try{ summonSkyboard(); }catch(e){}
     const tw=performance.now();
-    (function wait(){ if((BOARD_CALL.parked||BOARD_CALL.summon)&&performance.now()-tw<6000){ requestAnimationFrame(wait); return; } boardMountSequence(targetBoard,hostScene,onComplete); })();
+    (function wait(){ if((BOARD_CALL.parked||BOARD_CALL.summon)&&performance.now()-tw<6000){ requestAnimationFrame(wait); return; } boardMountSequence(targetBoard,hostScene,onComplete,opts); })();
     return;
   }
   _syncBoardScale(targetBoard);                       // (for flight; measured before she's on it)
   CHAR._transitioning = true;
-  const P=_charWorldPose(), size=P.size;
+  const P=_charWorldPose(), size=P.size, endSize=(opts&&opts.endSize>0)?opts.endSize:size, TR=_boardTransition(opts);
   // where she'll stand on the deck, and which way she'll face (the riding pose, in the world)
   targetBoard.updateMatrixWorld(true);
   const bws=new THREE.Vector3(); targetBoard.getWorldScale(bws); const bScale=Math.abs(bws.x)||1;
@@ -18708,7 +18940,7 @@ function boardMountSequence(targetBoard, hostScene, onComplete){
   const walkDir=new THREE.Vector3(E.x-P.pos.x,0,E.z-P.pos.z), walkLen=walkDir.length();
   const Qw=walkLen>0.05?new THREE.Quaternion().setFromAxisAngle(_UP,_mirroredYawFor(walkDir.normalize())):Q0.clone();
   const walkT=walkLen>0.05?_clamp(walkLen/(size*0.75),0.25,1.6):0;   // a comfortable walking pace for her height
-  const stepT=0.62;
+  const stepT=TR.dur;
   if(walkT>0) setCharState('walk',{fade:0.15,force:true});
   const t0=performance.now(); let stepping=false;
   const W=new THREE.Vector3();
@@ -18722,17 +18954,18 @@ function boardMountSequence(targetBoard, hostScene, onComplete){
     }
     if(!stepping){
       stepping=true;
-      const a=CHAR.actions.jump; const sp=a?_clamp(a.getClip().duration/(stepT*1.15),0.6,2.4):1;
-      setCharState('jump',{fade:0.12,speed:sp,force:true});
+      const a=CHAR.actions[TR.clip]; const sp=a?_clamp(a.getClip().duration/(stepT*1.15),0.6,2.4):1;
+      setCharState(TR.clip,{fade:TR.fade,speed:sp,force:true});
     }
     const k=Math.min(1,(t-walkT)/stepT), e=_ease(k);
     const from=walkT>0?E:P.pos;
     W.lerpVectors(from,P1,e); W.y+=Math.sin(Math.PI*k)*size*0.12;   // a little lift as she steps up
     CHAR.root.position.copy(W);
+    if(endSize!==size){ const sz=size+(endSize-size)*e; CHAR.root.scale.set(sz,sz,-sz); }
     CHAR.root.quaternion.slerpQuaternions(walkT>0?Qw:Q0,Q1,e);
     if(k<1){ requestAnimationFrame(step); return; }
     CHAR._transitioning=false;
-    mountSkyboard(targetBoard,{worldSize:size});        // the same pose, now riding the board for real
+    mountSkyboard(targetBoard,{worldSize:endSize});     // the same pose, now riding the board for real
     onComplete&&onComplete();
   })();
 }
@@ -18766,7 +18999,7 @@ function boardDismountSequence(hostScene, groundY, onComplete, opts){
   const Q0=new THREE.Quaternion().setFromAxisAngle(_UP,_mirroredYawFor(P.facing));
   const Q1=new THREE.Quaternion().setFromAxisAngle(_UP,_mirroredYawFor(endFacing));
   const dur=0.7, a=CHAR.actions.jump;
-  setCharState('jump',{fade:0.12,speed:a?_clamp(a.getClip().duration/(dur*1.15),0.6,2.4):1,force:true});
+  setCharState('jump',{fade:0.25,speed:a?_clamp(a.getClip().duration/(dur*1.15),0.6,2.4):1,force:true});   // (0.25 s: the stance eases into the step, no snap)
   const t0=performance.now(), W=new THREE.Vector3();
   (function step(){
     const k=Math.min(1,(performance.now()-t0)/(dur*1000)), e=_ease(k);
@@ -18897,7 +19130,7 @@ function remountSkyboard(boardObj){
   if(!(CHAR.scaleForBoard>0)){
     try{
       if(!(CHAR.rawHeight>0.001) && CHAR.root){
-        const _b=new THREE.Box3().setFromObject(CHAR.root);
+        const _b=_charMeasureRaw();
         const _h=_b.max.y-_b.min.y;
         if(_h>0.001){ CHAR.rawHeight=_h; CHAR.feetOffset=-_b.min.y; }
       }
@@ -18926,6 +19159,7 @@ async function ensureAutumnOnBoard(reason){
 
   for(let attempt=1; attempt<=8; attempt++){
     if(_charOnTempleDeck()) return true;   // she's standing on the Bird Temple deck, not riding
+    if(CHAR._transitioning&&CHAR.loaded&&CHAR.root){ if(attempt<8) await _sleep(300); continue; }   // mid step-on/step-off: let it finish
     try{
       if(CHAR._loadPromise){
         try{ await CHAR._loadPromise; }catch(e){ console.warn('[CHAR] ensure await _loadPromise failed ('+reason+'):',e); }
@@ -18969,13 +19203,15 @@ function mountSkyboard(boardObj,opts){
   // Always strip first — never add onto a stale parent chain.
   if(CHAR.root.parent){ try{ CHAR.root.parent.remove(CHAR.root); }catch(e){} }
   CHAR.mounted = false;
-  setCharState('idle',{fade:0.2}); // brief settle before the procedural pose takes over
+  // straight into the ride stance — a crossfade from whatever she is doing (the
+  // step-up when boarding); a remount/heal while already riding changes nothing
+  if(CHAR.actions&&CHAR.actions.skyboard) setCharState('skyboard',{fade:BOARD_STANCE.fade});
   const worldPos = new THREE.Vector3(); CHAR.root.getWorldPosition(worldPos);
   // Ensure scale before add — missing scaleForBoard leaves her tiny/invisible-ish
   if(!(CHAR.scaleForBoard>0)){
     try{
       if(!(CHAR.rawHeight>0.001)){
-        const _b=new THREE.Box3().setFromObject(CHAR.root);
+        const _b=_charMeasureRaw();
         const _h=_b.max.y-_b.min.y;
         if(_h>0.001){ CHAR.rawHeight=_h; CHAR.feetOffset=-_b.min.y; }
       }
@@ -19319,11 +19555,11 @@ function _pwCharArrive(){
     const terrainYaw=(yaw-Math.PI/2)+CHAR_MOUNT_YAW_OFFSET+CHAR_TERRAIN_YAW_EXTRA;
     // the board starts a little high beside her (her right) and settles
     if(surfBoard){ surfBoard.visible=true; surfBoard.position.set(sx+rx*side,gnd+SURF_BOARD_WAIST+0.6,sz+rz*side); surfBoard.rotation.order='YXZ'; surfBoard.rotation.y=yaw-Math.PI/2; }
-    try{ if(CHAR.mixer) CHAR.mixer.stopAllAction(); }catch(e){}
+    // (no stopAllAction: that wrote her bind pose back — the jump below crossfades from whatever she was doing)
     CHAR._transitioning=true; CHAR._footIKWeight=0; CHAR._ikErrLeft=0; CHAR._ikErrRight=0; CHAR._ikAnkleLeft=0; CHAR._ikAnkleRight=0;
     const startPos=new THREE.Vector3(surfBoard?sx+rx*side*0.35:sx,rootY+0.55,surfBoard?sz+rz*side*0.35:sz), endPos=new THREE.Vector3(sx,rootY,sz);
     CHAR.root.position.copy(startPos); CHAR.root.rotation.set(0,terrainYaw,0);
-    setCharState('jump',{fade:0.1,speed:0.85,force:true});
+    setCharState('jump',{fade:0.25,speed:0.85,force:true});
     const t0=performance.now(), dur=320;
     (function settle(){
       if(PW.gen!==myGen||!CHAR.root){ CHAR._transitioning=false; return; }
@@ -22922,8 +23158,7 @@ toast('🚀 DART Meadow v3 — Click LAUNCH SEQUENCE',4000);
         for(const k of ['skyboard','walk','idle','climbLoop']){
           const clip=CHAR.clips[k];if(!clip) continue;
           const act=mixer.clipAction(clip);
-          if(k==='skyboard'){ act.setLoop(THREE.LoopPingPong,Infinity); act.timeScale=(typeof SKYBOARD_ANIM_SPEED!=='undefined'?SKYBOARD_ANIM_SPEED:1); }
-          else act.setLoop(THREE.LoopRepeat,Infinity);
+          act.setLoop(THREE.LoopRepeat,Infinity);   // skyboard: the still stance pose (the sway is the local rider's only)
           actions[k]=act;
         }
         full=true;
