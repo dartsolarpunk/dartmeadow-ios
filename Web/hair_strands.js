@@ -279,9 +279,118 @@ export function buildHair(CHAR, THREE, buf, opts = {}) {
   const pM = new Float32Array(16); let havePM = false, headMoved = true;
   mesh.onBeforeRender = function (renderer, scene, camera) {
     camera.getWorldPosition(camPos); haveCam = true; renderSeen = true;
+    if (gpu === null) gpu = initGPU(renderer);
     if (pendingDt > 0) { const d = pendingDt; pendingDt = 0; try { update(d); } catch (e) { if (!H._warned) { H._warned = 1; console.warn('[hair] update', e); } } }
   };
   root.add(mesh);
+
+  /* ---------------- GPU ribbons (WebGPURenderer + TSL, either backend) ----------------
+     The guide PBD stays on the CPU (19,810 points, bit-identical drape / wind / collisions).
+     Everything per child (5,665 x 14 points: rest groom + guide deflection, head-SDF push-out,
+     camera-facing width, volumetric normal) is evaluated in the vertex shader from static
+     textures; per frame only the guide deflection texture (G x K RGBA32F, ~310 KB) is rewritten
+     in place. Classic WebGLRenderer hosts (Rig Viewer) keep the CPU ribbon path below. */
+  let gpu = null;   // null = undecided, false = CPU ribbons, object = GPU ribbons
+  function initGPU(renderer) {
+    const T = THREE.TSL;
+    if (!renderer || !renderer.isWebGPURenderer || !T || !THREE.MeshStandardNodeMaterial || P.gpuRibbons === false) return false;
+    try {
+      const { Fn, If, float, int, ivec2, vec3, vec4, uniform, attribute, textureLoad, normalLocal, select } = T;
+      const mkTex = (data, w, h, fmt) => { const t = new THREE.DataTexture(data, w, h, fmt, THREE.FloatType); t.needsUpdate = true; t.userData.hair = 1; return t; };
+      const restT = new Float32Array(N * K * 4), radT = new Float32Array(N * K * 4);
+      for (let i = 0; i < N * K; i++) {
+        restT[i * 4] = rest[i * 3]; restT[i * 4 + 1] = rest[i * 3 + 1]; restT[i * 4 + 2] = rest[i * 3 + 2]; restT[i * 4 + 3] = clrC[i];
+        radT[i * 4] = radial[i * 3]; radT[i * 4 + 1] = radial[i * 3 + 1]; radT[i * 4 + 2] = radial[i * 3 + 2]; radT[i * 4 + 3] = slkC[i];
+      }
+      const tRest = mkTex(restT, K, N, THREE.RGBAFormat), tRad = mkTex(radT, K, N, THREE.RGBAFormat);
+      const disp = new Float32Array(G * K * 4);
+      const tDisp = mkTex(disp, K, G, THREE.RGBAFormat);
+      const SW = 2048;
+      let tSdf = null, sdfRows = 1;
+      if (SDF) {
+        const n = SDF.nx * SDF.ny * SDF.nz; sdfRows = Math.ceil(n / SW);
+        const d = new Float32Array(SW * sdfRows); for (let i = 0; i < n; i++) d[i] = SDF.v[i];
+        tSdf = mkTex(d, SW, sdfRows, THREE.RedFormat);
+      } else tSdf = mkTex(new Float32Array(1), 1, 1, THREE.RedFormat);
+      // static per-vertex data: (strand, point, side), (guide, last collidable point)
+      const ids = new Float32Array(VERTS * 3), gk = new Float32Array(VERTS * 2);
+      for (let st = 0; st < N; st++) for (let k = 0; k < K; k++) for (let sd = 0; sd < 2; sd++) {
+        const v = (st * K + k) * 2 + sd; ids[v * 3] = st; ids[v * 3 + 1] = k; ids[v * 3 + 2] = sd ? 1 : -1; gk[v * 2] = guideOf[st]; gk[v * 2 + 1] = kMaxC[st];
+      }
+      const U = {
+        M: uniform(new THREE.Matrix4()), Mi: uniform(new THREE.Matrix4()), cam: uniform(new THREE.Vector3()),
+        hc: uniform(new THREE.Vector3()), hcR2: uniform(0), hsc2: uniform(1), wR: uniform(P.widthRoot), wT: uniform(P.widthTip), cc: uniform(0)
+      };
+      const S0 = SDF || { ox: 0, oy: 0, oz: 0, inv: 1, nx: 2, ny: 2, nz: 2, unit: 1 };
+      const sdfAt = (b) => textureLoad(tSdf, ivec2(b.mod(int(SW)), b.div(int(SW)))).x;
+      // exact port of headCollide() for one root-local point (same trilinear value + gradient)
+      const collide = (p, clr) => {
+        const out = p.toVar();
+        const e = p.sub(U.hc);
+        If(e.dot(e).lessThanEqual(U.hcR2), () => {
+          const h = U.Mi.mul(vec4(p, 1)).xyz.toVar();
+          const f = h.sub(vec3(S0.ox, S0.oy, S0.oz)).mul(S0.inv).toVar();
+          If(f.x.greaterThanEqual(0).and(f.y.greaterThanEqual(0)).and(f.z.greaterThanEqual(0))
+            .and(f.x.lessThan(S0.nx - 1)).and(f.y.lessThan(S0.ny - 1)).and(f.z.lessThan(S0.nz - 1)), () => {
+            const fi = f.floor(), t = f.sub(fi), u = vec3(1).sub(t);
+            const i = int(fi.x), j = int(fi.y), kk = int(fi.z);
+            const nz = int(S0.nz), nyz = int(S0.ny * S0.nz);
+            const b = i.mul(int(S0.ny)).add(j).mul(nz).add(kk).toVar();
+            const c000 = sdfAt(b), c001 = sdfAt(b.add(1)), c010 = sdfAt(b.add(nz)), c011 = sdfAt(b.add(nz).add(1));
+            const c100 = sdfAt(b.add(nyz)), c101 = sdfAt(b.add(nyz).add(1)), c110 = sdfAt(b.add(nyz).add(nz)), c111 = sdfAt(b.add(nyz).add(nz).add(1));
+            const c00 = c000.mul(u.z).add(c001.mul(t.z)), c01 = c010.mul(u.z).add(c011.mul(t.z));
+            const c10 = c100.mul(u.z).add(c101.mul(t.z)), c11 = c110.mul(u.z).add(c111.mul(t.z));
+            const c0 = c00.mul(u.y).add(c01.mul(t.y)), c1 = c10.mul(u.y).add(c11.mul(t.y));
+            const g = vec3(c1.sub(c0), c01.sub(c00).mul(u.x).add(c11.sub(c10).mul(t.x)),
+              c001.sub(c000).mul(u.y).add(c011.sub(c010).mul(t.y)).mul(u.x).add(c101.sub(c100).mul(u.y).add(c111.sub(c110).mul(t.y)).mul(t.x))).toVar();
+            const gl = g.length();
+            const gn = select(gl.greaterThan(1e-6), g.div(gl), vec3(0, 1, 0));
+            const d = c0.mul(u.x).add(c1.mul(t.x)).mul(S0.unit);
+            If(d.lessThan(clr), () => { out.assign(U.M.mul(vec4(h.add(gn.mul(clr.sub(d))), 1)).xyz); });
+          });
+        });
+        return out;
+      };
+      // child point k of strand s (port of the CPU ribbon loop's SP[] fill)
+      const point = (s, k, g, kmc) => {
+        const r = textureLoad(tRest, ivec2(k, s)), dd = textureLoad(tDisp, ivec2(k, g)).xyz;
+        const p = U.M.mul(vec4(r.xyz, 1)).xyz.add(dd).toVar();
+        const slk = textureLoad(tRad, ivec2(k, s)).w;
+        If(U.cc.greaterThan(0.5).and(k.greaterThanEqual(2)).and(k.lessThanEqual(kmc)).and(dd.dot(dd).greaterThan(slk.mul(U.hsc2))), () => { p.assign(collide(p, r.w)); });
+        return p;
+      };
+      const ribbon = (sF, kF, side, gF, kmF) => {
+        const s = int(sF), k = int(kF), g = int(gF), kmc = int(kmF);
+        const k0 = k.sub(1).max(0), k1 = k.add(1).min(K - 1);
+        const p0 = point(s, k0, g, kmc), p1 = point(s, k1, g, kmc), pk = point(s, k, g, kmc), pr = point(s, int(0), g, kmc);
+        const tg = p1.sub(p0), v = U.cam.sub(pk);
+        const w = tg.cross(v);
+        const wd = U.wR.add(U.wT.sub(U.wR).mul(float(kF).div(K - 1))).mul(0.5).div(w.length().max(1e-9));
+        const sv = U.cam.sub(pr); const svn = sv.div(sv.length().max(1e-9));
+        const rad = textureLoad(tRad, ivec2(k, s)).xyz;
+        const n = svn.mul(0.55).add(U.M.mul(vec4(rad, 0)).xyz.mul(0.45));
+        return { pos: pk.add(w.mul(wd).mul(side)), nrm: n };
+      };
+      const aId = attribute('hsId', 'vec3'), aGk = attribute('hsGk', 'vec2');
+      const gmat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, color: 0xffffff, roughness: mat.roughness, metalness: mat.metalness, side: THREE.DoubleSide });
+      gmat.positionNode = Fn(() => {
+        const R = ribbon(aId.x, aId.y, aId.z, aGk.x, aGk.y);
+        normalLocal.assign(R.nrm);
+        return R.pos;
+      })();
+      // swap the geometry to static ids: no dynamic position / normal buffers at all
+      geo.setAttribute('hsId', new THREE.BufferAttribute(ids, 3));
+      geo.setAttribute('hsGk', new THREE.BufferAttribute(gk, 2));
+      geo.setAttribute('position', new THREE.BufferAttribute(ids, 3));
+      geo.deleteAttribute('normal');
+      mesh.material = gmat; mat.dispose();
+      stats.gpu = true; stats.mode = 'gpu';
+      return { U, disp, tDisp, ribbon, mat: gmat, textures: [tRest, tRad, tDisp, tSdf] };
+    } catch (e) {
+      console.warn('[hair] GPU ribbons unavailable, CPU path', e);
+      return false;
+    }
+  }
 
   let NR = N;   // strands drawn
   function setStrandFraction(f) {
@@ -588,9 +697,22 @@ export function buildHair(CHAR, THREE, buf, opts = {}) {
     frame++;
     // host-driven child count (game: Auto graphics preset); re-read every ~2 s, cheap
     if (opts.getStrandFraction && frame % 120 === 1) { try { const f = +opts.getStrandFraction(); if (f > 0 && Math.abs(f - P.strandFraction) > 1e-3) setStrandFraction(f); } catch (e) {} }
+    if (gpu) {
+      // deflection of every guide point from its groom (exactly what the CPU loop adds per child)
+      const d = gpu.disp;
+      for (let i = 0; i < GK; i++) { const o = i * 3, q = i * 4; d[q] = sp[o] - restM[o]; d[q + 1] = sp[o + 1] - restM[o + 1]; d[q + 2] = sp[o + 2] - restM[o + 2]; }
+      gpu.tDisp.needsUpdate = true;
+      const U = gpu.U;
+      U.M.value.copy(M); U.Mi.value.copy(Mi); U.cam.value.copy(camL);
+      U.hc.value.set(hcx, hcy, hcz); U.hcR2.value = hcR2; U.hsc2.value = hsc2;
+      U.wR.value = wR; U.wT.value = wT; U.cc.value = cc ? 1 : 0;
+      stats.ms = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
+      stats.drawn = NR; stats.interleave = 1;
+      if (!P.verifyRibbons) return;   // debug: also fill the CPU ribbon arrays (H.ribbonArrays) to diff against the shader
+    }
     // interleave (slow devices) refreshes only every il-th ribbon; while the head turns, a ribbon
     // left from the last frame would hang off the old scalp, so those frames refresh them all
-    const il = headMoved ? 1 : (P.interleave | 0 || 1);
+    const il = headMoved || gpu ? 1 : (P.interleave | 0 || 1);
     for (let s = frame % il; s < NR; s += il) {
       const g = guideOf[s];
       const rb = s * K * 3, gb = g * K * 3, cb = s * K, kmc = kMaxC[s];
@@ -652,14 +774,14 @@ export function buildHair(CHAR, THREE, buf, opts = {}) {
   };
 
   const H = {
-    params: P, stats, mesh, update, meta,
+    params: P, stats, mesh, update, meta, get gpu() { return gpu; }, ribbonArrays: { pos, nrm },
     setEnabled(v) { P.enabled = !!v; mesh.visible = !!v; setCards(!v); setScalp(!!v); if (v) needInit = true; },
     setStrandFraction,
     rebuildStiffness: buildStiffness,
     addCollider(c) { extra.push(c); return c; },
     removeCollider(c) { const i = extra.indexOf(c); if (i >= 0) extra.splice(i, 1); },
     reset() { needInit = true; haveLast = false; havePM = false; },
-    dispose() { root.remove(mesh); geo.dispose(); mat.dispose(); setCards(true); setScalp(false); if (scalpMat) scalpMat.dispose(); if (CHAR.mixer && origUpdate) { CHAR.mixer.update = origUpdate; CHAR.mixer.__hairHooked = false; } }
+    dispose() { root.remove(mesh); geo.dispose(); mesh.material.dispose(); if (gpu) gpu.textures.forEach((t) => t.dispose()); setCards(true); setScalp(false); if (scalpMat) scalpMat.dispose(); if (CHAR.mixer && origUpdate) { CHAR.mixer.update = origUpdate; CHAR.mixer.__hairHooked = false; } }
   };
   if (!opts.manual) hook();
   H.hook = hook;
