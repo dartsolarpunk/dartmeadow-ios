@@ -18323,9 +18323,21 @@ const BOARD_STANCE = window.BOARD_STANCE = window.BOARD_STANCE || {
   yawHead:-45, pitchHead:-4,                     // look ahead along the board (DART_HEAD finishes it)
   footYawL:95, footYawR:45, kneeOut:0.25,        // back foot across the board, front foot angled forward
   // arm directions in her body frame (x = bone-left, y = up, z = facing); elbows soft
-  upL:[0.40,-0.84,-0.38], foreL:[0.40,-0.78,-0.48],   // visual right arm: low, behind and out
-  upR:[-0.5,-0.82,0.3], foreR:[-0.45,-0.7,0.45],      // visual left arm: reaching down and out to the nose
-  fingerOpen:0.7,                                // 1 = rest (open, spread) hand, 0 = idle curl
+  // back (trailing) arm, visual right: out and a little back for balance, forearm swept out near level,
+  // elbow soft and pointing back/down. (Before, the forearm bent backward of the upper arm, so the rest-hinge
+  // alignment rolled the upper arm ~180 deg: elbow forward, forearm supinated, palm up like a tray.)
+  upL:[0.55,-0.76,-0.35], foreL:[0.8,-0.55,-0.2],
+  proL:160,                                      // back forearm pronation (deg): palm DOWN toward the board (the rest hand is fully supinated)
+  upR:[-0.5,-0.82,0.3], foreR:[-0.45,-0.7,0.45],      // visual left arm: reaching down and out to the nose (position unchanged)
+  proR:155,                                      // front forearm pronation (deg): palm down, pinky edge to the staff side
+  wristShare:0.35,                               // part of each pronation taken at the wrist (baked hand), the rest by the forearm bone (less skin twist at the elbow)
+  wristRelax:0.85,                               // hands toward the rest (straight) wrist: 1 = rest, 0 = idle clip's extended wrist
+  fingerOpen:0.7,                                // fallback only (no relaxed-hand solve): 1 = rest hand, 0 = idle curl
+  // relaxed open hands (Justin's photo): every finger joint gently curved, slightly spread at the knuckles,
+  // thumb abducted from the index (DART_THUMB grip, overrides the clip-curl follow while riding)
+  fingerCurl:[16,20,12],                         // flexion at MCP, PIP, DIP (deg, clamped 0..40) from the rest (straight) hand
+  fingerSpread:{Index:6,Middle:0,Ring:-4,Pinky:-9},   // MCP abduction (deg, clamped ±15): + toward the thumb side
+  handGrip:0.2,                                  // thumb grip while riding (0 open L … 0.25 relaxed … 1 fist)
   sway:{ shift:0.020, side:0.010, bob:0.010, roll:2.6, yaw:2.0, chest:0.75, arm:5.0, periods:[4.3,5.9,3.7,6.6] },
   fade:0.4, on:true
 };
@@ -18337,7 +18349,7 @@ let _bs=null;
 function _bsInit(){
   if(_bs) return _bs;
   const V=()=>new THREE.Vector3(), Q=()=>new THREE.Quaternion();
-  _bs={ e:new THREE.Euler(0,0,0,'YZX'), q:[Q(),Q(),Q(),Q(),Q(),Q()], v:[V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V()], rq:{}, limb:{}, t:0, ok:false, ax:V() };
+  _bs={ e:new THREE.Euler(0,0,0,'YZX'), q:[Q(),Q(),Q(),Q(),Q(),Q(),Q()], v:[V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V(),V()], rq:{}, limb:{}, t:0, ok:false, ax:V() };
   return _bs;
 }
 // rotation of a bone in CHAR.root space (product of local quaternions below the root)
@@ -18361,8 +18373,9 @@ function _bsSetRQ(b,target,w){
   const S=_bs, p=S.q[5]; _bsRQ(b.parent,p); p.invert().multiply(target);
   if(w>=0.999) b.quaternion.copy(p); else b.quaternion.slerp(p,w);
 }
-// aim limb: upper along du, lower along dl (root space, unit), elbow/knee hinge kept anatomical
-function _bsLimb(Lb,du,dl,w){
+// aim limb: upper along du, lower along dl (root space, unit), elbow/knee hinge kept anatomical;
+// pro (rad, optional) turns the lower bone about its own long axis (forearm pronation), direction unchanged
+function _bsLimb(Lb,du,dl,w,pro){
   const S=_bs, q1=S.q[0], qt=S.q[1], ur=S.q[2], lr=S.q[3], tmp=S.q[4];
   const h1=S.v[0], hd=S.v[1], dlc=S.v[2];
   q1.setFromUnitVectors(Lb.du0,du);
@@ -18378,8 +18391,12 @@ function _bsLimb(Lb,du,dl,w){
   dlc.copy(Lb.dl0).applyQuaternion(tmp.copy(ur).multiply(S.q[5].copy(Lb.u0).invert()));
   tmp.setFromUnitVectors(dlc.normalize(),dl);
   lr.premultiply(tmp);
+  if(pro) lr.premultiply(S.q[6].setFromAxisAngle(S.v[16].copy(Lb.E.position).normalize().applyQuaternion(lr),pro));   // about the bone's live long axis
   _bsSetRQ(Lb.L,lr,w);
 }
+// forearm pronation (deg → rad, clamped to the anatomical range from the supinated rest hand) and its wrist share
+function _bsPro(d){ return Math.max(-170,Math.min(170,d||0))*Math.PI/180; }
+function _bsWS(){ return Math.max(0,Math.min(0.5,BOARD_STANCE.wristShare||0)); }
 // root-space rotation = Ry(yaw)·Rz(roll)·Rx(pitch)·rest   (degrees)
 function _bsRot(name,yaw,pitch,roll,w){
   const S=_bs, b=CHAR.bones[name], R=CHAR.restPose; if(!b||!R[name]) return;
@@ -18441,8 +18458,8 @@ function _boardStancePose(s1,s2,s3,s4,w){
   _bsRot('Head',yC+P.yawHead,P.pitchHead,0,w);
   // arms: relaxed, a little out; counter-balance the roll, slight fore/aft drift
   const ya=yH+cy+P.yawChest, ar=-roll*W.arm/W.roll*0.5, sw2=W.arm*0.4*s2;
-  _bsLimb(S.limb.armL,_bsDir(S.v[3],P.upL,ya+sw2,ar),_bsDir(S.v[4],P.foreL,ya+sw2,ar),w);
-  _bsLimb(S.limb.armR,_bsDir(S.v[3],P.upR,ya+sw2,ar),_bsDir(S.v[4],P.foreR,ya+sw2,ar),w);
+  _bsLimb(S.limb.armL,_bsDir(S.v[3],P.upL,ya+sw2,ar),_bsDir(S.v[4],P.foreL,ya+sw2,ar),w,_bsPro(P.proL)*(1-_bsWS()));
+  _bsLimb(S.limb.armR,_bsDir(S.v[3],P.upR,ya+sw2,ar),_bsDir(S.v[4],P.foreR,ya+sw2,ar),w,-_bsPro(P.proR)*(1-_bsWS()));   // (mirror side: pronation is the other sense)
   // legs: IK to the planted ankles, knees toward the toe edge; feet flat and glued
   const pole=_bsDir(S.v[14],_BS_FWD,P.yawHips,0);
   pole.z-=P.kneeOut; _bsLeg(S.limb.legL,S.v[15].set(P.ankleL[0],P.ankleL[1],P.ankleL[2]),pole,w);
@@ -18460,27 +18477,53 @@ function _boardStanceFrame(dt,w){
   _boardStancePose(Math.sin(T2*t/Pd[0]),Math.sin(T2*t/Pd[1]+1.3),Math.sin(T2*t/Pd[2]+0.4),Math.sin(T2*t/Pd[3]+2.1),w);
 }
 // one-key clip of the still pose; non-solved bones (fingers, toes, face, hair) come from `template` (idle)
+// relaxed-hand finger rotations (locals), solved from the rest hand; call with the bones at rest
+function _bsFingerRelax(){
+  const b=CHAR.bones, R=CHAR.restPose, P=BOARD_STANCE, out={}, cl=(v,a)=>Math.max(-a,Math.min(a,v||0))*Math.PI/180;
+  const rp=n=>_bsRP(b[n],new THREE.Vector3()), q=new THREE.Quaternion(), r=new THREE.Quaternion(), ax=new THREE.Vector3();
+  for(const side of ['Left','Right']){
+    const H=side+'Hand', n=f=>H+f; if(!b[H]||!b[n('Middle1')]||!b[n('Index1')]||!b[n('Pinky1')]) continue;
+    const hAx=rp(n('Middle1')).sub(rp(H)).normalize(), lat=rp(n('Index1')).sub(rp(n('Pinky1'))).normalize();
+    // palm normal in her (anatomically consistent) root space: left F×T, right T×F
+    const np=side==='Left'?new THREE.Vector3().crossVectors(hAx,lat).normalize():new THREE.Vector3().crossVectors(lat,hAx).normalize();
+    for(const f of ['Index','Middle','Ring','Pinky']) for(let k=1;k<=3;k++){
+      const bn=n(f+k), cn=n(f+(k+1)); if(!b[bn]||!R[bn]) continue;
+      const d=b[cn]?rp(cn).sub(rp(bn)).normalize():hAx.clone();
+      r.setFromAxisAngle(ax.crossVectors(d,np).normalize(),Math.max(0,Math.min(40,(P.fingerCurl||[])[k-1]||0))*Math.PI/180);   // curl toward the palm
+      if(k===1&&P.fingerSpread) r.multiply(q.setFromAxisAngle(ax.crossVectors(d,lat).normalize(),cl(P.fingerSpread[f],15)));    // + toward the thumb side
+      _bsRQ(b[bn],q); const loc=q.clone().invert().multiply(r).multiply(q);   // root-space turn → the bone's own frame
+      out[bn]=R[bn].q.clone().multiply(loc);
+    }
+  }
+  return out;
+}
 function _boardStanceClip(template){
   if(!_bsReady()) return null;
   const b=CHAR.bones, saved={};
   Object.keys(b).forEach(n=>{ saved[n]=[b[n].position.clone(),b[n].quaternion.clone(),b[n].scale.clone()]; });
   const R=CHAR.restPose;
   Object.keys(b).forEach(n=>{ if(R[n]){ b[n].position.copy(R[n].p); b[n].quaternion.copy(R[n].q); b[n].scale.copy(R[n].s); } });
-  const tracks=[], seen={};
+  const tracks=[], seen={}, relax=_bsFingerRelax();
   if(template) template.tracks.forEach(tr=>{
     const dot=tr.name.lastIndexOf('.'), bn=tr.name.slice(0,dot), prop=tr.name.slice(dot+1), bone=b[bn];
     if(!bone||_BS_SOLVE.includes(bn)) return;
     const v=tr.createInterpolant().evaluate(0);
     if(prop==='quaternion'){ bone.quaternion.fromArray(v);
       // fingers loosely open and spread: mostly the rest (open) hand, a little of the idle curl
-      if(/Hand(Index|Middle|Ring|Pinky)/.test(bn)&&R[bn]) bone.quaternion.slerp(R[bn].q,BOARD_STANCE.fingerOpen); }
+      if(relax[bn]) bone.quaternion.copy(relax[bn]);
+      else if(/Hand(Index|Middle|Ring|Pinky)/.test(bn)&&R[bn]) bone.quaternion.slerp(R[bn].q,BOARD_STANCE.fingerOpen);
+      // wrists neutral (the idle clip extends them, which read as a tray hold under the pronated forearms)
+      if(/^(Left|Right)Hand$/.test(bn)&&R[bn]) bone.quaternion.slerp(R[bn].q,Math.max(0,Math.min(1,BOARD_STANCE.wristRelax||0))); }
     else if(prop==='position') bone.position.fromArray(v); else if(prop==='scale') bone.scale.fromArray(v);
   });
   _boardStancePose(0,0,0,0,1);
+  // the wrist share of the pronation, about the forearm's long axis (hands aren't re-solved per frame, so it lives in the clip)
+  [['Left',_bsPro(BOARD_STANCE.proL)],['Right',-_bsPro(BOARD_STANCE.proR)]].forEach(([sd,a])=>{ const h=b[sd+'Hand']; if(h&&a) h.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(h.position.clone().normalize(),a*_bsWS())); });
   const add=(n,prop)=>{ const bone=b[n]; const k=n+'.'+prop; if(seen[k]) return; seen[k]=1;
     if(prop==='quaternion') tracks.push(new THREE.QuaternionKeyframeTrack(k,[0],bone.quaternion.toArray()));
     else tracks.push(new THREE.VectorKeyframeTrack(k,[0],bone[prop].toArray())); };
   if(template) template.tracks.forEach(tr=>{ const dot=tr.name.lastIndexOf('.'), bn=tr.name.slice(0,dot), prop=tr.name.slice(dot+1); if(b[bn]&&(prop==='quaternion'||prop==='position'||prop==='scale')) add(bn,prop); });
+  Object.keys(relax).forEach(n=>{ b[n].quaternion.copy(relax[n]); add(n,'quaternion'); });   // (also when the template has no key for it)
   _BS_SOLVE.forEach(n=>add(n,'quaternion')); add('Hips','position');
   Object.keys(b).forEach(n=>{ b[n].position.copy(saved[n][0]); b[n].quaternion.copy(saved[n][1]); b[n].scale.copy(saved[n][2]); });
   return new THREE.AnimationClip('skyboard_stance', 1/30, tracks);
@@ -18715,14 +18758,16 @@ function _thumbPose(r,g){
     r.T[k].quaternion.copy(inv.copy(k===0?r.Hq:Wq[k-1]).invert().multiply(Wq[k]));
   }
 }
-function _charHandsPost(sm,bones,grip){
+function _charHandsPost(sm,bones,grip,rideW){
   if(!DART_THUMB.on||!sm||!bones) return;
   _hpScratch();
   for(const side of ['Left','Right']){
     let r=_thumbRig[side];
     if(!r||r.sm!==sm){ r=_thumbInit(sm,bones,side); if(!r) continue; r.sm=sm; _thumbRig[side]=r; }
     const o=grip==null?null:(typeof grip==='number'?grip:grip[side[0]]);
-    const g=(o!=null&&isFinite(o))?o:DART_THUMB.relax+(1-DART_THUMB.relax)*DART_THUMB.follow*_thumbCurl(r);
+    let g=(o!=null&&isFinite(o))?o:DART_THUMB.relax+(1-DART_THUMB.relax)*DART_THUMB.follow*_thumbCurl(r);
+    // riding (and no explicit grip): fade to the stance's relaxed open grip with the stance weight
+    if(rideW>0.001&&(o==null||!isFinite(o))&&typeof BOARD_STANCE!=='undefined') g+=(Math.max(0,Math.min(1,BOARD_STANCE.handGrip))-g)*Math.min(1,rideW);
     _thumbPose(r,g);
   }
 }
@@ -18804,7 +18849,7 @@ function _charPosePost(dt){
   // (layer weight = blend weight squared: the clip already carries the still pose at w, so the sway layer
   //  fades in/out with it and leaves no step when the stance action stops at the end of a crossfade)
   { const a=CHAR.actions&&CHAR.actions.skyboard; const w=(a&&a.isRunning())?a.getEffectiveWeight():0; if(w>0.001) try{ _boardStanceFrame(dt,Math.min(1,w*w)); }catch(e){ if(!CHAR._bsWarn){ CHAR._bsWarn=1; console.warn('[stance]',e); } } }
-  _charHandsPost(CHAR.skinnedMesh,bones,CHAR.handGrip);
+  { const a=CHAR.actions&&CHAR.actions.skyboard; _charHandsPost(CHAR.skinnedMesh,bones,CHAR.handGrip,(a&&a.isRunning())?a.getEffectiveWeight():0); }
   const want=(!CHAR.mounted&&DART_PALM.states.includes(CHAR.state))?1:0;
   CHAR._palmW=(CHAR._palmW||0)+(want-(CHAR._palmW||0))*Math.min(1,(dt||0.016)*6);
   try{ CHAR.root.updateMatrixWorld(true); _palmTwist(bones,CHAR._palmW); }catch(e){}
