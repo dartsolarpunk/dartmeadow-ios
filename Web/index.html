@@ -5720,10 +5720,12 @@ function updateDiscoveries(dt){
   const p=STATE.flight.pos, sysKey=_discSysKey();
   if(updateDiscoveries._sys!==sysKey){resetDiscoveries();updateDiscoveries._sys=sysKey;}
   const cx=Math.floor(p.x/DISC_CELL),cy=Math.floor(p.y/DISC_CELL),cz=Math.floor(p.z/DISC_CELL);
-  const want=new Set();
-  for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)for(let k=-1;k<=1;k++){
-    const cell=[cx+i,cy+j,cz+k], key=cell.join(',');want.add(key);
-    if(!_discLive.has(key)){const rec=_discSpawn(key,cell,sysKey);_discLive.set(key,rec);}
+  // Crossing a cell boundary brings 9 new cells at once: build at most two
+  // a tick (the rest follow 0.35 s later) so no single frame builds them all.
+  let budget=2;
+  for(let i=-1;i<=1&&budget>0;i++)for(let j=-1;j<=1&&budget>0;j++)for(let k=-1;k<=1&&budget>0;k++){
+    const cell=[cx+i,cy+j,cz+k], key=cell.join(',');
+    if(!_discLive.has(key)){const rec=_discSpawn(key,cell,sysKey);_discLive.set(key,rec);budget--;}
   }
   _discLive.forEach((rec,key)=>{
     const c=key.split(',').map(Number);
@@ -5844,6 +5846,7 @@ async function initFlightScene(){
 
   // Renderer — compatibility-first across Safari/Chrome/Edge/Firefox on all OSes
   flightRenderer=new THREE.WebGPURenderer({canvas:cv,antialias:!GFX.isMobile,alpha:false,powerPreference:'high-performance',logarithmicDepthBuffer:true});
+  _guardRenderDepth(flightRenderer);
   try{
     await flightRenderer.init();
   }catch(e){
@@ -5904,7 +5907,6 @@ async function initFlightScene(){
   try{buildFlightBoard();}catch(e){console.warn('board:',e);try{toast('⚠ Skyboard failed to build: '+(e.message||e),5000);}catch(_){}}
   try{addSunLight();}catch(e){console.warn('sun:',e);}
   try{initJoysticks();}catch(e){console.warn('joy:',e);}
-  try{initPostFX();}catch(e){console.warn('postfx:',e);}
   // Build env-map reflections (browser-real stand-in for ray-traced reflections)
   if(GFX.envReflections){
     try{
@@ -5972,6 +5974,23 @@ let _flightFrameCounter=0;
 // Rate-limited animate-loop error reporter — empty catch{} used to silent-fail
 // (black canvas / frozen character with no console signal).
 let _animLoopErrAt=0;
+// WebGPURenderer keys its render contexts by nesting depth (_callDepth),
+// which _renderScene increments on entry and decrements on exit — with no
+// try/finally. One exception inside a render (a failed buffer allocation, a
+// node error) leaves the depth one higher for good, so every later frame
+// lands on a brand-new render context: every object, shadow caster included,
+// gets a new render object, node build and pipeline, every frame, until GPU
+// memory runs out. Measured headless at the temple: depth climbing ~1/frame,
+// ~5 pipelines and ~40 GPU buffers created per frame. Restore it here.
+function _guardRenderDepth(r){
+  if(!r||r._depthGuard)return;r._depthGuard=true;
+  const render=r.render.bind(r);
+  r.render=function(scene,camera){
+    const d=r._callDepth;
+    try{return render(scene,camera);}
+    finally{if(r._callDepth!==d)r._callDepth=d;}
+  };
+}
 function _animLoopWarn(tag,e){
   const t=performance.now();
   if(t-_animLoopErrAt<2500) return;
@@ -6009,7 +6028,6 @@ function _applyFlightResizeIfPending(){
   flightRenderer.setSize(nW,nH);
   flightCamera.aspect=nW/nH;
   flightCamera.updateProjectionMatrix();
-  resizePostFX();
 }
 // Every other 3D view follows the device too: ground, sky flight, the
 // orbit view, the galaxy map and the quick-travel preview each resize on
@@ -11684,6 +11702,7 @@ async function initGalaxyMapScene(){
   const W=Math.min(innerWidth*.92,1100),H=Math.min(innerHeight*.74,640);
   cv.width=W;cv.height=H;
   gmRenderer=new THREE.WebGPURenderer({canvas:cv,antialias:true,alpha:false,logarithmicDepthBuffer:true});
+  _guardRenderDepth(gmRenderer);
   await gmRenderer.init();
   gmRenderer.setPixelRatio(Math.min(devicePixelRatio,2));gmRenderer.setSize(W,H);
   gmRenderer.setClearColor(0x000206,1);
@@ -12843,7 +12862,6 @@ function applySettings(){
       // automatically instead of needing an incidental rotation.
       const _rw=window.innerWidth,_rh=window.innerHeight;
       if(flightRenderer){flightRenderer._dr=null;flightRenderer.setPixelRatio(effectivePixelRatio());flightRenderer.setSize(_rw,_rh);}
-      resizePostFX();
     }
   }
   // shadow/reflection/caustic/GI toggles take effect on next scene build
@@ -12870,7 +12888,6 @@ function applySettings(){
   try{
     const _rw2=window.innerWidth,_rh2=window.innerHeight;
     if(flightRenderer){flightRenderer.setSize(_rw2,_rh2);}
-    resizePostFX();
   }catch(e){}
   closeSettings();
   toast('✅ Settings applied');
@@ -13471,15 +13488,15 @@ function _fbm(x,y,seed,oct){
   }
   return v;
 }
-const _texCache={};
-function makePlanetTexture(type,baseHex,seed){
-  const key=type+baseHex+seed;
-  if(_texCache[key])return _texCache[key];
-  const S=(GFX&&GFX.preset==='low')?256:512;const cv=document.createElement('canvas');cv.width=S*2;cv.height=S;
-  const cx=cv.getContext('2d');
-  const base=new THREE.Color(baseHex);
-  const img=cx.createImageData(S*2,S);const d=img.data;
+// Texel generation is pure arithmetic over 512×1024 pixels × several fBm
+// octaves (~0.8 s on a desktop core, several seconds on a phone). It used to
+// run synchronously on the main thread, and a rogue planet is built the
+// moment its cell comes into range in interstellar space — the freeze Justin
+// hit near the Bird Temple. Now: the texture object is returned at once and
+// its texels are filled by a worker, then uploaded once.
+function _planetTexels(type,br,bg,bb,seed,S,d){
   for(let y=0;y<S;y++){
+    const row=(S-1-y)*S*2;   // bottom-up rows: matches the old CanvasTexture's flipY
     for(let x=0;x<S*2;x++){
       const u=x/(S*2)*6,v=y/S*3;
       let n=_fbm(u,v,seed,5);
@@ -13491,29 +13508,58 @@ function makePlanetTexture(type,baseHex,seed){
         else if(landN){const e=Math.min(1.4,Math.max(0,elev));r=55+e*95;g=105+e*75;b=45+e*35; if(e>1.1){r=220;g=228;b=240;}}
         else {r=12;g=40+n*50;b=100+n*80;}
       } else if(type==='Gas Giant'||type==='Ice Giant'){
-        // horizontal banding
         const band=Math.sin(v*9+ _fbm(u*0.5,v*4,seed,3)*4);
         const t=0.5+0.5*band;
-        r=base.r*255*(0.7+t*0.5);g=base.g*255*(0.7+t*0.5);b=base.b*255*(0.7+t*0.5);
+        r=br*255*(0.7+t*0.5);g=bg*255*(0.7+t*0.5);b=bb*255*(0.7+t*0.5);
         const storm=_fbm(u*2,v*2,seed+5,4);
         if(storm>0.78){r=Math.min(255,r+60);g*=0.8;b*=0.7;}
       } else {
         // rocky — craters + albedo variation
         let c2=_fbm(u*2,v*2,seed,5);
         const shade=0.55+c2*0.6;
-        r=base.r*255*shade;g=base.g*255*shade;b=base.b*255*shade;
-        // craters
+        r=br*255*shade;g=bg*255*shade;b=bb*255*shade;
         const cr=_vnoise(Math.floor(u*8),Math.floor(v*8),seed+9);
         if(cr>0.93){r*=0.6;g*=0.6;b*=0.6;}
       }
-      const i=(y*S*2+x)*4;
+      const i=(row+x)*4;
       d[i]=Math.min(255,r);d[i+1]=Math.min(255,g);d[i+2]=Math.min(255,b);d[i+3]=255;
     }
   }
-  cx.putImageData(img,0,0);
-  const tex=new THREE.CanvasTexture(cv);
+}
+let _texWorker=null,_texJobs=new Map(),_texJobId=0;
+function _getTexWorker(){
+  if(_texWorker!==null)return _texWorker||null;
+  try{
+    const src=_vnoise.toString()+'\n'+_fbm.toString()+'\n'+_planetTexels.toString()+
+      '\nonmessage=e=>{const j=e.data,d=new Uint8ClampedArray(j.S*2*j.S*4);_planetTexels(j.type,j.r,j.g,j.b,j.seed,j.S,d);postMessage({id:j.id,d},[d.buffer]);};';
+    _texWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+    _texWorker.onmessage=e=>{const job=_texJobs.get(e.data.id);_texJobs.delete(e.data.id);if(job)job(e.data.d);};
+    _texWorker.onerror=()=>{_texWorker=false;};
+  }catch(e){_texWorker=false;}
+  return _texWorker||null;
+}
+const _texCache={};
+function makePlanetTexture(type,baseHex,seed){
+  const key=type+baseHex+seed;
+  if(_texCache[key])return _texCache[key];
+  const S=(GFX&&GFX.preset==='low')?256:512;
+  const base=new THREE.Color(baseHex);
+  const data=new Uint8Array(S*2*S*4);
+  const tex=new THREE.DataTexture(data,S*2,S,THREE.RGBAFormat,THREE.UnsignedByteType);
   tex.wrapS=THREE.RepeatWrapping;
+  tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;
   if(GFX.aniso>1&&flightRenderer){try{tex.anisotropy=Math.min(GFX.aniso,flightRenderer.capabilities.getMaxAnisotropy());}catch(e){}}
+  // until the worker's texels land, the planet wears its flat base colour
+  for(let i=0,R=Math.round(base.r*255*0.8),G=Math.round(base.g*255*0.8),B=Math.round(base.b*255*0.8);i<data.length;i+=4){data[i]=R;data[i+1]=G;data[i+2]=B;data[i+3]=255;}
+  tex.needsUpdate=true;
+  const w=_getTexWorker();
+  if(w){
+    const id=++_texJobId;
+    _texJobs.set(id,d=>{data.set(d);tex.needsUpdate=true;});
+    w.postMessage({id,type,r:base.r,g:base.g,b:base.b,seed,S});
+  }else{
+    const d=new Uint8ClampedArray(data.length);_planetTexels(type,base.r,base.g,base.b,seed,S,d);data.set(d);tex.needsUpdate=true;
+  }
   _texCache[key]=tex;return tex;
 }
 
@@ -14997,12 +15043,15 @@ function _gsMat(map){
   return new THREE.MeshBasicMaterial({color:0xffffff,map:map||null,transparent:false,blending:THREE.AdditiveBlending,
     depthTest:false,depthWrite:false,side:map?THREE.DoubleSide:THREE.FrontSide});
 }
-// LOD instanced set: positions are static; each instance's radius is
-// max(distance-from-camera × K, physical radius), re-derived on demand.
+// LOD instanced set. Positions are static and uploaded once; each instance's
+// radius — max(distance-from-camera × K, physical radius), capped at d × kmax —
+// is derived in the vertex shader from a per-mesh camera uniform, so moving
+// through the galaxy costs one uniform write per mesh instead of a CPU pass
+// over every cloud plus a full instance-matrix re-upload (the old
+// _gsResize, ~13 MB/upload on Ultra, several times a second in flight).
 function _gsLodMesh(pos,col,K,phys,geo,name,look){
   const n=(pos.length/3)|0, S=GALSKY.S;
   const mesh=new THREE.InstancedMesh(geo,(look&&_gsStarMat(look))||_gsMat(),n);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   const a=mesh.instanceMatrix.array, c=new THREE.Color();
   for(let i=0;i<n;i++){
     const o=i*16;
@@ -15014,22 +15063,33 @@ function _gsLodMesh(pos,col,K,phys,geo,name,look){
   }
   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   mesh.frustumCulled=false;mesh.renderOrder=-1000;mesh.name=name;
-  mesh.userData.gs={pos,K,phys,n};
+  const T=THREE.TSL;
+  mesh.userData.gs={pos,K,phys,n,kmax:0,
+    u:{cam:T.uniform(new THREE.Vector3()),km:T.uniform(GALSKY.KMAX)},
+    aK:T.instancedBufferAttribute(new THREE.InstancedBufferAttribute(K,1)),
+    aP:T.instancedBufferAttribute(new THREE.InstancedBufferAttribute(phys,1))};
+  _gsApplyLod(mesh);
   return mesh;
 }
-function _gsResize(mesh,cx,cy,cz){
-  const g=mesh.userData.gs, a=mesh.instanceMatrix.array, S=GALSKY.S, p=g.pos, K=g.K, P=g.phys, km=g.kmax||GALSKY.KMAX;
-  for(let i=0;i<g.n;i++){
-    const dx=p[i*3]-cx,dy=p[i*3+1]-cy,dz=p[i*3+2]-cz;
-    // max(on-screen size, physical size) — but never more than ~8 px, so a
-    // cloud near the camera stays a point instead of filling the view.
-    // Physical size phases in only for clouds 2.5k–12k+ ly away.
-    const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
-    let t=(d-2500)/9500;t=t<0?0:t>1?1:t;
-    const r=Math.min(Math.max(d*K[i],P[i]*t*t*(3-2*t)),d*km)*S*GALSKY.GLOW;
-    const o=i*16;a[o]=r;a[o+5]=r;a[o+10]=r;
-  }
-  mesh.instanceMatrix.needsUpdate=true;
+// Attach the GPU sizing to the mesh's (current) material. Call again after
+// swapping the material (the arm dust does).
+function _gsApplyLod(mesh){
+  const g=mesh.userData.gs, m=mesh.material, T=THREE.TSL;
+  if(!g||!m||!('positionNode' in m))return;
+  const S=GALSKY.S;
+  // positionLocal here is already instanced: centre + unit vertex
+  const centre=T.positionLocal.sub(T.positionGeometry);
+  const d=centre.div(S).sub(g.u.cam).length();
+  const t=d.sub(2500).div(9500).clamp(0,1), sm=t.mul(t).mul(T.float(3).sub(t.mul(2)));
+  // max(on-screen size, physical size), never more than d × kmax (~8 px)
+  const r=T.min(T.max(d.mul(g.aK),g.aP.mul(sm)),d.mul(g.u.km)).mul(S*GALSKY.GLOW);
+  m.positionNode=centre.add(T.positionGeometry.mul(r));
+  m.needsUpdate=true;
+}
+// Per-mesh camera position (ly, in the mesh's own frame) for the shader.
+function _gsLodCam(mesh,cx,cy,cz){
+  const g=mesh.userData.gs;if(!g||!g.u)return;
+  g.u.cam.value.set(cx,cy,cz);g.u.km.value=g.kmax||GALSKY.KMAX;
 }
 function _gsSoftTex(){
   const cv=document.createElement('canvas');cv.width=cv.height=64;
@@ -15208,6 +15268,21 @@ function buildGalSky(){
   // Far plane must reach Andromeda through the scaled layer.
   try{ if(flightCamera&&flightCamera.far<300000){flightCamera.far=300000;flightCamera.updateProjectionMatrix();} }catch(e){}
   updateGalSky(true);
+  _gsPrecompile();
+}
+// Compile every galaxy-layer pipeline up front, off the frame. Parts of the
+// layer (the disc glow, distant galaxies' hosts, the Sol marker) are hidden
+// until you're far out, so their shaders used to compile synchronously on
+// the frame they first appeared — right as the galaxy came into view.
+// compileAsync projects the scene synchronously before its first await, so
+// the hidden parts are shown only for that instant, never for a frame.
+function _gsPrecompile(){
+  if(!galSkyRoot||typeof flightRenderer==='undefined'||!flightRenderer||!flightRenderer.compileAsync)return;
+  const hidden=[];
+  galSkyRoot.traverse(o=>{if(!o.visible){hidden.push(o);o.visible=true;}});
+  try{const pr=flightRenderer.compileAsync(flightScene,flightCamera);if(pr&&pr.catch)pr.catch(e=>console.warn('[galsky] precompile',e));}
+  catch(e){console.warn('[galsky] precompile',e);}
+  finally{for(const o of hidden)o.visible=false;}
 }
 // Where the current system sits in the galaxy (ly, world axes, Sun = origin).
 // Sol → origin. Other systems get a stable position a few to a few hundred
@@ -15329,7 +15404,7 @@ function _gsArmClouds(B){
   const dm=_gsDustMat();
   if(dm){
     dust=_gsLodMesh(dp,dc,dK,dP,_gsStarGeo(),'JOTS_ArmDust');
-    dust.material.dispose();dust.material=dm;
+    dust.material.dispose();dust.material=dm;_gsApplyLod(dust);
     dust.userData.gs.kmax=0.03;dust.renderOrder=-999.9;
   }
   return {fog,dust};
@@ -15633,7 +15708,7 @@ function _gsPlaceSubs(L,resize){
     if(resize){
       inv.copy(o.matrix).invert();
       c.copy(L).multiplyScalar(S).applyMatrix4(inv).divideScalar(S);
-      for(let j=0;j<r.meshes.length;j++)_gsResize(r.meshes[j],c.x,c.y,c.z);
+      for(let j=0;j<r.meshes.length;j++)_gsLodCam(r.meshes[j],c.x,c.y,c.z);
     }
   }
 }
@@ -15656,16 +15731,17 @@ function updateGalSky(force){
     L0.copy(cam).applyQuaternion(galSky.qInv).add(galSky.sunLocal);
     for(let i=0;i<galSky.subs.length;i++){const r=galSky.subs[i];near=Math.min(near,Math.max(20,L0.distanceTo(r.center)-r.R));}
   }
-  // Re-derive cloud sizes when the camera has moved a meaningful fraction
-  // of its distance through the galaxy (throttled; idle at home = never).
+  // Re-fade the layer when the camera has moved a meaningful fraction of
+  // its distance through the galaxy (throttled; idle at home = never).
   const now=performance.now();
   const last=galSky._lastSize;
   const moved=last?cam.distanceTo(last):Infinity;
+  // Placement + the shader's per-mesh camera: a few uniforms, every frame.
+  const L=galSky.camLocal.copy(cam).applyQuaternion(galSky.qInv).add(galSky.sunLocal);
+  _gsPlaceSubs(L,true);
   if(force||(moved>Math.max(1.5,0.07*Math.max(near,20))&&now-(galSky._sizeT||0)>120)){
     galSky._sizeT=now;
     galSky._lastSize=(last||new THREE.Vector3()).copy(cam);
-    const L=galSky.camLocal.copy(cam).applyQuaternion(galSky.qInv).add(galSky.sunLocal);
-    _gsPlaceSubs(L,true);
     // Deep in the nucleus every bulge cloud surrounds you; dim the star
     // field there so the sky reads as a glowing core, not a white-out.
     if(galSky.mwMesh)_gsFade(galSky.mwMesh,0.22+0.78*_gsSmooth(900,9000,L.length()));
@@ -15840,127 +15916,25 @@ function updateDistantSystems(dt){
   });
 }
 
-// ── 4. POST-PROCESSING: bloom + motion blur (r128, no addons) ────
-// Implemented with manual render targets + fullscreen quad passes.
-let _postInited=false,_rtScene,_rtA,_rtB,_rtPrev,_fsScene,_fsCam,_fsQuad;
-let _brightMat,_blurMat,_compMat,_blendMat;
-function initPostFX(){
-  if(_postInited||!flightRenderer)return;
-  const sz=new THREE.Vector2();flightRenderer.getDrawingBufferSize(sz);
-  const W=Math.max(2,Math.floor(sz.x)),H=Math.max(2,Math.floor(sz.y));
-  // half-float targets preserve HDR for bloom where supported; fall back to byte
-  const ftype=(GFX.halfFloatTex&&THREE.HalfFloatType)?THREE.HalfFloatType:THREE.UnsignedByteType;
-  const opts={minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat,type:ftype};
-  _rtScene=new THREE.WebGLRenderTarget(W,H,opts);
-  _rtA=new THREE.WebGLRenderTarget(W>>1,H>>1,opts);
-  _rtB=new THREE.WebGLRenderTarget(W>>1,H>>1,opts);
-  _rtPrev=new THREE.WebGLRenderTarget(W,H,opts);
-  _fsScene=new THREE.Scene();
-  _fsCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-  // bright-pass: extract highlights
-  _brightMat=new THREE.ShaderMaterial({
-    // threshold raised 0.62→0.78: at 0.62, a lot of moderately-lit scenery
-    // (not just actual light sources) crossed into bloom, which read as a
-    // general soft/blurry look across the whole scene rather than glow
-    // specifically around bright things like the Sun or emissive highlights.
-    uniforms:{tDiffuse:{value:null},threshold:{value:0.78}},
-    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-    fragmentShader:'uniform sampler2D tDiffuse;uniform float threshold;varying vec2 vUv;void main(){vec4 c=texture2D(tDiffuse,vUv);float l=dot(c.rgb,vec3(0.299,0.587,0.114));float f=smoothstep(threshold,threshold+0.25,l);gl_FragColor=vec4(c.rgb*f,1.0);}'
-  });
-  // separable blur
-  _blurMat=new THREE.ShaderMaterial({
-    uniforms:{tDiffuse:{value:null},dir:{value:new THREE.Vector2(1,0)},res:{value:new THREE.Vector2(W>>1,H>>1)}},
-    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-    fragmentShader:'uniform sampler2D tDiffuse;uniform vec2 dir;uniform vec2 res;varying vec2 vUv;void main(){vec2 px=dir/res;vec4 s=vec4(0.0);s+=texture2D(tDiffuse,vUv-px*4.0)*0.05;s+=texture2D(tDiffuse,vUv-px*3.0)*0.09;s+=texture2D(tDiffuse,vUv-px*2.0)*0.12;s+=texture2D(tDiffuse,vUv-px*1.0)*0.15;s+=texture2D(tDiffuse,vUv)*0.18;s+=texture2D(tDiffuse,vUv+px*1.0)*0.15;s+=texture2D(tDiffuse,vUv+px*2.0)*0.12;s+=texture2D(tDiffuse,vUv+px*3.0)*0.09;s+=texture2D(tDiffuse,vUv+px*4.0)*0.05;gl_FragColor=s;}'
-  });
-  // composite scene + bloom, then motion-blur blend with previous frame
-  _compMat=new THREE.ShaderMaterial({
-    uniforms:{tScene:{value:null},tBloom:{value:null},tPrev:{value:null},bloomStr:{value:0.16},motionAmt:{value:0.0}},
-    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
-    fragmentShader:'uniform sampler2D tScene;uniform sampler2D tBloom;uniform sampler2D tPrev;uniform float bloomStr;uniform float motionAmt;varying vec2 vUv;void main(){vec4 sc=texture2D(tScene,vUv);vec4 bl=texture2D(tBloom,vUv);vec3 col=sc.rgb+bl.rgb*bloomStr;vec4 pv=texture2D(tPrev,vUv);col=mix(col,pv.rgb,motionAmt);gl_FragColor=vec4(col,1.0);}'
-  });
-  _fsQuad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),_brightMat);
-  _fsScene.add(_fsQuad);
-  _postInited=true;
-}
-function resizePostFX(){
-  if(!_postInited)return;
-  const sz=new THREE.Vector2();flightRenderer.getDrawingBufferSize(sz);
-  const W=Math.max(2,sz.x),H=Math.max(2,sz.y);
-  _rtScene.setSize(W,H);_rtPrev.setSize(W,H);
-  _rtA.setSize(W>>1,H>>1);_rtB.setSize(W>>1,H>>1);
-  _blurMat.uniforms.res.value.set(W>>1,H>>1);
-}
 let _sbT=0;
 function renderWithPostFX(){
-  const useBloom=STATE.settings.bloom, useMotion=STATE.settings.motion;
-  // This whole pipeline (bright-pass/blur/composite) is built on raw
-  // THREE.ShaderMaterial + THREE.WebGLRenderTarget, both incompatible
-  // with WebGPURenderer's node-material pipeline (confirmed via live
-  // testing: repeated "NodeBuilder: Material ShaderMaterial is not
-  // compatible" warnings every frame). Properly porting a multi-pass
-  // bloom+motion-blur system to TSL is real, substantial work not done
-  // yet - bypassing to a plain render under WebGPU rather than let it
-  // silently degrade every frame is the honest choice here; bloom/
-  // motion-blur are visually absent under WebGPU until that follow-up
-  // work happens, not quietly broken.
-  // NOTE: this is intentionally NOT gated on _isRealWebGPU like the other
-  // fallback checks in this file. The incompatibility here is with
-  // WebGPURenderer's node-material architecture itself (NodeBuilder),
-  // which is active whether the renderer's active backend is WebGPU or
-  // its WebGL2 fallback -- unlike PMREMGenerator or the compute-shader
-  // planet builders, where the two backends genuinely differ. Detecting
-  // "real WebGPU" here would incorrectly re-enable this ShaderMaterial
-  // pipeline for WebGL2-fallback Safari too, risking the exact same
-  // "NodeBuilder: Material ShaderMaterial is not compatible" breakage
-  // on the devices this needs to be safest for.
-  if(!useBloom&&!useMotion || true){
-    const _rt0 = performance.now();
-    flightRenderer.setRenderTarget(null);
-    const _spec=window.DMSpec&&DMSpec.on; if(_spec) try{ DMSpec.pre(flightCamera); }catch(e){}
-    try{ if(galSky.ready) updateGalSky(); }catch(e){}
-    try{ if(window.DMStarBubble) { const n=performance.now(), d=_sbT?(n-_sbT)/1000:1/60; _sbT=n; if(window.DMStar) DMStar.frame(flightCamera,d); DMStarBubble.frame(flightCamera,flightScene,d); } }catch(e){ console.warn('[starbubble] '+(e&&e.stack||e)); }
-    try{ flightRenderer.render(flightScene,flightCamera); _shotGrab(flightRenderer); }
-    finally{ if(_spec) try{ DMSpec.post(flightCamera); }catch(e){} }
-    const _rtMs = performance.now()-_rt0;
-    if(!window._renderTimingSamples) window._renderTimingSamples=[];
-    window._renderTimingSamples.push(_rtMs);
-    if(window._renderTimingSamples.length>=30 && !window._renderTimingLogged){
-      window._renderTimingLogged=true;
-      const s=window._renderTimingSamples;
-      console.log('[RENDER TIMING] avg:',(s.reduce((a,b)=>a+b,0)/s.length).toFixed(1),'ms max:',Math.max(...s).toFixed(1),'ms min:',Math.min(...s).toFixed(1),'ms over',s.length,'samples');
-    }
-    return;
-  }
-  if(!_postInited)initPostFX();
-  const r=flightRenderer;
-  // 1. render scene to RT
-  r.setRenderTarget(_rtScene);r.render(flightScene,flightCamera);
-  if(useBloom){
-    // 2. bright pass → _rtA
-    _fsQuad.material=_brightMat;_brightMat.uniforms.tDiffuse.value=_rtScene.texture;
-    r.setRenderTarget(_rtA);r.render(_fsScene,_fsCam);
-    // 3. blur H → _rtB, blur V → _rtA
-    _fsQuad.material=_blurMat;_blurMat.uniforms.tDiffuse.value=_rtA.texture;_blurMat.uniforms.dir.value.set(1,0);
-    r.setRenderTarget(_rtB);r.render(_fsScene,_fsCam);
-    _blurMat.uniforms.tDiffuse.value=_rtB.texture;_blurMat.uniforms.dir.value.set(0,1);
-    r.setRenderTarget(_rtA);r.render(_fsScene,_fsCam);
-  }
-  // 4. composite → screen
-  _fsQuad.material=_compMat;
-  _compMat.uniforms.tScene.value=_rtScene.texture;
-  _compMat.uniforms.tBloom.value=useBloom?_rtA.texture:_rtScene.texture;
-  _compMat.uniforms.bloomStr.value=0.0; // HARD: no fullscreen bloom wash — space stays black vacuum
-  _compMat.uniforms.tPrev.value=_rtPrev.texture;
-  // motion blur amount scales with ship speed for a sense of velocity
-  let mb=0;
-  if(useMotion){const spd=STATE.flight?STATE.flight.speed:0;mb=Math.min(0.55,0.25+spd*0.04);}
-  _compMat.uniforms.motionAmt.value=mb;
-  r.setRenderTarget(null);r.render(_fsScene,_fsCam);
-  // 5. copy current composite into _rtPrev for next frame's motion blur
-  if(useMotion){
-    _fsQuad.material=_compMat; // re-render same into prev
-    r.setRenderTarget(_rtPrev);r.render(_fsScene,_fsCam);
+  // One plain render: the old bloom/motion-blur chain (raw ShaderMaterial +
+  // WebGLRenderTarget) cannot run under WebGPURenderer's node pipeline and
+  // was unreachable behind `|| true`; it has been removed.
+  const _rt0 = performance.now();
+  flightRenderer.setRenderTarget(null);
+  const _spec=window.DMSpec&&DMSpec.on; if(_spec) try{ DMSpec.pre(flightCamera); }catch(e){}
+  try{ if(galSky.ready) updateGalSky(); }catch(e){}
+  try{ if(window.DMStarBubble) { const n=performance.now(), d=_sbT?(n-_sbT)/1000:1/60; _sbT=n; if(window.DMStar) DMStar.frame(flightCamera,d); DMStarBubble.frame(flightCamera,flightScene,d); } }catch(e){ console.warn('[starbubble] '+(e&&e.stack||e)); }
+  try{ flightRenderer.render(flightScene,flightCamera); _shotGrab(flightRenderer); }
+  finally{ if(_spec) try{ DMSpec.post(flightCamera); }catch(e){} }
+  const _rtMs = performance.now()-_rt0;
+  if(!window._renderTimingSamples) window._renderTimingSamples=[];
+  window._renderTimingSamples.push(_rtMs);
+  if(window._renderTimingSamples.length>=30 && !window._renderTimingLogged){
+    window._renderTimingLogged=true;
+    const s=window._renderTimingSamples;
+    console.log('[RENDER TIMING] avg:',(s.reduce((a,b)=>a+b,0)/s.length).toFixed(1),'ms max:',Math.max(...s).toFixed(1),'ms min:',Math.min(...s).toFixed(1),'ms over',s.length,'samples');
   }
 }
 // Graphics change at any time (menu presets, Settings, a synced profile):
@@ -15972,7 +15946,6 @@ function applyGraphicsLive(){
     if(!r) return;
     try{ r.setPixelRatio(pr); r.setSize(w,h); r.shadowMap.enabled=!!GFX.shadows; r.shadowMap.type=THREE.PCFSoftShadowMap; }catch(e){}
   });
-  try{ resizePostFX(); }catch(e){}
   [typeof flightScene!=='undefined'?flightScene:null,typeof PW!=='undefined'?PW.scene:null].forEach(sc=>{ if(sc) _gfxApplyShadows(sc); });
   try{ applyRenderSettings(); }catch(e){ console.warn('render apply:',e); }
   // live water picks its particle count from the tier: rebuild it at the new one
