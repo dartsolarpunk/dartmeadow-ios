@@ -722,12 +722,14 @@ body.pw-hud #screen-flight > :not(#flight-canvas){display:none !important;}
 .pf-th-sw{display:inline-flex;flex-shrink:0;width:22px;height:14px;border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,.2);}
 .pf-th-sw i{flex:1;}
 .pf-custom{display:flex;gap:6px;margin-top:6px;}
+.pf-xh-box{margin:10px 0 4px;padding:10px;border:1px solid rgba(var(--acc-rgb),.22);border-radius:5px;background:rgba(var(--acc-rgb),.05);}
 .pf-xh{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
-.pf-xh-sw{width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.25);cursor:pointer;padding:0;color:#000;font-family:var(--font-hud);font-size:.55rem;font-weight:700;}
+.pf-xh-sw{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.85);box-shadow:0 0 0 1px rgba(0,0,0,.9),inset 0 0 0 1px rgba(0,0,0,.6);cursor:pointer;padding:0;color:#000;font-family:var(--font-hud);font-size:.55rem;font-weight:700;}
 .pf-xh-sw.on{outline:2px solid var(--gold);outline-offset:2px;}
 .pf-xh-g{display:flex;align-items:center;gap:8px;margin-top:8px;}
 .pf-xh-g input{flex:1;accent-color:var(--xh-color,var(--cyan));}
-.pf-xh-prev{display:inline-flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:4px;background:rgba(0,0,0,.45);color:var(--xh-color,var(--cyan));}
+/* the preview chip reads on any theme, black included: light checker + white/black contrast ring */
+.pf-xh-prev{display:inline-flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:4px;background:repeating-conic-gradient(#d9dee6 0% 25%,#8a929e 0% 50%) 50%/12px 12px;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.9);color:var(--xh-color,var(--cyan));}
 .pf-xh-prev svg{opacity:var(--xh-op,.8);filter:var(--xh-filter,none);}
 .pf-xh-prev svg .xh-core{fill:var(--xh-core,currentColor);}
 .pf-save{display:flex;gap:6px;margin-top:8px;}
@@ -5702,6 +5704,7 @@ function _startFlightLoop(){
     try{ CHAR.mixer && CHAR.mixer.update(dt); _updateCharDebugHUD(); }catch(e){_animLoopWarn('charMixer',e);}
     try{ if(CHAR.mounted) applySkyboardHeadOverride(); }catch(e){_animLoopWarn('headOverride',e);}
     try{updateBirdTemple(dt);}catch(e){_animLoopWarn('birdTemple',e);}
+    try{ if(SHIP_WALK.active) _shipWalkCarry(); }catch(e){_animLoopWarn('shipCarry',e);}
     try{_anchorPostUpdate();}catch(e){_animLoopWarn('anchor',e);}
     try{updateDistantSystems(dt);}catch(e){_animLoopWarn('distantSystems',e);}
     try{updateVolumetricDust(dt);}catch(e){_animLoopWarn('volumetricDust',e);}
@@ -5735,7 +5738,8 @@ function _startFlightLoop(){
     // Safety net (~every 30 frames): mesh-first can mark loaded before boardFlight
     // exists; remount then no-ops and she stays unparented/invisible.
     try{
-      if(boardFlight && CHAR.loaded && CHAR.root && (!CHAR.mounted || CHAR.root.parent!==boardFlight || !CHAR.root.visible)){
+      // (not while she's walking the Bird Temple deck: she's meant to be off the board there)
+      if(boardFlight && CHAR.loaded && CHAR.root && !_charOnTempleDeck() && (!CHAR.mounted || CHAR.root.parent!==boardFlight || !CHAR.root.visible)){
         if(_flightFrameCounter % 30 === 0){
           try{ remountSkyboard(boardFlight); _forceCharVisible(); }catch(er){}
         }
@@ -7666,57 +7670,201 @@ function updateBirdTemple(dt){
 // discussed.
 // ══════════════════════════════════════════════════════════════
 const SHIP_WALK={active:false,localPos:null,yaw:0,pitch:0,velY:0,grounded:true};
-let _shipWalkRay;
+// True while she's standing on the temple deck (off the board). Every
+// "put her back on the board" path checks this: the 30-frame mount safety
+// net used to re-parent her to the board half a second after landing, and
+// the walk then wrote her world position into the board's local frame —
+// throwing her ~100 units off into space (the "board shows, Ariel doesn't").
+function _charOnTempleDeck(){ return SHIP_WALK.active&&!!SHIP_WALK.charOn; }
 window.__whenThreeReady(function(){
   SHIP_WALK.localPos=new THREE.Vector3();
-  _shipWalkRay=new THREE.Raycaster();
 });
 // Solid parts you can stand on / bump into. The Bird Shard, its halo and
 // the staff's amulet float overhead and the sparkles are only light, so
-// they're left out — before, a downward ray from far above hit the shard
-// or the Temple roof first, which read as a wall and pinned you in place.
+// they're left out.
 function _shipWalkMeshes(){
-  const bt=BIRD_TEMPLE;
-  if(bt._walkMeshes&&bt._walkMeshesFor===bt.group)return bt._walkMeshes;
   const list=[];
-  bt.group.traverse(o=>{
+  BIRD_TEMPLE.group.traverse(o=>{
     if(!o.isMesh||o.isInstancedMesh)return;
-    let skip=false;for(let p=o;p;p=p.parent){if(/bird shard|amulet|BT_Sparkles|BT_Cubes/i.test(p.name||'')){skip=true;break;}}
-    if(!skip)list.push(o);
+    for(let p=o;p;p=p.parent){if(/bird shard|amulet|BT_Sparkles|BT_Cubes/i.test(p.name||''))return;}
+    list.push(o);
   });
-  bt._walkMeshes=list;bt._walkMeshesFor=bt.group;
   return list;
 }
+// ── One collision surface for the whole temple ─────────────────────────
+// Every solid part (deck, steps, altar, the maze walls on the top step,
+// arches, pillars, props) is baked once into a single triangle soup in the
+// temple's own frame, bucketed on a flat XZ grid. Whether or not the parts
+// touch in the model, she meets them as one connected mesh: the ground
+// under her is the highest surface in her grid cell, walls/pillars push her
+// out as a vertical capsule, and the follow camera is pulled in by the same
+// set. A few dozen triangles per query — cheap on a phone, no per-frame
+// raycasts against ~150 separate meshes.
+const TCOL={for:null,T:null,N:null,n:0,cs:1,x0:0,z0:0,gx:0,gz:0,start:null,items:null,stamp:null,sid:0,inv:null,invT:-1};
+function _tcolBuild(){
+  const g=BIRD_TEMPLE.group;
+  if(TCOL.for===g&&TCOL.T)return TCOL;
+  g.updateMatrixWorld(true);
+  const inv=new THREE.Matrix4().copy(g.matrixWorld).invert(), m=new THREE.Matrix4(), v=new THREE.Vector3();
+  const parts=[];let n=0;
+  for(const o of _shipWalkMeshes()){
+    const geo=o.geometry,pos=geo&&geo.attributes&&geo.attributes.position;if(!pos)continue;
+    m.multiplyMatrices(inv,o.matrixWorld);
+    const P=new Float32Array(pos.count*3);
+    for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(m);P[i*3]=v.x;P[i*3+1]=v.y;P[i*3+2]=v.z;}
+    const idx=geo.index, s0=geo.drawRange?Math.max(0,geo.drawRange.start):0;
+    const cnt=Math.min(idx?idx.count:pos.count,(geo.drawRange&&isFinite(geo.drawRange.count))?s0+geo.drawRange.count:Infinity);
+    parts.push({P,idx,s0,cnt});n+=Math.floor((cnt-s0)/3);
+  }
+  const T=new Float32Array(n*9),N=new Float32Array(n*3);
+  let k=0,minX=Infinity,minZ=Infinity,maxX=-Infinity,maxZ=-Infinity;
+  for(const {P,idx,s0,cnt} of parts){
+    for(let i=s0;i+2<cnt;i+=3){
+      const a=idx?idx.getX(i):i,b=idx?idx.getX(i+1):i+1,c=idx?idx.getX(i+2):i+2;
+      const o=k*9;
+      T[o]=P[a*3];T[o+1]=P[a*3+1];T[o+2]=P[a*3+2];T[o+3]=P[b*3];T[o+4]=P[b*3+1];T[o+5]=P[b*3+2];T[o+6]=P[c*3];T[o+7]=P[c*3+1];T[o+8]=P[c*3+2];
+      const ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],uz=T[o+5]-T[o+2],wx=T[o+6]-T[o],wy=T[o+7]-T[o+1],wz=T[o+8]-T[o+2];
+      let nx=uy*wz-uz*wy,ny=uz*wx-ux*wz,nz=ux*wy-uy*wx;const l=Math.hypot(nx,ny,nz);
+      if(!(l>1e-9))continue;                       // degenerate
+      N[k*3]=nx/l;N[k*3+1]=ny/l;N[k*3+2]=nz/l;
+      for(let j=0;j<9;j+=3){const x=T[o+j],z=T[o+j+2];if(x<minX)minX=x;if(x>maxX)maxX=x;if(z<minZ)minZ=z;if(z>maxZ)maxZ=z;}
+      k++;
+    }
+  }
+  // cells ~0.3 world units square (the temple's frame is scaled by the group)
+  const cs=0.3/Math.max(1e-6,g.scale.x), gx=Math.max(1,Math.ceil((maxX-minX)/cs)+1), gz=Math.max(1,Math.ceil((maxZ-minZ)/cs)+1);
+  const cnt=new Uint32Array(gx*gz+1);
+  const span=(t,f)=>{const o=t*9;let ax=Math.min(T[o],T[o+3],T[o+6]),bx=Math.max(T[o],T[o+3],T[o+6]),az=Math.min(T[o+2],T[o+5],T[o+8]),bz=Math.max(T[o+2],T[o+5],T[o+8]);
+    const i0=Math.floor((ax-minX)/cs),i1=Math.floor((bx-minX)/cs),j0=Math.floor((az-minZ)/cs),j1=Math.floor((bz-minZ)/cs);
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)f(j*gx+i);};
+  for(let t=0;t<k;t++)span(t,c=>cnt[c+1]++);
+  for(let c=0;c<gx*gz;c++)cnt[c+1]+=cnt[c];
+  const items=new Uint32Array(cnt[gx*gz]),fill=cnt.slice(0,gx*gz);
+  for(let t=0;t<k;t++)span(t,c=>{items[fill[c]++]=t;});
+  Object.assign(TCOL,{for:g,T,N,n:k,cs,x0:minX,z0:minZ,gx,gz,start:cnt,items,stamp:new Uint32Array(k),sid:0,inv:new THREE.Matrix4(),invT:-1});
+  console.log('[Bird Temple] collision surface:',k,'triangles,',gx+'×'+gz,'cells');
+  return TCOL;
+}
+// visit each triangle in the cells covering [x0,x1]×[z0,z1] once
+function _tcolEach(x0,z0,x1,z1,f){
+  const C=TCOL;if(++C.sid>=0xfffffff0){C.stamp.fill(0);C.sid=1;}
+  const i0=Math.max(0,Math.floor((x0-C.x0)/C.cs)),i1=Math.min(C.gx-1,Math.floor((x1-C.x0)/C.cs));
+  const j0=Math.max(0,Math.floor((z0-C.z0)/C.cs)),j1=Math.min(C.gz-1,Math.floor((z1-C.z0)/C.cs));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const c=j*C.gx+i;
+    for(let q=C.start[c];q<C.start[c+1];q++){const t=C.items[q];if(C.stamp[t]===C.sid)continue;C.stamp[t]=C.sid;f(t);}}
+}
+// highest walkable surface at (x,z) at or below fromY — temple frame
+function _tcolGround(x,z,fromY){
+  const C=TCOL,T=C.T,N=C.N;let best=null;
+  _tcolEach(x,z,x,z,t=>{
+    if(Math.abs(N[t*3+1])<0.25)return;           // a wall, not something to stand on
+    const o=t*9,ax=T[o],az=T[o+2],v0x=T[o+3]-ax,v0z=T[o+5]-az,v1x=T[o+6]-ax,v1z=T[o+8]-az,px=x-ax,pz=z-az;
+    const d=v0x*v1z-v1x*v0z;if(Math.abs(d)<1e-12)return;
+    const u=(px*v1z-v1x*pz)/d,w=(v0x*pz-px*v0z)/d;
+    if(u<-1e-5||w<-1e-5||u+w>1+1e-5)return;
+    const y=T[o+1]+u*(T[o+4]-T[o+1])+w*(T[o+7]-T[o+1]);
+    if(y<=fromY+1e-4&&(best===null||y>best))best=y;
+  });
+  return best;
+}
+// closest point on triangle t to (px,py,pz) → out[0..2] (Ericson)
+const _tcolCP=new Float64Array(3);
+function _tcolClosest(t,px,py,pz){
+  const T=TCOL.T,o=t*9,out=_tcolCP;
+  const ax=T[o],ay=T[o+1],az=T[o+2],bx=T[o+3],by=T[o+4],bz=T[o+5],cx=T[o+6],cy=T[o+7],cz=T[o+8];
+  const abx=bx-ax,aby=by-ay,abz=bz-az,acx=cx-ax,acy=cy-ay,acz=cz-az,apx=px-ax,apy=py-ay,apz=pz-az;
+  const d1=abx*apx+aby*apy+abz*apz,d2=acx*apx+acy*apy+acz*apz;
+  if(d1<=0&&d2<=0){out[0]=ax;out[1]=ay;out[2]=az;return out;}
+  const bpx=px-bx,bpy=py-by,bpz=pz-bz,d3=abx*bpx+aby*bpy+abz*bpz,d4=acx*bpx+acy*bpy+acz*bpz;
+  if(d3>=0&&d4<=d3){out[0]=bx;out[1]=by;out[2]=bz;return out;}
+  const vc=d1*d4-d3*d2;
+  if(vc<=0&&d1>=0&&d3<=0){const v=d1/(d1-d3);out[0]=ax+v*abx;out[1]=ay+v*aby;out[2]=az+v*abz;return out;}
+  const cpx=px-cx,cpy=py-cy,cpz=pz-cz,d5=abx*cpx+aby*cpy+abz*cpz,d6=acx*cpx+acy*cpy+acz*cpz;
+  if(d6>=0&&d5<=d6){out[0]=cx;out[1]=cy;out[2]=cz;return out;}
+  const vb=d5*d2-d1*d6;
+  if(vb<=0&&d2>=0&&d6<=0){const w=d2/(d2-d6);out[0]=ax+w*acx;out[1]=ay+w*acy;out[2]=az+w*acz;return out;}
+  const va=d3*d6-d5*d4;
+  if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0){const w=(d4-d3)/((d4-d3)+(d5-d6));out[0]=bx+w*(cx-bx);out[1]=by+w*(cy-by);out[2]=bz+w*(cz-bz);return out;}
+  const den=1/(va+vb+vc),v=vb*den,w=vc*den;
+  out[0]=ax+abx*v+acx*w;out[1]=ay+aby*v+acy*w;out[2]=az+abz*v+acz*w;return out;
+}
+// Push a vertical capsule (feet y0 → top y1, radius r; temple frame) out
+// of every wall, pillar and arch it overlaps. Returns the corrected {x,z}.
+function _tcolPush(x,z,y0,y1,r,backX,backZ){
+  const C=TCOL,N=C.N,T=C.T;
+  for(let pass=0;pass<3;pass++){
+    let moved=false;
+    _tcolEach(x-r,z-r,x+r,z+r,t=>{
+      if(Math.abs(N[t*3+1])>0.7)return;            // floors and gentle slopes are walked on, not pushed against
+      const o=t*9,lo=Math.min(T[o+1],T[o+4],T[o+7]),hi=Math.max(T[o+1],T[o+4],T[o+7]);
+      if(hi<y0||lo>y1)return;
+      // nearest height on the capsule's axis to this triangle's span
+      const py=Math.max(y0,Math.min(y1,(Math.max(lo,y0)+Math.min(hi,y1))*0.5));
+      const c=_tcolClosest(t,x,py,z);
+      let dx=x-c[0],dz=z-c[2];const dy=py-c[1];
+      if(Math.abs(dy)>r)return;
+      let dh=Math.hypot(dx,dz);
+      if(dh>=r)return;
+      if(dh<1e-7){                                  // right on the wall: back the way she came
+        dx=backX;dz=backZ;dh=Math.hypot(dx,dz);
+        if(dh<1e-7){dx=N[t*3];dz=N[t*3+2];dh=Math.hypot(dx,dz)||1;}
+      }
+      const k=(r-dh)/dh;x+=dx*k;z+=dz*k;moved=true;
+    });
+    if(!moved)break;
+  }
+  return {x,z};
+}
+// First hit along a ray (temple frame), or Infinity. For the camera.
+function _tcolRay(ox,oy,oz,dx,dy,dz,far){
+  const C=TCOL,T=C.T;let best=far;
+  const ex=ox+dx*far,ez=oz+dz*far;
+  _tcolEach(Math.min(ox,ex),Math.min(oz,ez),Math.max(ox,ex),Math.max(oz,ez),t=>{
+    const o=t*9,e1x=T[o+3]-T[o],e1y=T[o+4]-T[o+1],e1z=T[o+5]-T[o+2],e2x=T[o+6]-T[o],e2y=T[o+7]-T[o+1],e2z=T[o+8]-T[o+2];
+    const px=dy*e2z-dz*e2y,py=dz*e2x-dx*e2z,pz=dx*e2y-dy*e2x,det=e1x*px+e1y*py+e1z*pz;
+    if(Math.abs(det)<1e-12)return;
+    const inv=1/det,sx=ox-T[o],sy=oy-T[o+1],sz=oz-T[o+2],u=(sx*px+sy*py+sz*pz)*inv;if(u<0||u>1)return;
+    const qx=sy*e1z-sz*e1y,qy=sz*e1x-sx*e1z,qz=sx*e1y-sy*e1x,v=(dx*qx+dy*qy+dz*qz)*inv;if(v<0||u+v>1)return;
+    const d=(e2x*qx+e2y*qy+e2z*qz)*inv;if(d>1e-6&&d<best)best=d;
+  });
+  return best<far?best:Infinity;
+}
+// World-space wrappers (the temple wanders and turns; scale is uniform,
+// rotation only about Y, so "down" in its frame is down in the world).
+let _tcolA=null;
+function _tcolToLocal(x,y,z){ if(!_tcolA)_tcolA=new THREE.Vector3(); _tcolBuild(); return BIRD_TEMPLE.group.worldToLocal(_tcolA.set(x,y,z)); }
+function _shipScaleK(){ return BIRD_TEMPLE.group.scale.x||1; }
 // Ground under (x,z), searching down from fromY (the knees when walking,
 // so a floor overhead is never mistaken for the one underfoot). With
 // fromAbove, searches from high up (landing onto the deck from flight).
 function _shipGroundHeight(worldX,worldZ,fromY,fromAbove){
-  _shipWalkRay.set(new THREE.Vector3(worldX,fromAbove?fromY+50:fromY,worldZ),new THREE.Vector3(0,-1,0));
-  _shipWalkRay.far=fromAbove?200:40;
-  const hits=_shipWalkRay.intersectObjects(_shipWalkMeshes(),false);
-  if(hits.length)return hits[0].point.y;
-  return null; // no ground under this point (walked off the edge)
+  const p=_tcolToLocal(worldX,fromAbove?fromY+50:fromY,worldZ), s=_shipScaleK();
+  const gy=_tcolGround(p.x,p.z,p.y);
+  if(gy===null)return null;                      // walked off the edge
+  if(!fromAbove&&(p.y-gy)*s>40)return null;
+  return BIRD_TEMPLE.group.localToWorld(_tcolA.set(p.x,gy,p.z)).y;
 }
-// Walls: a horizontal probe at knee and chest height along the move. On a
-// hit, keep only the part of the move running along the wall (slide).
-let _swN=null, _swNM=null;   // created on first use (THREE loads after this script runs)
-function _shipWallSlide(from,move,feetY,step){
-  if(!_swN){_swN=new THREE.Vector3();_swNM=new THREE.Matrix3();}
-  const len=Math.hypot(move.x,move.z);if(len<1e-6)return move;
-  const dir=new THREE.Vector3(move.x/len,0,move.z/len), R=0.12;
-  for(const h of [step+0.03,0.3]){
-    _shipWalkRay.set(new THREE.Vector3(from.x,feetY+h,from.z),dir);_shipWalkRay.far=len+R;
-    const hit=_shipWalkRay.intersectObjects(_shipWalkMeshes(),false)[0];
-    if(!hit||!hit.face)continue;
-    _swNM.getNormalMatrix(hit.object.matrixWorld);_swN.copy(hit.face.normal).applyMatrix3(_swNM).normalize();
-    if(Math.abs(_swN.y)>0.6)continue;                 // a slope or step edge, not a wall
-    _swN.y=0;_swN.normalize();
-    const into=move.x*_swN.x+move.z*_swN.z;
-    if(into<0){move.x-=_swN.x*into;move.z-=_swN.z*into;}
-    // back off to just short of the wall if still too close
-    if(hit.distance<R){move.x+=_swN.x*(R-hit.distance);move.z+=_swN.z*(R-hit.distance);}
-  }
-  return move;
+// How far the camera can sit from `from` along world direction `dir`
+// before the temple is in the way (dist if nothing is).
+function _shipCamClear(from,dir,dist){
+  const s=_shipScaleK(), o=_tcolToLocal(from.x,from.y,from.z), ox=o.x,oy=o.y,oz=o.z;
+  const d=BIRD_TEMPLE.group.worldToLocal(_tcolA.copy(from).add(dir)).sub(new THREE.Vector3(ox,oy,oz)).normalize();
+  const h=_tcolRay(ox,oy,oz,d.x,d.y,d.z,dist/s);
+  return isFinite(h)?h*s:dist;
+}
+// Walls: her body as a vertical capsule from just above step height up to
+// her shoulders, moved in small sub-steps and pushed out of every wall,
+// pillar, arch and maze wall it would overlap. Returns the world move.
+const SHIP_R=0.07;                 // her body radius at the temple's scale
+function _shipWallResolve(feet,move,stepMax){
+  const len=Math.hypot(move.x,move.z);if(len<1e-7)return move;
+  const s=_shipScaleK(), p=_tcolToLocal(feet.x,feet.y,feet.z), x0=p.x, z0=p.z, y=p.y;
+  const e=_tcolToLocal(feet.x+move.x,feet.y,feet.z+move.z), dx=e.x-x0, dz=e.z-z0;
+  const r=SHIP_R/s, n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/(r*0.5)));
+  let x=x0,z=z0;
+  for(let i=0;i<n;i++){ x+=dx/n; z+=dz/n; const q=_tcolPush(x,z,y+(stepMax+0.02)/s,y+SHIP_CHAR_H*0.9/s,r,-dx,-dz); x=q.x; z=q.z; }
+  const w=BIRD_TEMPLE.group.localToWorld(_tcolA.set(x,y,z));
+  return {x:w.x-feet.x,z:w.z-feet.z};
 }
 // Landing on the temple: she steps off the board onto the deck and walks
 // it herself (walk / idle / jump / climb clips), seen from a follow camera,
@@ -7724,14 +7872,19 @@ function _shipWallSlide(from,move,feetY,step){
 // her FEET, in the temple's own frame (it moves and turns with the ship).
 const SHIP_EYE=0.4;                 // eye height at the temple's scale (≈6 ft)
 const SHIP_CHAR_H=0.454;            // her height there (37 ft board = 2.8 units)
+// She stands on the deck the same way a planet landing puts her down
+// (_pwCharArrive): off the board, in the scene, unmirrored standing scale,
+// foot IK reset, every part forced visible.
 function _shipCharOn(feetWorld){
   if(!CHAR||!CHAR.loaded||!CHAR.root)return false;
   try{
+    if(CHAR.root.parent&&CHAR.root.parent!==flightScene)CHAR.root.parent.remove(CHAR.root);
     dismountSkyboard(flightScene,feetWorld);
     const s=SHIP_CHAR_H/Math.max(0.001,CHAR.rawHeight||1);
     CHAR.root.scale.set(s,s,s);
     CHAR._shipScale=s;
-    CHAR.stanceMode='stand';
+    CHAR.stanceMode='stand';CHAR._transitioning=false;CHAR._footIKWeight=0;
+    _forceCharVisible();
     return true;
   }catch(e){console.warn('[ShipWalk] dismount:',e);return false;}
 }
@@ -7740,7 +7893,10 @@ function enterShipWalk(){
   if(!bt.group||!sp)return;
   $('ship-land-prompt').style.display='none';
   // Find the deck directly beneath the player's current world position.
-  const y=_shipGroundHeight(sp.pos.x,sp.pos.z,sp.pos.y,true);
+  // the surface right under the board (not the temple roof above it); from
+  // high up only if the board is somehow below the deck
+  let y=_shipGroundHeight(sp.pos.x,sp.pos.z,sp.pos.y+0.05);
+  if(y===null)y=_shipGroundHeight(sp.pos.x,sp.pos.z,sp.pos.y,true);
   const feet=new THREE.Vector3(sp.pos.x,(y!==null?y:sp.pos.y),sp.pos.z);
   SHIP_WALK.localPos.copy(bt.group.worldToLocal(feet.clone()));
   // yaw is kept relative to the ship (it turns as it wanders).
@@ -7797,7 +7953,10 @@ function updateShipWalk(dt){
   // mapping as flight and the planet-surface walk.
   SHIP_WALK.yaw-=JOY.Lx*dt*1.8;
   SHIP_WALK.pitch=THREE.MathUtils.clamp(SHIP_WALK.pitch+JOY.Ly*dt*1.2,-0.6,0.9);   // push up = look up
-  const WALK_SPEED=0.55, STEP_MAX=0.3, CLIMB_MAX=0.8, JUMP_VEL=1.9, GRAVITY=6.0;
+  // Steps: she strides up anything to knee height (STEP_MAX ≈ 1.2 ft at her
+  // 0.454-unit / 6 ft scale); the altar's high steps (≈0.2 and ≈0.12 units)
+  // and anything else up to CLIMB_MAX she pulls herself up with the climb clip.
+  const WALK_SPEED=0.55, STEP_MAX=0.09, CLIMB_MAX=0.6, JUMP_VEL=1.9, GRAVITY=6.0;
   let mf=-JOY.Ry, ms=JOY.Rx;
   if(typeof KEYS!=='undefined'&&KEYS){if(KEYS.KeyW)mf+=1;if(KEYS.KeyS)mf-=1;if(KEYS.KeyD)ms+=1;if(KEYS.KeyA)ms-=1;}
   const mag=Math.min(1,Math.hypot(mf,ms));
@@ -7837,7 +7996,7 @@ function updateShipWalk(dt){
           }
         }
       }
-      if(!SHIP_WALK.climb)mv=_shipWallSlide(feet.clone().setY(feet.y+SHIP_EYE),mv,feet.y,STEP_MAX);
+      if(!SHIP_WALK.climb)mv=_shipWallResolve(feet,mv,STEP_MAX);
       SHIP_WALK.faceYaw=Math.atan2(worldDir.x,worldDir.z);
     } else mv={x:0,z:0};
     if(!SHIP_WALK.climb){
@@ -7869,6 +8028,11 @@ function updateShipWalk(dt){
   }
 
   const F=bt.group.localToWorld(SHIP_WALK.localPos.clone());
+  SHIP_WALK._F=F.clone();   // where the deck had her this step (see _shipWalkCarry)
+  // She loaded after landing, or something else took her: stand her on the deck.
+  if(CHAR.loaded&&CHAR.root&&(!SHIP_WALK.charOn||CHAR.mounted||CHAR.root.parent!==flightScene)){
+    SHIP_WALK.charOn=_shipCharOn(F);
+  }
   // ── Her: on her feet, facing where she walks, animated.
   if(SHIP_WALK.charOn&&CHAR.root){
     CHAR.root.position.set(F.x,F.y+(CHAR.feetOffset||0)*(CHAR._shipScale||1)+(CHAR._plantOff||0),F.z);   // + planted-foot contact
@@ -7887,9 +8051,8 @@ function updateShipWalk(dt){
   const back=new THREE.Vector3(Math.sin(camYawW)*Math.cos(SHIP_WALK.pitch),Math.sin(SHIP_WALK.pitch)+lift,Math.cos(camYawW)*Math.cos(SHIP_WALK.pitch)).normalize();
   let camD=dist;
   if(SHIP_WALK.charOn){
-    _shipWalkRay.set(head,back);_shipWalkRay.far=dist;
-    const hit=_shipWalkRay.intersectObjects(_shipWalkMeshes(),false)[0];
-    if(hit)camD=Math.max(0.25,hit.distance-0.08);
+    const hd=_shipCamClear(head,back,dist);
+    if(hd<dist)camD=Math.max(0.25,hd-0.08);
   }
   const camPos=SHIP_WALK.charOn?head.clone().addScaledVector(back,camD):new THREE.Vector3(F.x,F.y+SHIP_EYE,F.z);
   flightCamera.position.copy(camPos);
@@ -7914,6 +8077,19 @@ function updateShipWalk(dt){
     boardFlight.rotation.z=Math.sin(bt.t*1.2)*0.04;
   }
   _boardCallTick(dt);   // parked here, or flying in when summoned
+}
+// The temple moves after the walk step each frame (updateBirdTemple runs
+// later in the loop). Carry her, the board and the camera along by exactly
+// what the deck under her moved, so all three stay locked to the deck's
+// frame instead of trailing it by a frame.
+function _shipWalkCarry(){
+  const bt=BIRD_TEMPLE, F0=SHIP_WALK._F; if(!bt.group||!F0)return;
+  const F=bt.group.localToWorld(SHIP_WALK.localPos.clone()), dx=F.x-F0.x, dy=F.y-F0.y, dz=F.z-F0.z;
+  if(!dx&&!dy&&!dz)return;
+  if(SHIP_WALK.charOn&&CHAR.root&&CHAR.root.parent===flightScene){CHAR.root.position.x+=dx;CHAR.root.position.y+=dy;CHAR.root.position.z+=dz;}
+  if(boardFlight){boardFlight.position.x+=dx;boardFlight.position.y+=dy;boardFlight.position.z+=dz;}
+  if(flightCamera){flightCamera.position.x+=dx;flightCamera.position.y+=dy;flightCamera.position.z+=dz;flightCamera.updateMatrixWorld(true);}
+  F0.copy(F);
 }
 function _btPlayChime(){
   const bt=BIRD_TEMPLE;
@@ -12282,11 +12458,14 @@ function _pfEnsure(){
     '<div id="pf-safety"></div>'+
     '<div class="pf-sec">THEME</div>'+
     '<div class="pf-themes" id="pf-themes"></div>'+
+    '<div class="pf-xh-box" id="pf-xh-box">'+
+      '<div class="pf-row-t">Crosshair color</div><div class="pf-row-d">The aiming mark in the middle of the screen. T follows the theme; the last swatch picks any colour.</div>'+
+      '<div class="pf-xh" id="pf-xh"></div>'+
+      '<div class="pf-row-t" style="margin-top:10px;">Crosshair glow</div>'+
+      '<div class="pf-xh-g"><input type="range" id="pf-xh-glow" min="0" max="100" step="1" aria-label="Crosshair glow"><span class="pf-row-d" id="pf-xh-gn"></span><span class="pf-xh-prev" id="pf-xh-prev"></span></div>'+
+    '</div>'+
     '<div class="pf-row-d" style="margin-top:8px;">Custom colours \u2014 tap one to open the colour picker:</div>'+
     '<div class="pf-custom" id="pf-custom"></div>'+
-    '<div class="pf-row-d" style="margin-top:10px;">Crosshair \u2014 colour and neon glow (kept with your theme):</div>'+
-    '<div class="pf-xh" id="pf-xh"></div>'+
-    '<div class="pf-xh-g"><span class="pf-row-d">Glow</span><input type="range" id="pf-xh-glow" min="0" max="100" step="1" aria-label="Crosshair glow"><span class="pf-row-d" id="pf-xh-gn"></span><span class="pf-xh-prev" id="pf-xh-prev"></span></div>'+
     '<div class="pf-save"><input id="pf-th-name" maxlength="32" placeholder="Name these colours\u2026" autocomplete="off" spellcheck="false"><button class="pf-btn" id="pf-th-save">\uFF0B SAVE THEME</button></div>'+
     '<div class="pf-sec">MY THEMES</div>'+
     '<div class="pf-themes" id="pf-mine"></div>'+
@@ -18478,6 +18657,7 @@ window.jotsResyncRiderToBoard = jotsResyncRiderToBoard;
 window.rebuildFlightBoardIfBroken = rebuildFlightBoardIfBroken;
 
 function remountSkyboard(boardObj){
+  if(_charOnTempleDeck()) return false;   // walking the Bird Temple: exitShipWalk puts her back on
   stripCharacterMount();
   if(!CHAR.loaded || !CHAR.root || !boardObj) return false;
   // If scale missing (mesh-first race before calibration), compute quick box scale.
@@ -18512,6 +18692,7 @@ async function ensureAutumnOnBoard(reason){
     && CHAR.root.parent===boardFlight && CHAR.mounted && CHAR.root.visible);
 
   for(let attempt=1; attempt<=8; attempt++){
+    if(_charOnTempleDeck()) return true;   // she's standing on the Bird Temple deck, not riding
     try{
       if(CHAR._loadPromise){
         try{ await CHAR._loadPromise; }catch(e){ console.warn('[CHAR] ensure await _loadPromise failed ('+reason+'):',e); }
@@ -18681,6 +18862,17 @@ function updateCharOrbitCamera(){
   // the surface she's never "mounted" (she's walking, board just trails
   // beside her), so orbiting around her CHAR.root directly is correct
   // there too, same as the mounted case.
+  // Walking the Bird Temple deck: round her, at the deck's scale, and never
+  // through the temple's walls (pulled in the way the follow camera is).
+  if(_charOnTempleDeck() && CHAR.root){
+    CHAR.root.getWorldPosition(target); target.y += SHIP_CHAR_H*0.55;
+    _charOrbitPlace(cam,target,_charOrbitK(),true);
+    try{
+      const dir=cam.position.clone().sub(target), d=dir.length();
+      if(d>1e-6){ dir.divideScalar(d); const c=_shipCamClear(target,dir,d); if(c<d){ cam.position.copy(target).addScaledVector(dir,Math.max(0.05,c-0.03)); cam.lookAt(target); } }
+    }catch(e){}
+    return;
+  }
   if(CHAR.loaded && CHAR.root && (CHAR.mounted || surfaceActive)){ CHAR.root.getWorldPosition(target); target.y += 0.35; }
   else if(atmoActive && atmoBoard){ atmoBoard.getWorldPosition(target); }
   else if(boardFlight){ boardFlight.getWorldPosition(target); }
@@ -18711,12 +18903,15 @@ function _charOrbitPlace(cam,target,k,head){
 
 // How far the orbit view may pull back: on a world (ground or sky) far enough
 // to take in the landscape around her; in open space, close round the board.
-function _charOrbitMax(){ return surfaceActive?220:(atmoActive?320:30); }
+function _charOrbitMax(){ return surfaceActive?220:(atmoActive?320:(_charOnTempleDeck()?60:30)); }
+// Orbit distances are in the view's own units: on the temple deck she's
+// 0.454 units tall, so they're scaled down to her (14 → 1.4 units back).
+function _charOrbitK(){ return _charOnTempleDeck()?0.1:(_charOrbitPWSpace()?PW.sp.fc:1); }
 function _bindCharOrbitListenersOnce(){
   if(_charOrbitListenersBound) return; _charOrbitListenersBound=true;
   const panBy=(dx,dy)=>{
     const cam = surfaceActive ? surfCamera : (atmoActive ? atmoCamera : flightCamera); if(!cam) return;
-    const k=charOrbitDist*0.0019*(_charOrbitPWSpace()?PW.sp.fc:1);
+    const k=charOrbitDist*0.0019*_charOrbitK();
     const r=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,0), u=new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld,1);
     _charOrbitPan.addScaledVector(r,-dx*k).addScaledVector(u,dy*k);
     const m=Math.max(2,charOrbitDist*1.5); if(_charOrbitPan.length()>m) _charOrbitPan.setLength(m);
@@ -18778,7 +18973,7 @@ function toggleCharOrbit(){
     // flight camera already sits, and never closer than a comfortable default
     let _d0=14; if(!_charOrbitPWSpace()) try{ const _t=new THREE.Vector3();
       if(CHAR.loaded&&CHAR.root) CHAR.root.getWorldPosition(_t); else if(boardFlight) boardFlight.getWorldPosition(_t);
-      _d0=Math.max(14,cam.position.distanceTo(_t)*1.25); }catch(e){}
+      _d0=Math.max(14,cam.position.distanceTo(_t)*1.25/_charOrbitK()); }catch(e){}
     charOrbitDist=Math.min(_charOrbitMax()*0.9,_d0);
     try{toast('🔄 Orbit view — drag to orbit · pinch to dolly · two-finger drag to pan (double-tap/click recentres) · tap ORBIT to exit',3200);}catch(e){}
   } else {
