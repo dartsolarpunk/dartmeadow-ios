@@ -8446,6 +8446,8 @@ function addProceduralPlanetDetails(){
 // Two templates ('A' = Skyboard_A parts pack, 'B' = full extraction), each
 // built with named zones (deck / dart / ornament / staff) so the editor can
 // recolor each zone and toggle the staff — procedural build wraps AROUND them.
+// Ariel Rig Viewer (radicaldeepscale.com/ariel-rig-viewer.html) runs this block verbatim from this file at the live commit:
+// keep it top-level and self-contained (outside names it may use: THREE, STATE, GFX, CHAR, setCharState, toast, $, _loadStep).
 const SKYBOARD_TEMPLATES={A:'skyboard_A.glb', B:'skyboard_B.glb', C:'skyboard_C.glb'};   // C = the 21-part original sculpt, every piece editable
 const _glbCache={};           // url -> loaded THREE.Group (template scene)
 let _glbLoader=null;
@@ -17445,9 +17447,12 @@ async function loadCharacterAssets(){
   }catch(e){}
 
   CHAR.loaded = true; CHAR.loading = false;
+  // Strand count by graphics preset — ONLY on Auto (an explicit Low/Medium/High/Ultra pick keeps all
+  // 5,665 strands). Guides (the physics) always simulate; this only thins the drawn children.
+  function _hairStrandFraction(){ try{ const G=window.GFX; if(!G||G.preset!=='auto') return 1; const r=(typeof resolvePreset==='function')?resolvePreset():'medium'; return r==='low'?0.5:(r==='medium'||r==='balanced')?0.75:1; }catch(e){ return 1; } }
   // Real-time strand hair (hair_strands.js + characterassests/ariel_hair_strands.bin). Fails soft: if the
-  // module/data is missing or the loaded character is a different file, the skinned hair cards just stay visible.
-  try{ import('./hair_strands.js').then(m=>m.attachHairStrands(CHAR,THREE,{url:CHAR_ASSET_BASE+'ariel_hair_strands.bin',getGravityScale:()=>{try{if(surfaceActive)return 1;if(CHAR.mounted)return atmoActive?0.3:0.08;}catch(e){}return 1;}})).catch(e=>console.info('[hair] strands not attached:',e&&e.message)); }catch(e){}
+  // module/data is missing or the loaded character is a different file, she simply has no strand hair.
+  try{ import('./hair_strands.js').then(m=>m.attachHairStrands(CHAR,THREE,{url:CHAR_ASSET_BASE+'ariel_hair_strands.bin',getStrandFraction:_hairStrandFraction,getGravityScale:()=>{try{if(surfaceActive)return 1;if(CHAR.mounted)return atmoActive?0.3:0.08;}catch(e){}return 1;}})).catch(e=>console.info('[hair] strands not attached:',e&&e.message)); }catch(e){}
   try{ if(typeof boardFlight!=='undefined' && boardFlight) remountSkyboard(boardFlight); }catch(e){}
   CHAR._loadPromise=null;
   return CHAR.root;
@@ -17490,6 +17495,8 @@ async function loadCharacterAssets(){
    actual file size, which this runtime pass can't do on its own.
    Tolerances below match the addon's own defaults: position/scale in
    scene units, rotation in radians (its 0.05 default is in degrees). */
+// Ariel Rig Viewer (radicaldeepscale.com/ariel-rig-viewer.html) runs this block verbatim from this file at the live commit:
+// keep it top-level and self-contained (outside names it may use: THREE, STATE, GFX, CHAR, setCharState, toast, $, _loadStep).
 function _optimizeCharClipTracks(clip, posTol, quatTolRad, scaleTol){
   posTol = posTol!==undefined ? posTol : 0.0001;
   quatTolRad = quatTolRad!==undefined ? quatTolRad : THREE.MathUtils.degToRad(0.05);
