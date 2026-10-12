@@ -18323,14 +18323,17 @@ const BOARD_STANCE = window.BOARD_STANCE = window.BOARD_STANCE || {
   yawHead:-45, pitchHead:-4,                     // look ahead along the board (DART_HEAD finishes it)
   footYawL:95, footYawR:45, kneeOut:0.25,        // back foot across the board, front foot angled forward
   // arm directions in her body frame (x = bone-left, y = up, z = facing); elbows soft
-  // back (trailing) arm, visual right: out and a little back for balance, forearm swept out near level,
-  // elbow soft and pointing back/down. (Before, the forearm bent backward of the upper arm, so the rest-hinge
-  // alignment rolled the upper arm ~180 deg: elbow forward, forearm supinated, palm up like a tray.)
-  upL:[0.55,-0.76,-0.35], foreL:[0.8,-0.55,-0.2],
-  proL:160,                                      // back forearm pronation (deg): palm DOWN toward the board (the rest hand is fully supinated)
-  upR:[-0.5,-0.82,0.3], foreR:[-0.45,-0.7,0.45],      // visual left arm: reaching down and out to the nose (position unchanged)
-  proR:155,                                      // front forearm pronation (deg): palm down, pinky edge to the staff side
-  wristShare:0.35,                               // part of each pronation taken at the wrist (baked hand), the rest by the forearm bone (less skin twist at the elbow)
+  // Palms down by rolling the UPPER arm at the shoulder (ball joint), not by twisting the forearm: the
+  // elbow is a hinge, so _bsLimb swings it into the plane of up/fore with the rest bend's sign (never
+  // backward). Each arm's bend plane is chosen so the elbow sits out from the body and a little lifted,
+  // which turns the palm to the board with the forearm at (almost) zero twist.
+  // back (trailing) arm, visual right: out and a little back for balance, elbow out and a little lifted, soft (~24°)
+  upL:[0.636,-0.711,-0.3], foreL:[0.438,-0.852,-0.286],
+  proL:-19,                                      // residual twist to finish palm-down (deg, clamped ±60; 70% at the wrist)
+  // front arm, visual left: hand where it was (down and out toward the nose), elbow out/up, pinky edge to the staff side
+  upR:[-0.601,-0.654,0.46], foreR:[-0.389,-0.753,0.531],
+  proR:60,                                       // (shoulder roll does the rest; more would fold the sleeve at the shoulder)
+  wristShare:0.7,                                // part of each twist taken at the wrist (baked hand), the rest by the forearm bone
   wristRelax:0.85,                               // hands toward the rest (straight) wrist: 1 = rest, 0 = idle clip's extended wrist
   fingerOpen:0.7,                                // fallback only (no relaxed-hand solve): 1 = rest hand, 0 = idle curl
   // relaxed open hands (Justin's photo): every finger joint gently curved, slightly spread at the knuckles,
@@ -18394,9 +18397,9 @@ function _bsLimb(Lb,du,dl,w,pro){
   if(pro) lr.premultiply(S.q[6].setFromAxisAngle(S.v[16].copy(Lb.E.position).normalize().applyQuaternion(lr),pro));   // about the bone's live long axis
   _bsSetRQ(Lb.L,lr,w);
 }
-// forearm pronation (deg → rad, clamped to the anatomical range from the supinated rest hand) and its wrist share
-function _bsPro(d){ return Math.max(-170,Math.min(170,d||0))*Math.PI/180; }
-function _bsWS(){ return Math.max(0,Math.min(0.5,BOARD_STANCE.wristShare||0)); }
+// small residual forearm/wrist twist (deg → rad, clamped to ±60: the palm comes from the shoulder roll) and its wrist share
+function _bsPro(d){ return Math.max(-60,Math.min(60,d||0))*Math.PI/180; }
+function _bsWS(){ return Math.max(0,Math.min(0.8,BOARD_STANCE.wristShare||0)); }
 // root-space rotation = Ry(yaw)·Rz(roll)·Rx(pitch)·rest   (degrees)
 function _bsRot(name,yaw,pitch,roll,w){
   const S=_bs, b=CHAR.bones[name], R=CHAR.restPose; if(!b||!R[name]) return;
